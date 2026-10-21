@@ -2,19 +2,19 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Copilot Fishtank</title>
+<title>Copilot Session Fishtank</title>
 <style>
   :root { --panel-w: 340px; --green: #39ff88; --red: #ff3b5c; --amber: #ffc94d; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: #01101f; font-family: 'Segoe UI', system-ui, sans-serif; }
   canvas { display: block; }
 
-  #panel { position: fixed; top: 16px; right: 16px; bottom: 16px; width: var(--panel-w); display: flex; flex-direction: column;
+  #panel { position: fixed; top: 16px; right: 16px; max-height: 50vh; width: var(--panel-w); display: flex; flex-direction: column;
            color: #d8ecff; background: rgba(4, 22, 42, .62); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
            border: 1px solid rgba(120, 220, 255, .18); border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,.45); }
   #panel header { padding: 16px 18px 12px; border-bottom: 1px solid rgba(120,220,255,.12); }
   #panel h1 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: .3px; }
   #conn { font-size: 11px; opacity: .55; margin-top: 3px; }
-  #sessions { flex: 1; overflow-y: auto; padding: 8px 10px; }
+  #sessions { flex: 0 1 auto; min-height: 0; overflow-y: auto; padding: 8px 10px; }
   #sessions::-webkit-scrollbar { width: 6px; } #sessions::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 3px; }
   .empty { opacity: .6; font-style: italic; padding: 12px 8px; font-size: 13px; }
 
@@ -47,7 +47,7 @@
 
   #panel footer { padding: 10px 16px 12px; border-top: 1px solid rgba(120,220,255,.12); font-size: 11px; opacity: .7; display: flex; gap: 14px; }
   #panel footer span { display: flex; align-items: center; gap: 5px; }
-  @media (max-width: 760px) { #panel { left: 16px; right: 16px; top: auto; width: auto; height: 38%; } }
+  @media (max-width: 760px) { #panel { left: 16px; right: 16px; top: auto; bottom: 16px; width: auto; max-height: 38%; } }
   #closed { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; text-align: center; color: #d8ecff;
             font-size: 40px; background: rgba(1, 12, 24, .82); backdrop-filter: blur(6px); }
   #closed[hidden] { display: none; }
@@ -58,7 +58,7 @@
 <canvas id="tank"></canvas>
 <div id="closed" hidden><div>🐟💤<h2>Copilot closed</h2><p>The fishtank has stopped. You can close this tab.</p></div></div>
 <aside id="panel">
-  <header><h1>🐠 Copilot Fishtank</h1><div id="conn">Connecting…</div></header>
+  <header><h1>🐠 Copilot Session Fishtank</h1><div id="conn">Connecting…</div></header>
   <div id="sessions"><div class="empty">Waiting for data…</div></div>
   <footer>
     <span><i class="dot sm on"></i>working</span>
@@ -87,8 +87,8 @@ function dur(ms) {
   return Math.floor(s / 3600) + 'h ' + Math.floor(s % 3600 / 60) + 'm';
 }
 const SAND_Y = () => H - 70;
-function tankRight() { return W > 760 ? W - 372 : W; }
-function tankBottom() { return W > 760 ? SAND_Y() - 40 : H * 0.6; }
+function tankRight() { return W; }
+function tankBottom() { return SAND_Y() - 40; }
 
 // ---------- static terrain (pre-rendered) ----------
 function buildTerrain() {
@@ -517,7 +517,7 @@ function frame(t) {
     ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.beginPath(); ctx.arc(x - b.r * .35, b.y - b.r * .35, b.r * .3, 0, TAU); ctx.fill();
   }
 
-  // fish
+  // fish (they swim behind the translucent panel)
   const right = tankRight(), bottom = tankBottom();
   const ordered = [...fish.values()].sort((a, b) => a.size - b.size);
   for (const f of ordered) {
