@@ -253,8 +253,8 @@ function makeFish(key, sessionId, small, near) {
     x: near ? near.x + (Math.random() - .5) * 80 : 60 + Math.random() * (tankRight() - 120), y: near ? near.y + (Math.random() < .5 ? -1 : 1) * (30 + Math.random() * 30) : 80 + Math.random() * (tankBottom() - 160),
     dir: Math.random() < .5 ? -1 : 1, face: 1, vy: 0, speed: .3,
     size: small ? 15 + h % 6 : 36 + h % 14,
-    body: BODY[(h >> 3) % BODY.length], neon: NEON[small ? (neonIdx + 1 + h % 3) % NEON.length : neonIdx],
-    pattern: (h >> 7) % 3, phase: Math.random() * TAU, targetY: 0,
+    body: BODY[(h >>> 3) % BODY.length], neon: NEON[small ? (neonIdx + 1 + h % 3) % NEON.length : neonIdx],
+    pattern: (h >>> 7) % 3, phase: Math.random() * TAU, targetY: 0,
   };
   f.face = f.dir; f.targetY = f.y;
   return f;
