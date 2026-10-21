@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Copilot Fishtank</title>
+<style>
+  :root { --panel-w: 340px; --green: #39ff88; --red: #ff3b5c; --amber: #ffc94d; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #01101f; font-family: 'Segoe UI', system-ui, sans-serif; }
+  canvas { display: block; }
+
+  #panel { position: fixed; top: 16px; right: 16px; bottom: 16px; width: var(--panel-w); display: flex; flex-direction: column;
+           color: #d8ecff; background: rgba(4, 22, 42, .62); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+           border: 1px solid rgba(120, 220, 255, .18); border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,.45); }
+  #panel header { padding: 16px 18px 12px; border-bottom: 1px solid rgba(120,220,255,.12); }
+  #panel h1 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: .3px; }
+  #conn { font-size: 11px; opacity: .55; margin-top: 3px; }
+  #sessions { flex: 1; overflow-y: auto; padding: 8px 10px; }
+  #sessions::-webkit-scrollbar { width: 6px; } #sessions::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 3px; }
+  .empty { opacity: .6; font-style: italic; padding: 12px 8px; font-size: 13px; }
+
+  .session { padding: 10px 10px 8px; border-radius: 10px; margin-bottom: 6px; transition: background .3s; }
+  .session:hover { background: rgba(255,255,255,.04); }
+  .session.working { background: rgba(57,255,136,.05); }
+  .row { display: flex; align-items: center; gap: 9px; }
+  .name { flex: 1; font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .swatch { width: 10px; height: 4px; border-radius: 2px; flex: none; }
+  .meta { font-size: 11px; opacity: .6; margin: 2px 0 0 19px; }
+  .tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; padding: 1px 6px; border-radius: 6px; margin-left: 4px; }
+  .tag.waiting { color: #1a1300; background: var(--amber); }
+
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .dot.on { background: var(--green); box-shadow: 0 0 8px var(--green), 0 0 2px #fff inset; animation: pulse 1.2s ease-in-out infinite; }
+  .dot.off { background: var(--red); box-shadow: 0 0 6px rgba(255,59,92,.6); }
+  .dot.wait { background: var(--red); box-shadow: 0 0 8px var(--red); animation: blink 1s steps(2) infinite; }
+  .dot.sm { width: 7px; height: 7px; }
+  .dot.done { background: #5f7c99; box-shadow: none; animation: none; }
+  @keyframes pulse { 50% { transform: scale(.75); opacity: .7; } }
+  @keyframes blink { 50% { opacity: .25; } }
+
+  .subs { list-style: none; margin: 6px 0 0 4px; padding: 0 0 0 14px; border-left: 1px dashed rgba(140,200,255,.25); }
+  .subs li { display: flex; align-items: center; gap: 7px; font-size: 12px; padding: 3px 0; }
+  .subs .sname { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .subs li.done .sname, .subs li.stopped .sname { opacity: .55; }
+  .subs li.failed .sname { color: #ff8a9c; }
+  .badge { font-size: 10px; padding: 0 6px; border-radius: 6px; background: rgba(120,200,255,.13); color: #9fd3ff; flex: none; }
+  .time { font-size: 10.5px; opacity: .55; font-variant-numeric: tabular-nums; flex: none; }
+
+  #panel footer { padding: 10px 16px 12px; border-top: 1px solid rgba(120,220,255,.12); font-size: 11px; opacity: .7; display: flex; gap: 14px; }
+  #panel footer span { display: flex; align-items: center; gap: 5px; }
+  @media (max-width: 760px) { #panel { left: 16px; right: 16px; top: auto; width: auto; height: 38%; } }
+  #closed { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; text-align: center; color: #d8ecff;
+            font-size: 40px; background: rgba(1, 12, 24, .82); backdrop-filter: blur(6px); }
+  #closed[hidden] { display: none; }
+  #closed h2 { font-size: 22px; margin: 10px 0 4px; } #closed p { font-size: 14px; opacity: .7; margin: 0; }
+</style>
+</head>
+<body>
+<canvas id="tank"></canvas>
+<div id="closed" hidden><div>🐟💤<h2>Copilot closed</h2><p>The fishtank has stopped. You can close this tab.</p></div></div>
+<aside id="panel">
+  <header><h1>🐠 Copilot Fishtank</h1><div id="conn">Connecting…</div></header>
+  <div id="sessions"><div class="empty">Waiting for data…</div></div>
+  <footer>
+    <span><i class="dot sm on"></i>working</span>
+    <span><i class="dot sm wait"></i>needs you</span>
+    <span><i class="dot sm off"></i>idle</span>
+  </footer>
+</aside>
+<script>
+// ---------- helpers ----------
+const cv = document.getElementById('tank'), ctx = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1, terrain = null, scenery = null;
+const TAU = Math.PI * 2;
+
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function hash(s) { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; }
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16), r = n >> 16, g = n >> 8 & 255, b = n & 255;
+  const f = v => Math.round(amt < 0 ? v * (1 + amt) : v + (255 - v) * amt);
+  return `rgb(${f(r)},${f(g)},${f(b)})`;
+}
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function dur(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return s + 's';
+  if (s < 3600) return Math.floor(s / 60) + 'm ' + (s % 60) + 's';
+  return Math.floor(s / 3600) + 'h ' + Math.floor(s % 3600 / 60) + 'm';
+}
+const SAND_Y = () => H - 70;
+function tankRight() { return W > 760 ? W - 372 : W; }
+function tankBottom() { return W > 760 ? SAND_Y() - 40 : H * 0.6; }
+
+// ---------- static terrain (pre-rendered) ----------
+function buildTerrain() {
+  const c = document.createElement('canvas'); c.width = W * DPR; c.height = H * DPR;
+  const g = c.getContext('2d'); g.scale(DPR, DPR);
+  const R = rng(1337);
+
+  // water
+  const wg = g.createLinearGradient(0, 0, 0, H);
+  wg.addColorStop(0, '#0b6a9e'); wg.addColorStop(.45, '#06406a'); wg.addColorStop(1, '#021a30');
+  g.fillStyle = wg; g.fillRect(0, 0, W, H);
+
+  // distant hills (3 layers, hazy)
+  const hills = [['#08385c', .62, 70, 0], ['#0a2f4c', .7, 55, 2], ['#0b2a40', .77, 40, 5]];
+  for (const [col, base, amp, ph] of hills) {
+    g.fillStyle = col; g.beginPath(); g.moveTo(0, H);
+    for (let x = 0; x <= W + 20; x += 20) {
+      g.lineTo(x, H * base - Math.sin(x / 210 + ph) * amp - Math.sin(x / 77 + ph * 2) * amp * .35);
+    }
+    g.lineTo(W, H); g.fill();
+  }
+
+  // back rocks silhouettes
+  for (let i = 0; i < 9; i++) {
+    const x = R() * W, y = H * .78 + R() * 30, s = 30 + R() * 60;
+    g.fillStyle = 'rgba(10,35,55,.9)';
+    g.beginPath(); g.ellipse(x, y, s, s * .55, 0, Math.PI, 0); g.fill();
+  }
+
+  // mid dune
+  const sy = SAND_Y();
+  let dg = g.createLinearGradient(0, sy - 50, 0, H);
+  dg.addColorStop(0, '#8a7448'); dg.addColorStop(1, '#5e4c2c');
+  g.fillStyle = dg; g.beginPath(); g.moveTo(0, H);
+  for (let x = 0; x <= W + 20; x += 15) g.lineTo(x, sy - 25 - Math.sin(x / 160) * 18 - Math.sin(x / 53) * 5);
+  g.lineTo(W, H); g.fill();
+
+  // stone arch
+  const ax = W * .58, ar = Math.min(110, W * .08);
+  const sg = g.createLinearGradient(ax - ar, 0, ax + ar, 0);
+  sg.addColorStop(0, '#3d5566'); sg.addColorStop(.5, '#6c8597'); sg.addColorStop(1, '#2c3f4d');
+  g.strokeStyle = sg; g.lineWidth = ar * .42; g.lineCap = 'round';
+  g.beginPath(); g.arc(ax, sy - 10, ar, Math.PI * 1.02, Math.PI * 1.98); g.stroke();
+  g.strokeStyle = 'rgba(60,140,80,.55)'; g.lineWidth = 5;
+  g.beginPath(); g.arc(ax, sy - 10, ar + ar * .17, Math.PI * 1.2, Math.PI * 1.7); g.stroke();
+
+  // front sand
+  dg = g.createLinearGradient(0, sy, 0, H);
+  dg.addColorStop(0, '#e2c995'); dg.addColorStop(1, '#a3844f');
+  g.fillStyle = dg; g.beginPath(); g.moveTo(0, H);
+  for (let x = 0; x <= W + 20; x += 12) g.lineTo(x, sy - Math.sin(x / 120 + 1) * 10 - Math.sin(x / 37) * 3);
+  g.lineTo(W, H); g.fill();
+  for (let i = 0; i < W * .9; i++) { // grains
+    g.fillStyle = R() < .5 ? 'rgba(255,240,200,.35)' : 'rgba(90,65,30,.3)';
+    g.fillRect(R() * W, sy + 4 + R() * (H - sy), 1.4, 1.4);
+  }
+  // sand ripples
+  g.strokeStyle = 'rgba(120,90,45,.25)'; g.lineWidth = 1.2;
+  for (let i = 0; i < 26; i++) {
+    const x = R() * W, y = sy + 12 + R() * (H - sy - 16), w = 30 + R() * 60;
+    g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + w / 2, y - 4, x + w, y); g.stroke();
+  }
+
+  // foreground rocks
+  const rocks = (x, y, n) => {
+    for (let i = 0; i < n; i++) {
+      const rx = x + (R() - .5) * 70, s = 18 + R() * 34, ry = y + R() * 8;
+      const rg = g.createRadialGradient(rx - s * .3, ry - s * .5, s * .1, rx, ry, s * 1.1);
+      rg.addColorStop(0, '#9fb3c0'); rg.addColorStop(.5, '#5b707f'); rg.addColorStop(1, '#2a3943');
+      g.fillStyle = rg; g.beginPath(); g.ellipse(rx, ry, s, s * (.55 + R() * .25), (R() - .5) * .4, Math.PI * .98, TAU * 1.01); g.fill();
+      g.fillStyle = 'rgba(70,160,90,.45)';
+      g.beginPath(); g.ellipse(rx - s * .1, ry - s * .5, s * .45, s * .12, 0, 0, TAU); g.fill();
+    }
+  };
+  rocks(W * .08, sy + 6, 3); rocks(W * .42, sy + 8, 4); rocks(W * .86, sy + 4, 3); rocks(W * .7, sy + 10, 2);
+
+  // branching coral
+  const coral = (x, y, len, ang, w, col, depth) => {
+    if (depth === 0 || len < 4) return;
+    const x2 = x + Math.cos(ang) * len, y2 = y + Math.sin(ang) * len;
+    g.strokeStyle = col; g.lineWidth = w; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x2, y2); g.stroke();
+    coral(x2, y2, len * .78, ang - .35 - R() * .25, w * .72, col, depth - 1);
+    coral(x2, y2, len * .78, ang + .35 + R() * .25, w * .72, col, depth - 1);
+  };
+  coral(W * .33, sy + 4, 34, -Math.PI / 2, 9, '#ff6f91', 5);
+  coral(W * .36, sy + 8, 24, -Math.PI / 2 - .2, 7, '#ff9a5a', 5);
+  coral(W * .79, sy + 6, 30, -Math.PI / 2 + .1, 8, '#c86bff', 5);
+
+  // brain coral
+  const bx = W * .5, by = sy + 6, br = 28;
+  const bg = g.createRadialGradient(bx - 8, by - 14, 4, bx, by, br);
+  bg.addColorStop(0, '#ffd59a'); bg.addColorStop(1, '#c5793c');
+  g.fillStyle = bg; g.beginPath(); g.arc(bx, by, br, Math.PI, TAU); g.fill();
+  g.strokeStyle = 'rgba(120,60,20,.5)'; g.lineWidth = 1.5;
+  for (let i = 1; i < 5; i++) { g.beginPath(); for (let a = Math.PI; a <= TAU; a += .1) { const r = br * i / 5 + Math.sin(a * 9) * 2; g.lineTo(bx + Math.cos(a) * r, by + Math.sin(a) * r); } g.stroke(); }
+
+  // treasure chest
+  const cx = W * .2, cy = sy + 2, cw = 70, ch = 40;
+  g.save(); g.translate(cx, cy); g.rotate(-.08);
+  g.fillStyle = '#5a3416'; g.fillRect(-cw / 2, -ch, cw, ch);
+  g.fillStyle = '#7a4a22'; g.beginPath(); g.moveTo(-cw / 2, -ch); g.lineTo(-cw / 2 + 6, -ch - 22); g.lineTo(cw / 2 + 4, -ch - 30); g.lineTo(cw / 2, -ch); g.fill();
+  g.fillStyle = '#ffd34d'; g.shadowColor = '#ffd34d'; g.shadowBlur = 14;
+  for (let i = 0; i < 9; i++) { g.beginPath(); g.arc(-cw / 2 + 8 + R() * (cw - 16), -ch - 2 - R() * 6, 3.5, 0, TAU); g.fill(); }
+  g.shadowBlur = 0;
+  g.strokeStyle = '#c99a2e'; g.lineWidth = 4; g.strokeRect(-cw / 2, -ch, cw, ch);
+  g.beginPath(); g.moveTo(-cw / 6, -ch); g.lineTo(-cw / 6, 0); g.moveTo(cw / 6, -ch); g.lineTo(cw / 6, 0); g.stroke();
+  g.restore();
+
+  // shells and starfish
+  for (let i = 0; i < 7; i++) {
+    const x = R() * W, y = sy + 18 + R() * (H - sy - 26);
+    if (R() < .5) {
+      g.fillStyle = ['#ff8a5c', '#ffb36b', '#ff6b8a'][i % 3];
+      g.save(); g.translate(x, y); g.rotate(R() * TAU); g.beginPath();
+      for (let k = 0; k < 10; k++) { const a = k * TAU / 10 - Math.PI / 2, r = k % 2 ? 4 : 11; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+      g.fill(); g.restore();
+    } else {
+      g.fillStyle = '#f5e6d3'; g.beginPath(); g.ellipse(x, y, 8, 6, 0, Math.PI, TAU); g.fill();
+      g.strokeStyle = 'rgba(150,110,80,.6)'; g.lineWidth = 1;
+      for (let k = -2; k <= 2; k++) { g.beginPath(); g.moveTo(x, y); g.lineTo(x + k * 3.2, y - 5.5); g.stroke(); }
+    }
+  }
+  return c;
+}
+
+function buildScenery() {
+  const R = rng(99), sy = SAND_Y();
+  const weeds = [];
+  const spots = [.03, .05, .14, .27, .29, .45, .63, .66, .74, .9, .93, .97];
+  for (const p of spots) {
+    const n = 2 + Math.floor(R() * 3);
+    for (let i = 0; i < n; i++) weeds.push({ x: W * p + (R() - .5) * 26, y: sy + 6 + R() * 10, h: 90 + R() * 170, w: 5 + R() * 4,
+      col: ['#1f9a52', '#2bb565', '#17803f', '#3ccf74'][Math.floor(R() * 4)], ph: R() * TAU });
+  }
+  const anemones = [W * .12, W * .52, W * .83].map((x, i) => ({ x, y: sy + 10, n: 16, len: 26 + i * 4, col: ['#ff5edb', '#5ef2ff', '#ffe95e'][i] }));
+  const plankton = Array.from({ length: 70 }, () => ({ x: R() * W, y: R() * H, r: .6 + R() * 1.4, vx: (R() - .5) * .15, vy: (R() - .5) * .1, ph: R() * TAU }));
+  const bubbles = Array.from({ length: 30 }, () => ({ x: 0, y: H + R() * H, r: 1.5 + R() * 3.5, v: .4 + R() * .9, ph: R() * TAU, src: R() }));
+  return { weeds, anemones, plankton, bubbles };
+}
+
+function resize() {
+  DPR = Math.min(2, devicePixelRatio || 1);
+  W = innerWidth; H = innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  terrain = buildTerrain(); scenery = buildScenery();
+}
+addEventListener('resize', resize); resize();
+
+// ---------- fish ----------
+const BODY = ['#ff7a3d', '#ffcf3d', '#ff4d8d', '#3dc8ff', '#9b5cff', '#3dffa0', '#ff5c5c', '#5c7cff'];
+const NEON = ['#39ff14', '#00f0ff', '#ff00e6', '#fff200', '#ff6a00', '#b026ff', '#00ffb3', '#ff2e63'];
+const SPEED = { working: 4.4, waiting: .9, idle: .3 };
+const fish = new Map();
+let sessions = new Map();
+
+function makeFish(key, sessionId, small, near) {
+  const h = hash(key);
+  const neonIdx = hash(sessionId) % NEON.length;
+  const f = {
+    key, sessionId, small, label: '',
+    x: near ? near.x + (Math.random() - .5) * 80 : 60 + Math.random() * (tankRight() - 120), y: near ? near.y + (Math.random() < .5 ? -1 : 1) * (30 + Math.random() * 30) : 80 + Math.random() * (tankBottom() - 160),
+    dir: Math.random() < .5 ? -1 : 1, face: 1, vy: 0, speed: .3,
+    size: small ? 15 + h % 6 : 36 + h % 14,
+    body: BODY[(h >> 3) % BODY.length], neon: NEON[small ? (neonIdx + 1 + h % 3) % NEON.length : neonIdx],
+    pattern: (h >> 7) % 3, phase: Math.random() * TAU, targetY: 0,
+  };
+  f.face = f.dir; f.targetY = f.y;
+  return f;
+}
+
+function bodyPath(s) {
+  ctx.beginPath();
+  ctx.moveTo(s, 0);
+  ctx.bezierCurveTo(s * .92, -s * .46, s * .2, -s * .62, -s * .42, -s * .4);
+  ctx.quadraticCurveTo(-s * .78, -s * .22, -s * .9, 0);
+  ctx.quadraticCurveTo(-s * .78, s * .22, -s * .42, s * .4);
+  ctx.bezierCurveTo(s * .2, s * .56, s * .92, s * .42, s, 0);
+  ctx.closePath();
+}
+function tailPath(s, w) {
+  ctx.beginPath();
+  ctx.moveTo(-s * .82, 0);
+  ctx.quadraticCurveTo(-s * 1.15, -s * .1 + w * .5, -s * 1.5, -s * .58 + w);
+  ctx.quadraticCurveTo(-s * 1.28, w * .7, -s * 1.5, s * .58 + w);
+  ctx.quadraticCurveTo(-s * 1.15, s * .1 + w * .5, -s * .82, 0);
+  ctx.closePath();
+}
+function finRays(x0, y0, pts) {
+  ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = .8;
+  ctx.beginPath(); for (const [x, y] of pts) { ctx.moveTo(x0, y0); ctx.lineTo(x, y); } ctx.stroke();
+}
+
+function drawFish(f, t, glow) {
+  const s = f.size, ph = f.phase, w = Math.sin(ph) * s * (.12 + Math.min(f.speed, 5) * .035);
+  const sway = Math.sin(ph * .7) * s * .05;
+  ctx.save();
+  ctx.translate(f.x, f.y);
+  ctx.rotate(Math.max(-.35, Math.min(.35, f.vy * .09)) * Math.sign(f.face || 1));
+  ctx.scale(f.face, 1);
+
+  const finCol = shade(f.body, .25), finA = .75;
+  // dorsal fin
+  ctx.globalAlpha = finA; ctx.fillStyle = finCol;
+  ctx.beginPath(); ctx.moveTo(-s * .38, -s * .38); ctx.quadraticCurveTo(-s * .2 + sway, -s * .95, s * .12 + sway, -s * .82);
+  ctx.quadraticCurveTo(s * .3, -s * .62, s * .38, -s * .5); ctx.closePath(); ctx.fill();
+  finRays(-s * .05, -s * .45, [[-s * .25 + sway, -s * .8], [-s * .05 + sway, -s * .88], [s * .15 + sway, -s * .78]]);
+  // pelvic fin
+  ctx.fillStyle = finCol;
+  ctx.beginPath(); ctx.moveTo(-s * .05, s * .42); ctx.quadraticCurveTo(-s * .35 - sway, s * .8, -s * .32 - sway, s * .78);
+  ctx.quadraticCurveTo(-s * .05, s * .62, s * .18, s * .46); ctx.closePath(); ctx.fill();
+  // tail
+  ctx.fillStyle = finCol; tailPath(s, w); ctx.fill();
+  finRays(-s * .85, 0, [[-s * 1.45, -s * .5 + w], [-s * 1.35, -s * .2 + w * .9], [-s * 1.35, s * .2 + w * .9], [-s * 1.45, s * .5 + w]]);
+  ctx.globalAlpha = 1;
+
+  // body with shading
+  const bg = ctx.createLinearGradient(0, -s * .6, 0, s * .55);
+  bg.addColorStop(0, shade(f.body, -.45)); bg.addColorStop(.45, f.body); bg.addColorStop(1, shade(f.body, .6));
+  ctx.fillStyle = bg; bodyPath(s); ctx.fill();
+
+  // pattern + scales (clipped to body)
+  ctx.save(); bodyPath(s); ctx.clip();
+  if (f.pattern === 0) {
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    for (const bx of [s * .35, -s * .25]) { ctx.beginPath(); ctx.ellipse(bx, 0, s * .09, s * .7, 0, 0, TAU); ctx.fill(); }
+    ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.lineWidth = 1.5;
+    for (const bx of [s * .35, -s * .25]) { ctx.beginPath(); ctx.ellipse(bx, 0, s * .09, s * .7, 0, 0, TAU); ctx.stroke(); }
+  } else if (f.pattern === 1) {
+    ctx.fillStyle = shade(f.body, -.5);
+    for (let i = 0; i < 7; i++) { ctx.beginPath(); ctx.arc(-s * .6 + i * s * .2, -s * .18 + (i % 2) * s * .14, s * .055, 0, TAU); ctx.fill(); }
+  } else {
+    ctx.fillStyle = 'rgba(255,255,255,.18)';
+    ctx.beginPath(); ctx.ellipse(-s * .1, s * .02, s * .75, s * .07, 0, 0, TAU); ctx.fill();
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,.14)'; ctx.lineWidth = .9;
+  const sc = s * .13;
+  for (let x = -s * .8; x < s * .45; x += sc) for (let y = -s * .5; y < s * .5; y += sc * .8) {
+    ctx.beginPath(); ctx.arc(x + ((y / (sc * .8)) & 1) * sc / 2, y, sc * .55, -1.1, 1.1); ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(255,255,255,.22)'; // glossy highlight
+  ctx.beginPath(); ctx.ellipse(s * .2, -s * .25, s * .45, s * .1, -.12, 0, TAU); ctx.fill();
+  ctx.restore();
+
+  // gill
+  ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.arc(s * .38, 0, s * .32, -1, 1); ctx.stroke();
+  // pectoral fin (flapping)
+  ctx.save(); ctx.translate(s * .22, s * .14); ctx.rotate(.5 + Math.sin(ph * 1.6) * .35);
+  ctx.globalAlpha = .8; ctx.fillStyle = finCol;
+  ctx.beginPath(); ctx.ellipse(-s * .14, 0, s * .2, s * .08, 0, 0, TAU); ctx.fill(); ctx.restore();
+  ctx.globalAlpha = 1;
+
+  // eye
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(s * .6, -s * .1, s * .12, 0, TAU); ctx.fill();
+  ctx.fillStyle = f.neon; ctx.beginPath(); ctx.arc(s * .63, -s * .1, s * .08, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(s * .645, -s * .1, s * .05, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(s * .62, -s * .14, s * .022, 0, TAU); ctx.fill();
+  // mouth
+  ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(s * .98, s * .04); ctx.quadraticCurveTo(s * .9, s * .1, s * .84, s * .08); ctx.stroke();
+
+  // fluorescent outline
+  ctx.shadowColor = f.neon; ctx.shadowBlur = (f.small ? 8 : 14) * glow;
+  ctx.strokeStyle = f.neon; ctx.lineWidth = f.small ? 1.4 : 2;
+  ctx.globalAlpha = .55 + .45 * Math.min(1, glow);
+  tailPath(s, w); ctx.stroke();
+  bodyPath(s); ctx.stroke();
+  ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+  ctx.restore();
+
+  // label + state marks
+  if (f.label) {
+    ctx.font = `${f.small ? 10 : 11.5}px Segoe UI, system-ui`; ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillText(f.label, f.x + 1, f.y + s * .95 + 1);
+    ctx.fillStyle = f.neon; ctx.fillText(f.label, f.x, f.y + s * .95);
+  }
+  const st = sessions.get(f.sessionId);
+  if (st && !f.small && st.state === 'waiting') {
+    ctx.font = `bold ${s * .7}px system-ui`; ctx.textAlign = 'center';
+    ctx.shadowColor = '#ffc94d'; ctx.shadowBlur = 12; ctx.fillStyle = '#ffc94d';
+    ctx.fillText('?', f.x, f.y - s * 1.05 + Math.sin(t / 300) * 4); ctx.shadowBlur = 0;
+  } else if (st && !f.small && st.state === 'idle') {
+    ctx.font = `${s * .4}px system-ui`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(210,235,255,.65)';
+    const k = (t / 1200) % 3;
+    for (let i = 0; i < 3; i++) if (k > i) ctx.fillText('z', f.x + f.face * (s * .5 + i * 7), f.y - s * (.75 + i * .25));
+  }
+}
+
+// ---------- data / panel ----------
+const listEl = document.getElementById('sessions'), connEl = document.getElementById('conn');
+
+function sync(data) {
+  const now = data.time;
+  sessions = new Map(data.sessions.map(s => [s.id, s]));
+  const wanted = new Set();
+  for (const s of data.sessions) {
+    wanted.add(s.id);
+    if (!fish.has(s.id)) fish.set(s.id, makeFish(s.id, s.id, false));
+    const parent = fish.get(s.id);
+    parent.label = s.name.length > 28 ? s.name.slice(0, 27) + '…' : s.name;
+    for (const a of s.subagents) {
+      if (a.status !== 'running') continue;
+      const k = s.id + ':' + a.id; wanted.add(k);
+      if (!fish.has(k)) fish.set(k, makeFish(k, s.id, true, parent));
+      fish.get(k).label = a.name;
+    }
+  }
+  for (const k of [...fish.keys()]) if (!wanted.has(k)) fish.delete(k);
+
+  const sorted = [...data.sessions].sort((a, b) => b.lastEvent - a.lastEvent);
+  if (!sorted.length) { listEl.innerHTML = '<div class="empty">No sessions active in the last hour</div>'; return; }
+  listEl.innerHTML = sorted.map(s => {
+    const dot = s.state === 'working' ? 'on' : s.state === 'waiting' ? 'wait' : 'off';
+    const label = s.state === 'working' ? 'working' : s.state === 'waiting' ? 'waiting for you' : 'idle';
+    const color = fish.get(s.id) ? fish.get(s.id).neon : '#fff';
+    const subs = s.subagents.slice().sort((a, b) => (a.status === 'running' ? 0 : 1) - (b.status === 'running' ? 0 : 1) || b.start - a.start);
+    const subHtml = subs.length ? `<ul class="subs">${subs.map(a => {
+      const sd = a.status === 'running' ? 'on' : a.status === 'failed' ? 'off' : 'done';
+      const icon = a.status === 'done' ? '✓ ' : a.status === 'failed' ? '✗ ' : a.status === 'stopped' ? '■ ' : '';
+      const time = a.status === 'running' ? dur(now - a.start) : dur((a.end || now) - a.start);
+      return `<li class="${a.status}" title="${esc(a.description || a.name)}${a.model ? ' · ' + esc(a.model) : ''}">
+        <i class="dot sm ${sd}"></i><span class="sname">${icon}${esc(a.name)}</span>
+        ${a.type ? `<span class="badge">${esc(a.type)}</span>` : ''}<span class="time">${time}</span></li>`;
+    }).join('')}</ul>` : '';
+    return `<div class="session ${s.state}">
+      <div class="row"><i class="dot ${dot}"></i><span class="name" title="${esc(s.name)}">${esc(s.name)}</span>
+        <span class="swatch" style="background:${color};box-shadow:0 0 6px ${color}"></span></div>
+      <div class="meta">${label}${s.state === 'waiting' ? '<span class="tag waiting">input</span>' : ''} · ${dur(now - s.lastEvent)} ago</div>
+      ${subHtml}</div>`;
+  }).join('');
+}
+
+const es = new EventSource('/events');
+es.onmessage = e => { sync(JSON.parse(e.data)); connEl.textContent = 'live · updated ' + new Date().toLocaleTimeString(); };
+es.onerror = () => { connEl.textContent = 'disconnected — is server.js running?'; };
+es.addEventListener('shutdown', () => {
+  es.close();
+  document.getElementById('closed').hidden = false;
+  window.close(); // only works if the browser allows it; otherwise the overlay stays
+});
+
+// ---------- animation ----------
+function drawWeeds(t, front) {
+  const sc = scenery;
+  for (let i = front ? 1 : 0; i < sc.weeds.length; i += 2) {
+    const w = sc.weeds[i], segs = 12, step = w.h / segs;
+    let x = w.x, y = w.y;
+    const pts = [[x, y]];
+    for (let k = 1; k <= segs; k++) {
+      x = w.x + Math.sin(t / 1100 + w.ph + k * .35) * k * k * .22; y = w.y - k * step; pts.push([x, y]);
+    }
+    ctx.strokeStyle = w.col; ctx.lineCap = 'round'; ctx.lineWidth = w.w;
+    ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let k = 1; k < pts.length - 1; k++) { const mx = (pts[k][0] + pts[k + 1][0]) / 2, my = (pts[k][1] + pts[k + 1][1]) / 2; ctx.quadraticCurveTo(pts[k][0], pts[k][1], mx, my); }
+    ctx.stroke();
+    ctx.fillStyle = w.col;
+    for (let k = 2; k < pts.length - 1; k += 2) {
+      const [px, py] = pts[k], side = k % 4 ? 1 : -1;
+      ctx.beginPath(); ctx.ellipse(px + side * 8, py, 10, 3.5, side * -.5 + Math.sin(t / 900 + k) * .2, 0, TAU); ctx.fill();
+    }
+  }
+}
+
+function drawAnemones(t) {
+  for (const a of scenery.anemones) {
+    ctx.fillStyle = shade(a.col, -.5);
+    ctx.beginPath(); ctx.ellipse(a.x, a.y, 16, 9, 0, 0, TAU); ctx.fill();
+    ctx.lineCap = 'round';
+    for (let i = 0; i < a.n; i++) {
+      const base = -Math.PI + (i + .5) * Math.PI / a.n, sw = Math.sin(t / 700 + i * .6) * .25;
+      const ex = a.x + Math.cos(base + sw) * a.len, ey = a.y - 4 + Math.sin(base + sw) * a.len * 1.1;
+      ctx.strokeStyle = shade(a.col, -.2); ctx.lineWidth = 3.5;
+      ctx.beginPath(); ctx.moveTo(a.x + Math.cos(base) * 8, a.y - 4); ctx.quadraticCurveTo(a.x + Math.cos(base) * a.len * .6, a.y - a.len * .5, ex, ey); ctx.stroke();
+      ctx.fillStyle = a.col; ctx.shadowColor = a.col; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.arc(ex, ey, 2.6, 0, TAU); ctx.fill(); ctx.shadowBlur = 0;
+    }
+  }
+}
+
+let last = performance.now();
+function frame(t) {
+  const dt = Math.min(3, (t - last) / 16.7); last = t;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.drawImage(terrain, 0, 0, W, H);
+
+  const busy = [...sessions.values()].some(s => s.state === 'working');
+
+  // light rays
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 6; i++) {
+    const x = i * W / 6 + Math.sin(t / 5000 + i * 1.7) * 70, a = .035 + Math.sin(t / 2300 + i) * .015;
+    const lg = ctx.createLinearGradient(0, 0, 0, H * .85);
+    lg.addColorStop(0, `rgba(180,235,255,${a})`); lg.addColorStop(1, 'rgba(180,235,255,0)');
+    ctx.fillStyle = lg;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + 70, 0); ctx.lineTo(x + 260, H * .85); ctx.lineTo(x + 120, H * .85); ctx.fill();
+  }
+  // surface shimmer
+  ctx.strokeStyle = 'rgba(200,240,255,.12)'; ctx.lineWidth = 2;
+  for (let r = 0; r < 3; r++) {
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 16) ctx.lineTo(x, 6 + r * 7 + Math.sin(x / 40 + t / (600 + r * 200)) * 3);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // plankton
+  for (const p of scenery.plankton) {
+    p.x += p.vx * dt; p.y += (p.vy + Math.sin(t / 2000 + p.ph) * .05) * dt;
+    if (p.x < 0) p.x = W; if (p.x > W) p.x = 0; if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+    ctx.fillStyle = `rgba(200,255,240,${.25 + Math.sin(t / 700 + p.ph) * .15})`;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.fill();
+  }
+
+  drawWeeds(t, false);
+  drawAnemones(t);
+
+  // bubbles from chest and anemone, faster when busy
+  const sy = SAND_Y();
+  for (const b of scenery.bubbles) {
+    b.y -= b.v * (busy ? 2.6 : .7) * dt;
+    if (b.y < -10) { b.y = sy - 40 + Math.random() * 10; b.x = b.src < .6 ? W * .2 + 20 + Math.random() * 10 : W * .58 + (Math.random() - .5) * 20; }
+    const x = b.x + Math.sin(b.y / 25 + b.ph) * 4;
+    ctx.strokeStyle = 'rgba(210,245,255,.6)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(x, b.y, b.r, 0, TAU); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.beginPath(); ctx.arc(x - b.r * .35, b.y - b.r * .35, b.r * .3, 0, TAU); ctx.fill();
+  }
+
+  // fish
+  const right = tankRight(), bottom = tankBottom();
+  const ordered = [...fish.values()].sort((a, b) => a.size - b.size);
+  for (const f of ordered) {
+    const st = sessions.get(f.sessionId), state = st ? st.state : 'idle';
+    const target = SPEED[state] * (f.small ? 1.3 : 1);
+    f.speed += (target - f.speed) * .03 * dt;
+    f.phase += (.05 + f.speed * .13) * dt;
+    f.x += f.dir * f.speed * dt;
+    if (f.small) { const p = fish.get(f.sessionId); if (p && Math.random() < .02 * dt) f.targetY = p.y + (Math.random() - .5) * 120; }
+    else if (Math.random() < .005 * dt) f.targetY = 70 + Math.random() * (bottom - 120);
+    f.targetY = Math.max(50, Math.min(bottom - f.size, f.targetY));
+    f.vy += ((f.targetY - f.y) * .0009 - f.vy * .05) * dt * Math.max(.3, Math.min(1, f.speed));
+    f.y += f.vy * dt;
+    const m = f.size * 1.5;
+    if (f.x > right - m && f.dir > 0) f.dir = -1;
+    if (f.x < m && f.dir < 0) f.dir = 1;
+    f.face += (f.dir - f.face) * .12 * dt;
+    if (Math.abs(f.face) < .05) f.face = f.dir * .05;
+    const glow = state === 'working' ? 1 + Math.sin(t / 250 + f.phase) * .25 : state === 'waiting' ? .8 : .45;
+    drawFish(f, t, glow);
+  }
+
+  drawWeeds(t, true);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
