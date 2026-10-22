@@ -188,14 +188,45 @@ function buildTerrain() {
 
   // treasure chest
   const cx = W * .2, cy = sy + 2, cw = 70, ch = 40;
-  g.save(); g.translate(cx, cy); g.rotate(-.08);
-  g.fillStyle = '#5a3416'; g.fillRect(-cw / 2, -ch, cw, ch);
-  g.fillStyle = '#7a4a22'; g.beginPath(); g.moveTo(-cw / 2, -ch); g.lineTo(-cw / 2 + 6, -ch - 22); g.lineTo(cw / 2 + 4, -ch - 30); g.lineTo(cw / 2, -ch); g.fill();
-  g.fillStyle = '#ffd34d'; g.shadowColor = '#ffd34d'; g.shadowBlur = 14;
-  for (let i = 0; i < 9; i++) { g.beginPath(); g.arc(-cw / 2 + 8 + R() * (cw - 16), -ch - 2 - R() * 6, 3.5, 0, TAU); g.fill(); }
-  g.shadowBlur = 0;
-  g.strokeStyle = '#c99a2e'; g.lineWidth = 4; g.strokeRect(-cw / 2, -ch, cw, ch);
-  g.beginPath(); g.moveTo(-cw / 6, -ch); g.lineTo(-cw / 6, 0); g.moveTo(cw / 6, -ch); g.lineTo(cw / 6, 0); g.stroke();
+  g.save(); g.translate(cx, cy); g.rotate(-.05);
+  const L = -cw / 2, Rt = cw / 2, top = -ch, hinge = top - 7, lidH = 24;
+  const brass = '#c99a2e', brassDark = '#8a6418';
+  // open lid, tilted back: we see its darker inside, arched on top
+  const lidPath = () => { g.beginPath(); g.moveTo(L + 2, hinge); g.lineTo(L + 2, hinge - lidH * .55); g.quadraticCurveTo(0, hinge - lidH * 1.25, Rt - 2, hinge - lidH * .55); g.lineTo(Rt - 2, hinge); g.closePath(); };
+  const lg = g.createLinearGradient(0, hinge - lidH, 0, hinge);
+  lg.addColorStop(0, '#6b3f1c'); lg.addColorStop(1, '#3a200c');
+  g.fillStyle = lg; lidPath(); g.fill();
+  g.strokeStyle = brass; g.lineWidth = 3; lidPath(); g.stroke();
+  g.lineWidth = 4;
+  for (const x of [-cw / 4, cw / 4]) { g.beginPath(); g.moveTo(x, hinge); g.lineTo(x, hinge - lidH * (1 - Math.pow(x / (cw / 2), 2) * .45) * .95); g.stroke(); }
+  // dark interior seen above the front wall
+  g.fillStyle = '#1e0f05'; g.fillRect(L + 2, hinge, cw - 4, top - hinge);
+  // heap of glowing gold
+  g.save(); g.shadowColor = '#ffd34d'; g.shadowBlur = 16;
+  g.fillStyle = '#e8b830'; g.beginPath(); g.moveTo(L + 3, top + 1);
+  g.quadraticCurveTo(L + cw * .25, top - 11, 0, top - 9); g.quadraticCurveTo(Rt - cw * .25, top - 12, Rt - 3, top + 1); g.closePath(); g.fill();
+  g.restore();
+  g.fillStyle = '#ffe27a'; g.strokeStyle = '#b88a1c'; g.lineWidth = .8;
+  for (let i = 0; i < 11; i++) {
+    const x = L + 8 + R() * (cw - 16), y = top - 2 - R() * 7 * (1 - Math.abs(x) / cw);
+    g.beginPath(); g.ellipse(x, y, 3.4, 2.4, R() - .5, 0, TAU); g.fill(); g.stroke();
+  }
+  g.fillStyle = '#ff4d8d'; g.beginPath(); g.arc(-cw * .12, top - 7, 2.2, 0, TAU); g.fill(); // a gem
+  g.fillStyle = '#3dc8ff'; g.beginPath(); g.arc(cw * .2, top - 6, 2, 0, TAU); g.fill();
+  // front of the chest with planks
+  const bg2 = g.createLinearGradient(0, top, 0, 0);
+  bg2.addColorStop(0, '#7a4a22'); bg2.addColorStop(1, '#4a2a10');
+  g.fillStyle = bg2; g.fillRect(L, top, cw, ch);
+  g.strokeStyle = 'rgba(30,15,5,.55)'; g.lineWidth = 1;
+  for (let i = 1; i < 3; i++) { const y = top + ch * i / 3; g.beginPath(); g.moveTo(L, y); g.lineTo(Rt, y); g.stroke(); }
+  // brass trim, straps and lock
+  g.strokeStyle = brass; g.lineWidth = 3.5; g.strokeRect(L, top, cw, ch);
+  g.lineWidth = 4;
+  for (const x of [-cw / 4, cw / 4]) { g.beginPath(); g.moveTo(x, top); g.lineTo(x, 0); g.stroke(); }
+  g.fillStyle = brassDark;
+  for (const x of [L, Rt]) for (const y of [top, 0]) { g.beginPath(); g.arc(x, y, 2.4, 0, TAU); g.fill(); }
+  g.fillStyle = brass; g.beginPath(); g.roundRect(-6, top - 1, 12, 14, 2); g.fill();
+  g.fillStyle = '#2a1606'; g.beginPath(); g.arc(0, top + 5, 2, 0, TAU); g.fill(); g.fillRect(-.9, top + 5, 1.8, 4.5);
   g.restore();
 
   // shells and starfish
