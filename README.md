@@ -2,14 +2,15 @@
 
 A live aquarium for your [GitHub Copilot CLI](https://docs.github.com/copilot/how-tos/use-copilot-agents/use-copilot-cli) sessions.
 Every session is a glowing fish: it **races around while the agent is working**, slows down with a `?` when it's
-**waiting for you**, and drifts lazily with `zZ` when it's **idle**. Subagents swim along as little fish.
+**waiting for you**, and drifts lazily with `zZ` when it's **idle**. Subagents swim alongside as little copies of their parent.
 
 ![Copilot Fishtank](docs/screenshot.png)
 
 ## Features
 
 - One fish per Copilot CLI session that was active in the last hour, labelled with its session name (set with `/rename`).
-- Small fish for every running subagent.
+- Each session gets its own species — tropical fish, koi, sturgeon, angelfish or pufferfish — stable per session ID.
+- A small fish of the same species and colours for every running subagent, swimming close to its parent.
 - Side panel listing sessions with a 🟢 working / 🔴 idle / blinking 🔴 waiting-for-input dot, and their subagents
   underneath (running, ✓ done, ✗ failed) with agent type and duration.
 - Starts automatically when you launch `copilot`, and shuts down when the last Copilot CLI closes.

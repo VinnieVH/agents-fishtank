@@ -243,25 +243,55 @@ const BODY = ['#ff7a3d', '#ffcf3d', '#ff4d8d', '#3dc8ff', '#9b5cff', '#3dffa0', 
 const NEON = ['#39ff14', '#00f0ff', '#ff00e6', '#fff200', '#ff6a00', '#b026ff', '#00ffb3', '#ff2e63'];
 const SPEED = { working: 3.5, waiting: .9, idle: .3 };
 const TURN_COOLDOWN_MS = 3000; // minimum time between direction changes
+const LEASH = 90; // max px a subagent fish strays from its parent before turning back
 const fish = new Map();
 let sessions = new Map();
 
 function makeFish(key, sessionId, small, near) {
-  const h = hash(key);
-  const neonIdx = hash(sessionId) % NEON.length;
+  // looks are derived from the session so subagent fish match their parent
+  const h = hash(key), hs = hash(sessionId);
   const f = {
     key, sessionId, small, label: '',
     x: near ? near.x + (Math.random() - .5) * 80 : 60 + Math.random() * (tankRight() - 120), y: near ? near.y + (Math.random() < .5 ? -1 : 1) * (30 + Math.random() * 30) : 80 + Math.random() * (tankBottom() - 160),
     dir: Math.random() < .5 ? -1 : 1, face: 1, vy: 0, speed: .3,
-    size: small ? 15 + h % 6 : 36 + h % 14,
-    body: BODY[(h >>> 3) % BODY.length], neon: NEON[small ? (neonIdx + 1 + h % 3) % NEON.length : neonIdx],
-    pattern: (h >>> 7) % 3, phase: Math.random() * TAU, targetY: 0, lastTurn: performance.now(), bob: Math.random() * TAU,
+    size: small ? 15 + h % 6 : 40 + h % 5,
+    body: BODY[(hs >>> 3) % BODY.length], neon: NEON[hs % NEON.length],
+    pattern: (hs >>> 7) % 3, species: BIG_SPECIES[hash(sessionId + ':species') % BIG_SPECIES.length],
+    variant: (hs >>> 11) % 12, spots: Array.from({ length: 6 }, (_, i) => { const r = rng(hs + i * 97); return { x: r() * 1.5 - .85, y: r() * .6 - .35, rx: .12 + r() * .14, ry: .08 + r() * .1, rot: r() * 3 }; }),
+    phase: Math.random() * TAU, targetY: 0, lastTurn: performance.now(), bob: Math.random() * TAU,
   };
-  f.face = f.dir; f.targetY = f.y;
+  f.size *= SPECIES[f.species].size; f.face = f.dir; f.targetY = f.y;
   return f;
 }
 
-function bodyPath(s) {
+// ---------- species ----------
+function eye(x, y, r, iris) {
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+  ctx.fillStyle = iris; ctx.beginPath(); ctx.arc(x + r * .25, y, r * .67, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x + r * .37, y, r * .42, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x + r * .17, y - r * .33, r * .18, 0, TAU); ctx.fill();
+}
+function neonOutline(f, glow, paths) {
+  ctx.shadowColor = f.neon; ctx.shadowBlur = (f.small ? 8 : 14) * glow;
+  ctx.strokeStyle = f.neon; ctx.lineWidth = f.small ? 1.4 : 2;
+  ctx.globalAlpha = .55 + .45 * Math.min(1, glow);
+  for (const p of paths) { p(); ctx.stroke(); }
+  ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+}
+function scales(s, x0, x1, y0, y1, alpha) {
+  ctx.strokeStyle = `rgba(255,255,255,${alpha})`; ctx.lineWidth = .9;
+  const sc = s * .13;
+  for (let x = x0; x < x1; x += sc) for (let y = y0; y < y1; y += sc * .8) {
+    ctx.beginPath(); ctx.arc(x + ((y / (sc * .8)) & 1) * sc / 2, y, sc * .55, -1.1, 1.1); ctx.stroke();
+  }
+}
+function finRays(x0, y0, pts) {
+  ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = .8;
+  ctx.beginPath(); for (const [x, y] of pts) { ctx.moveTo(x0, y0); ctx.lineTo(x, y); } ctx.stroke();
+}
+
+// Tropical fish (also used for subagents)
+function tropicalBody(s) {
   ctx.beginPath();
   ctx.moveTo(s, 0);
   ctx.bezierCurveTo(s * .92, -s * .46, s * .2, -s * .62, -s * .42, -s * .4);
@@ -270,7 +300,7 @@ function bodyPath(s) {
   ctx.bezierCurveTo(s * .2, s * .56, s * .92, s * .42, s, 0);
   ctx.closePath();
 }
-function tailPath(s, w) {
+function tropicalTail(s, w) {
   ctx.beginPath();
   ctx.moveTo(-s * .82, 0);
   ctx.quadraticCurveTo(-s * 1.15, -s * .1 + w * .5, -s * 1.5, -s * .58 + w);
@@ -278,41 +308,24 @@ function tailPath(s, w) {
   ctx.quadraticCurveTo(-s * 1.15, s * .1 + w * .5, -s * .82, 0);
   ctx.closePath();
 }
-function finRays(x0, y0, pts) {
-  ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = .8;
-  ctx.beginPath(); for (const [x, y] of pts) { ctx.moveTo(x0, y0); ctx.lineTo(x, y); } ctx.stroke();
-}
-
-function drawFish(f, t, glow) {
-  const s = f.size, ph = f.phase, w = Math.sin(ph) * s * (.12 + Math.min(f.speed, 5) * .035);
-  const sway = Math.sin(ph * .7) * s * .05;
-  ctx.save();
-  ctx.translate(f.x, f.y);
-  ctx.rotate(Math.max(-.35, Math.min(.35, f.vy * .09)) * Math.sign(f.face || 1));
-  ctx.scale(f.face, 1);
-
-  const finCol = shade(f.body, .25), finA = .75;
-  // dorsal fin
-  ctx.globalAlpha = finA; ctx.fillStyle = finCol;
+function drawTropical(f, s, w, sway, ph, glow) {
+  const finCol = shade(f.body, .25);
+  ctx.globalAlpha = .75; ctx.fillStyle = finCol;
   ctx.beginPath(); ctx.moveTo(-s * .38, -s * .38); ctx.quadraticCurveTo(-s * .2 + sway, -s * .95, s * .12 + sway, -s * .82);
   ctx.quadraticCurveTo(s * .3, -s * .62, s * .38, -s * .5); ctx.closePath(); ctx.fill();
   finRays(-s * .05, -s * .45, [[-s * .25 + sway, -s * .8], [-s * .05 + sway, -s * .88], [s * .15 + sway, -s * .78]]);
-  // pelvic fin
   ctx.fillStyle = finCol;
   ctx.beginPath(); ctx.moveTo(-s * .05, s * .42); ctx.quadraticCurveTo(-s * .35 - sway, s * .8, -s * .32 - sway, s * .78);
   ctx.quadraticCurveTo(-s * .05, s * .62, s * .18, s * .46); ctx.closePath(); ctx.fill();
-  // tail
-  ctx.fillStyle = finCol; tailPath(s, w); ctx.fill();
+  ctx.fillStyle = finCol; tropicalTail(s, w); ctx.fill();
   finRays(-s * .85, 0, [[-s * 1.45, -s * .5 + w], [-s * 1.35, -s * .2 + w * .9], [-s * 1.35, s * .2 + w * .9], [-s * 1.45, s * .5 + w]]);
   ctx.globalAlpha = 1;
 
-  // body with shading
   const bg = ctx.createLinearGradient(0, -s * .6, 0, s * .55);
   bg.addColorStop(0, shade(f.body, -.45)); bg.addColorStop(.45, f.body); bg.addColorStop(1, shade(f.body, .6));
-  ctx.fillStyle = bg; bodyPath(s); ctx.fill();
+  ctx.fillStyle = bg; tropicalBody(s); ctx.fill();
 
-  // pattern + scales (clipped to body)
-  ctx.save(); bodyPath(s); ctx.clip();
+  ctx.save(); tropicalBody(s); ctx.clip();
   if (f.pattern === 0) {
     ctx.fillStyle = 'rgba(255,255,255,.85)';
     for (const bx of [s * .35, -s * .25]) { ctx.beginPath(); ctx.ellipse(bx, 0, s * .09, s * .7, 0, 0, TAU); ctx.fill(); }
@@ -325,57 +338,265 @@ function drawFish(f, t, glow) {
     ctx.fillStyle = 'rgba(255,255,255,.18)';
     ctx.beginPath(); ctx.ellipse(-s * .1, s * .02, s * .75, s * .07, 0, 0, TAU); ctx.fill();
   }
-  ctx.strokeStyle = 'rgba(255,255,255,.14)'; ctx.lineWidth = .9;
-  const sc = s * .13;
-  for (let x = -s * .8; x < s * .45; x += sc) for (let y = -s * .5; y < s * .5; y += sc * .8) {
-    ctx.beginPath(); ctx.arc(x + ((y / (sc * .8)) & 1) * sc / 2, y, sc * .55, -1.1, 1.1); ctx.stroke();
-  }
-  ctx.fillStyle = 'rgba(255,255,255,.22)'; // glossy highlight
+  scales(s, -s * .8, s * .45, -s * .5, s * .5, .14);
+  ctx.fillStyle = 'rgba(255,255,255,.22)';
   ctx.beginPath(); ctx.ellipse(s * .2, -s * .25, s * .45, s * .1, -.12, 0, TAU); ctx.fill();
   ctx.restore();
 
-  // gill
   ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1.4;
   ctx.beginPath(); ctx.arc(s * .38, 0, s * .32, -1, 1); ctx.stroke();
-  // pectoral fin (flapping)
   ctx.save(); ctx.translate(s * .22, s * .14); ctx.rotate(.5 + Math.sin(ph * 1.6) * .35);
   ctx.globalAlpha = .8; ctx.fillStyle = finCol;
   ctx.beginPath(); ctx.ellipse(-s * .14, 0, s * .2, s * .08, 0, 0, TAU); ctx.fill(); ctx.restore();
   ctx.globalAlpha = 1;
 
-  // eye
-  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(s * .6, -s * .1, s * .12, 0, TAU); ctx.fill();
-  ctx.fillStyle = f.neon; ctx.beginPath(); ctx.arc(s * .63, -s * .1, s * .08, 0, TAU); ctx.fill();
-  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(s * .645, -s * .1, s * .05, 0, TAU); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(s * .62, -s * .14, s * .022, 0, TAU); ctx.fill();
-  // mouth
+  eye(s * .6, -s * .1, s * .12, f.neon);
   ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 1.2;
   ctx.beginPath(); ctx.moveTo(s * .98, s * .04); ctx.quadraticCurveTo(s * .9, s * .1, s * .84, s * .08); ctx.stroke();
+  neonOutline(f, glow, [() => tropicalTail(s, w), () => tropicalBody(s)]);
+}
 
-  // fluorescent outline
-  ctx.shadowColor = f.neon; ctx.shadowBlur = (f.small ? 8 : 14) * glow;
-  ctx.strokeStyle = f.neon; ctx.lineWidth = f.small ? 1.4 : 2;
-  ctx.globalAlpha = .55 + .45 * Math.min(1, glow);
-  tailPath(s, w); ctx.stroke();
-  bodyPath(s); ctx.stroke();
-  ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+// Koi: long body, patterned, whiskers, flowing tail
+const KOI = [
+  { base: '#f6f1e7', spots: ['#e8452c'] },                       // kohaku
+  { base: '#f6f1e7', spots: ['#e8452c', '#e8452c', '#1b1b1f'] }, // sanke
+  { base: '#f5b82e', spots: [] },                                // yamabuki (gold)
+  { base: '#1e1e24', spots: ['#e8452c', '#f6f1e7'] },            // showa
+];
+function koiBody(s) {
+  ctx.beginPath(); ctx.moveTo(s, 0);
+  ctx.bezierCurveTo(s * .95, -s * .3, s * .45, -s * .44, -s * .15, -s * .38);
+  ctx.quadraticCurveTo(-s * .65, -s * .3, -s * .95, -s * .07);
+  ctx.lineTo(-s * .95, s * .07);
+  ctx.quadraticCurveTo(-s * .65, s * .28, -s * .15, s * .34);
+  ctx.bezierCurveTo(s * .45, s * .4, s * .95, s * .28, s, 0);
+  ctx.closePath();
+}
+function koiTail(s, w) {
+  ctx.beginPath(); ctx.moveTo(-s * .9, 0);
+  ctx.bezierCurveTo(-s * 1.15, -s * .1 + w * .4, -s * 1.4, -s * .35 + w * .8, -s * 1.75, -s * .55 + w);
+  ctx.quadraticCurveTo(-s * 1.45, -s * .15 + w * .8, -s * 1.42, w * .8);
+  ctx.quadraticCurveTo(-s * 1.45, s * .15 + w * .8, -s * 1.75, s * .55 + w);
+  ctx.bezierCurveTo(-s * 1.4, s * .35 + w * .8, -s * 1.15, s * .1 + w * .4, -s * .9, 0);
+  ctx.closePath();
+}
+function drawKoi(f, s, w, sway, ph, glow) {
+  const v = KOI[f.variant % KOI.length], dark = v.base === '#1e1e24';
+  const fin = dark ? 'rgba(70,70,80,.75)' : 'rgba(255,250,240,.55)';
+  const tg = ctx.createLinearGradient(-s * .9, 0, -s * 1.75, 0);
+  tg.addColorStop(0, v.base); tg.addColorStop(1, 'rgba(255,255,255,.15)');
+  ctx.globalAlpha = .85; ctx.fillStyle = tg; koiTail(s, w); ctx.fill();
+  finRays(-s * .92, 0, [[-s * 1.7, -s * .5 + w], [-s * 1.55, -s * .25 + w * .9], [-s * 1.55, s * .25 + w * .9], [-s * 1.7, s * .5 + w]]);
+  ctx.fillStyle = fin;
+  ctx.beginPath(); ctx.moveTo(-s * .55, -s * .32); ctx.quadraticCurveTo(-s * .3 + sway, -s * .62, s * .2 + sway, -s * .5);
+  ctx.lineTo(s * .28, -s * .4); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-s * .05, s * .32); ctx.quadraticCurveTo(-s * .25 - sway, s * .6, -s * .3 - sway, s * .55);
+  ctx.quadraticCurveTo(-s * .15, s * .42, -s * .2, s * .33); ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 1;
+
+  const bg = ctx.createLinearGradient(0, -s * .44, 0, s * .4);
+  bg.addColorStop(0, shade(v.base, -.2)); bg.addColorStop(.5, v.base); bg.addColorStop(1, shade(v.base, .35));
+  ctx.fillStyle = bg; koiBody(s); ctx.fill();
+  ctx.save(); koiBody(s); ctx.clip();
+  if (v.spots.length) f.spots.forEach((p, i) => {
+    ctx.fillStyle = v.spots[i % v.spots.length];
+    ctx.beginPath(); ctx.ellipse(p.x * s, p.y * s, p.rx * s, p.ry * s, p.rot, 0, TAU); ctx.fill();
+  });
+  scales(s, -s * .9, s * .55, -s * .45, s * .4, .16);
+  ctx.fillStyle = v.spots.length ? 'rgba(255,255,255,.2)' : 'rgba(255,255,220,.45)';
+  ctx.beginPath(); ctx.ellipse(s * .1, -s * .2, s * .6, s * .07, -.05, 0, TAU); ctx.fill();
+  ctx.restore();
+
+  ctx.save(); ctx.translate(s * .45, s * .22); ctx.rotate(.6 + Math.sin(ph * 1.2) * .35);
+  ctx.fillStyle = fin; ctx.beginPath(); ctx.ellipse(-s * .16, 0, s * .26, s * .1, 0, 0, TAU); ctx.fill(); ctx.restore();
+
+  ctx.strokeStyle = shade(v.base, -.3); ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.moveTo(s * .94, s * .1); ctx.quadraticCurveTo(s * 1.02, s * .2, s * .94 + sway * .3, s * .3); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(s * .9, s * .12); ctx.quadraticCurveTo(s * .92, s * .22, s * .84 + sway * .3, s * .28); ctx.stroke();
+  eye(s * .72, -s * .1, s * .07, '#222');
+  neonOutline(f, glow, [() => koiTail(s, w), () => koiBody(s)]);
+}
+
+// Sturgeon: long armored body, pointed snout, barbels, shark-like (heterocercal) tail
+const STURGEON = ['#5f6b78', '#6f6650', '#4f5d55'];
+function sturgeonBody(s) {
+  ctx.beginPath(); ctx.moveTo(s * 1.3, s * .05);
+  ctx.quadraticCurveTo(s * 1.0, -s * .18, s * .6, -s * .26);
+  ctx.bezierCurveTo(s * .1, -s * .34, -s * .6, -s * .24, -s * 1.0, -s * .08);
+  ctx.lineTo(-s * 1.0, s * .06);
+  ctx.bezierCurveTo(-s * .6, s * .22, s * .1, s * .3, s * .6, s * .22);
+  ctx.quadraticCurveTo(s * 1.0, s * .16, s * 1.3, s * .05);
+  ctx.closePath();
+}
+function sturgeonTail(s, w) {
+  ctx.beginPath(); ctx.moveTo(-s * .95, -s * .07);
+  ctx.quadraticCurveTo(-s * 1.3, -s * .28 + w * .6, -s * 1.78, -s * .6 + w);
+  ctx.quadraticCurveTo(-s * 1.5, -s * .12 + w * .8, -s * 1.38, s * .28 + w * .8);
+  ctx.quadraticCurveTo(-s * 1.2, s * .1 + w * .4, -s * .95, s * .06);
+  ctx.closePath();
+}
+function scute(x, y, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x, y - r * .7); ctx.lineTo(x - r, y); ctx.lineTo(x, y + r * .7); ctx.closePath();
+  ctx.fill(); ctx.stroke();
+}
+function drawSturgeon(f, s, w, sway, ph, glow) {
+  const base = STURGEON[f.variant % STURGEON.length], fin = shade(base, -.15);
+  ctx.fillStyle = fin; sturgeonTail(s, w); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-s * .5, -s * .2); ctx.quadraticCurveTo(-s * .7 + sway, -s * .45, -s * .85 + sway, -s * .4);
+  ctx.lineTo(-s * .8, -s * .12); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-s * .55, s * .16); ctx.quadraticCurveTo(-s * .7 - sway, s * .34, -s * .8 - sway, s * .3);
+  ctx.lineTo(-s * .78, s * .1); ctx.closePath(); ctx.fill();
+
+  const bg = ctx.createLinearGradient(0, -s * .34, 0, s * .3);
+  bg.addColorStop(0, shade(base, -.35)); bg.addColorStop(.55, base); bg.addColorStop(.8, shade(base, .55)); bg.addColorStop(1, '#e9e4d6');
+  ctx.fillStyle = bg; sturgeonBody(s); ctx.fill();
+  ctx.save(); sturgeonBody(s); ctx.clip();
+  ctx.fillStyle = 'rgba(0,0,0,.18)';
+  f.spots.forEach(p => { ctx.beginPath(); ctx.arc(p.x * 1.2 * s, (p.y * .45 - .05) * s, s * .025, 0, TAU); ctx.fill(); });
+  ctx.restore();
+
+  ctx.fillStyle = shade(base, .45); ctx.strokeStyle = shade(base, -.45); ctx.lineWidth = .8;
+  const top = x => -s * .34 * (1 - Math.pow((x + s * .05) / (s * 1.1), 2));
+  for (let i = 0; i < 10; i++) { const x = s * .55 - i * s * .15; scute(x, top(x) + s * .03, s * .055); }
+  for (let i = 0; i < 12; i++) scute(s * .6 - i * s * .13, s * .02, s * .035);
+
+  ctx.save(); ctx.translate(s * .55, s * .18); ctx.rotate(.5 + Math.sin(ph * 1.1) * .25);
+  ctx.fillStyle = fin; ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(-s * .2, s * .05, -s * .38, s * .12);
+  ctx.quadraticCurveTo(-s * .2, -s * .02, 0, 0); ctx.fill(); ctx.restore();
+
+  ctx.strokeStyle = '#d9cdb0'; ctx.lineWidth = 1.2;
+  for (let i = 0; i < 4; i++) { const x = s * (.92 + i * .055); ctx.beginPath(); ctx.moveTo(x, s * .14); ctx.lineTo(x - s * .02 + sway * .2, s * .26); ctx.stroke(); }
+  ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.moveTo(s * .78, s * .19); ctx.lineTo(s * .88, s * .18); ctx.stroke();
+  eye(s * .82, -s * .07, s * .05, '#3a3a2a');
+  neonOutline(f, glow, [() => sturgeonTail(s, w), () => sturgeonBody(s)]);
+}
+
+// Angelfish: tall striped disc with long trailing fins
+const ANGEL = ['#e3e6ea', '#f2c14e', '#d7c7e8'];
+function angelBody(s) {
+  ctx.beginPath(); ctx.moveTo(s * .85, s * .02);
+  ctx.quadraticCurveTo(s * .65, -s * .42, s * .05, -s * .52);
+  ctx.quadraticCurveTo(-s * .45, -s * .45, -s * .55, 0);
+  ctx.quadraticCurveTo(-s * .45, s * .45, s * .05, s * .52);
+  ctx.quadraticCurveTo(s * .65, s * .42, s * .85, s * .02);
+  ctx.closePath();
+}
+function angelFin(s, sway, d) { // d = -1 dorsal, 1 anal
+  ctx.beginPath(); ctx.moveTo(s * .2, d * s * .48);
+  ctx.bezierCurveTo(-s * .05, d * s * 1.1, -s * .45 + sway, d * s * 1.45, -s * .95 + sway, d * s * 1.55);
+  ctx.quadraticCurveTo(-s * .55, d * s * .9, -s * .5, d * s * .25);
+  ctx.closePath();
+}
+function angelTail(s, w) {
+  ctx.beginPath(); ctx.moveTo(-s * .5, 0);
+  ctx.quadraticCurveTo(-s * .8, -s * .32 + w * .6, -s * 1.05, -s * .42 + w);
+  ctx.quadraticCurveTo(-s * .95, w, -s * 1.05, s * .42 + w);
+  ctx.quadraticCurveTo(-s * .8, s * .32 + w * .6, -s * .5, 0);
+  ctx.closePath();
+}
+function drawAngel(f, s, w, sway, ph, glow) {
+  const base = ANGEL[f.variant % ANGEL.length], fin = shade(base, -.1);
+  ctx.globalAlpha = .85; ctx.fillStyle = fin;
+  angelFin(s, sway, -1); ctx.fill(); angelFin(s, -sway, 1); ctx.fill(); angelTail(s, w); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = fin; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(-s * 1.05, -s * .42 + w); ctx.quadraticCurveTo(-s * 1.2, -s * .5 + w, -s * 1.4 + sway, -s * .45 + w); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-s * 1.05, s * .42 + w); ctx.quadraticCurveTo(-s * 1.2, s * .5 + w, -s * 1.4 - sway, s * .45 + w); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(s * .3, s * .45); ctx.quadraticCurveTo(s * .1, s * .9, -s * .25 + sway, s * 1.25); ctx.stroke();
+
+  const bg = ctx.createLinearGradient(0, -s * .52, 0, s * .52);
+  bg.addColorStop(0, shade(base, -.25)); bg.addColorStop(.5, base); bg.addColorStop(1, shade(base, .4));
+  ctx.fillStyle = bg; angelBody(s); ctx.fill();
+  for (const clip of [() => angelBody(s), () => angelFin(s, sway, -1), () => angelFin(s, -sway, 1)]) {
+    ctx.save(); clip(); ctx.clip();
+    ctx.fillStyle = 'rgba(25,25,35,.7)';
+    for (const x of [.42, .02, -.4]) ctx.fillRect(x * s - s * .045, -s * 1.6, s * .09, s * 3.2);
+    ctx.restore();
+  }
+  ctx.save(); angelBody(s); ctx.clip(); scales(s, -s * .55, s * .7, -s * .5, s * .5, .1); ctx.restore();
+
+  eye(s * .55, -s * .1, s * .085, '#c0392b');
+  ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(s * .85, s * .03); ctx.lineTo(s * .76, s * .07); ctx.stroke();
+  neonOutline(f, glow, [() => angelTail(s, w), () => angelFin(s, sway, -1), () => angelFin(s, -sway, 1), () => angelBody(s)]);
+}
+
+// Pufferfish: round, spiky, big eyes, tiny fluttering fins
+const PUFFER = ['#e8c25a', '#a8c86a', '#d9a066'];
+function pufferBody(s) { ctx.beginPath(); ctx.ellipse(s * .05, 0, s * .62, s * .55, 0, 0, TAU); }
+function pufferTail(s, w) {
+  ctx.beginPath(); ctx.moveTo(-s * .5, 0);
+  ctx.quadraticCurveTo(-s * .72, -s * .26 + w * .6, -s * .92, -s * .24 + w);
+  ctx.quadraticCurveTo(-s * .82, w, -s * .92, s * .24 + w);
+  ctx.quadraticCurveTo(-s * .72, s * .26 + w * .6, -s * .5, 0);
+  ctx.closePath();
+}
+function drawPuffer(f, s, w, sway, ph, glow) {
+  const base = PUFFER[f.variant % PUFFER.length], fin = shade(base, .3);
+  ctx.globalAlpha = .8; ctx.fillStyle = fin; pufferTail(s, w); ctx.fill();
+  for (const d of [-1, 1]) {
+    ctx.beginPath(); ctx.moveTo(-s * .3, d * s * .45); ctx.quadraticCurveTo(-s * .5 + sway * d, d * s * .72, -s * .55, d * s * .5);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = shade(base, -.35);
+  for (let i = 0; i < 26; i++) {
+    const a = i / 26 * TAU, ex = Math.cos(a), ey = Math.sin(a), cx = s * .05;
+    const bx = cx + ex * s * .6, by = ey * s * .53, k = s * .035;
+    ctx.beginPath(); ctx.moveTo(bx - ey * k, by + ex * k); ctx.lineTo(cx + ex * s * .72, ey * s * .65); ctx.lineTo(bx + ey * k, by - ex * k); ctx.fill();
+  }
+  const bg = ctx.createRadialGradient(-s * .05, -s * .2, s * .1, s * .05, 0, s * .65);
+  bg.addColorStop(0, shade(base, .25)); bg.addColorStop(1, shade(base, -.25));
+  ctx.fillStyle = bg; pufferBody(s); ctx.fill();
+  ctx.save(); pufferBody(s); ctx.clip();
+  ctx.fillStyle = '#f7f3e8'; ctx.beginPath(); ctx.ellipse(s * .05, s * .38, s * .62, s * .32, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = shade(base, -.55);
+  f.spots.forEach(p => { ctx.beginPath(); ctx.arc(p.x * .6 * s, (p.y * .7 - .05) * s, s * .04, 0, TAU); ctx.fill(); });
+  ctx.restore();
+  ctx.save(); ctx.translate(s * .12, s * .08); ctx.rotate(Math.sin(ph * 3) * .5);
+  ctx.globalAlpha = .8; ctx.fillStyle = fin; ctx.beginPath(); ctx.ellipse(-s * .1, 0, s * .14, s * .07, 0, 0, TAU); ctx.fill();
+  ctx.restore();
+  eye(s * .38, -s * .18, s * .14, f.neon);
+  ctx.fillStyle = '#7a4a3a'; ctx.beginPath(); ctx.ellipse(s * .66, s * .08, s * .05, s * .04, 0, 0, TAU); ctx.fill();
+  neonOutline(f, glow, [() => pufferTail(s, w), () => pufferBody(s)]);
+}
+
+// half: half body height incl. fins, size: body scale, speed: swim speed factor, labelY/markY: label below / marks above (in body units)
+const SPECIES = {
+  tropical:  { draw: drawTropical, half: .9,  size: 1,    speed: 1,   labelY: .95, markY: 1.05 },
+  koi:       { draw: drawKoi,      half: .6,  size: 1.15, speed: .9,  labelY: .75, markY: .85 },
+  sturgeon:  { draw: drawSturgeon, half: .5,  size: 1.1,  speed: .8,  labelY: .55, markY: .7 },
+  angelfish: { draw: drawAngel,    half: 1.55, size: .8,   speed: .85, labelY: 1.7, markY: 1.75 },
+  puffer:    { draw: drawPuffer,   half: .7,  size: 1.25, speed: .7,  labelY: .95, markY: .95 },
+};
+const BIG_SPECIES = Object.keys(SPECIES);
+
+function drawFish(f, t, glow) {
+  const sp = SPECIES[f.species], s = f.size, ph = f.phase;
+  const w = Math.sin(ph) * s * (.12 + Math.min(f.speed, 5) * .035), sway = Math.sin(ph * .7) * s * .05;
+  ctx.save();
+  ctx.translate(f.x, f.y);
+  ctx.rotate(Math.max(-.35, Math.min(.35, f.vy * .09)) * Math.sign(f.face || 1));
+  ctx.scale(f.face, 1);
+  sp.draw(f, s, w, sway, ph, glow);
   ctx.restore();
 
   // label + state marks
   if (f.label) {
+    const ly = f.y + s * sp.labelY;
     ctx.font = `${f.small ? 10 : 11.5}px Segoe UI, system-ui`; ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillText(f.label, f.x + 1, f.y + s * .95 + 1);
-    ctx.fillStyle = f.neon; ctx.fillText(f.label, f.x, f.y + s * .95);
+    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillText(f.label, f.x + 1, ly + 1);
+    ctx.fillStyle = f.neon; ctx.fillText(f.label, f.x, ly);
   }
   const st = sessions.get(f.sessionId);
   if (st && !f.small && st.state === 'waiting') {
     ctx.font = `bold ${s * .7}px system-ui`; ctx.textAlign = 'center';
     ctx.shadowColor = '#ffc94d'; ctx.shadowBlur = 12; ctx.fillStyle = '#ffc94d';
-    ctx.fillText('?', f.x, f.y - s * 1.05 + Math.sin(t / 300) * 4); ctx.shadowBlur = 0;
+    ctx.fillText('?', f.x, f.y - s * sp.markY + Math.sin(t / 300) * 4); ctx.shadowBlur = 0;
   } else if (st && !f.small && st.state === 'idle') {
     ctx.font = `${s * .4}px system-ui`; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(210,235,255,.65)';
     const k = (t / 1200) % 3;
-    for (let i = 0; i < 3; i++) if (k > i) ctx.fillText('z', f.x + f.face * (s * .5 + i * 7), f.y - s * (.75 + i * .25));
+    for (let i = 0; i < 3; i++) if (k > i) ctx.fillText('z', f.x + f.face * (s * .5 + i * 7), f.y - s * (sp.markY - .3 + i * .25));
   }
 }
 
@@ -523,11 +744,13 @@ function frame(t) {
   const ordered = [...fish.values()].sort((a, b) => a.size - b.size);
   for (const f of ordered) {
     const st = sessions.get(f.sessionId), state = st ? st.state : 'idle';
-    const target = SPEED[state] * (f.small ? 1.3 : 1);
+    const p = f.small ? fish.get(f.sessionId) : null, dx = p ? p.x - f.x : 0;
+    // subagents stay on a short leash and sprint to catch up when they fall behind
+    const target = SPEED[state] * SPECIES[f.species].speed * (f.small ? (Math.abs(dx) > LEASH ? 1.7 : 1.2) : 1);
     f.speed += (target - f.speed) * .03 * dt;
     f.phase += (.05 + f.speed * .13) * dt;
     f.x += f.dir * f.speed * dt;
-    if (f.small) { const p = fish.get(f.sessionId); if (p && Math.random() < .02 * dt) f.targetY = p.y + (Math.random() - .5) * 160; }
+    if (p) { if (Math.random() < .03 * dt || Math.abs(p.y - f.targetY) > LEASH + p.size) f.targetY = p.y + (hash(f.key) & 1 ? 1 : -1) * ((p.size + f.size) * SPECIES[f.species].half + 8 + Math.random() * 25); }
     else if (Math.random() < .01 * dt) f.targetY = 70 + Math.random() * (bottom - 120);
     f.targetY = Math.max(50, Math.min(bottom - f.size, f.targetY));
     const agility = Math.max(.35, Math.min(1.2, f.speed / 3));
@@ -538,6 +761,7 @@ function frame(t) {
     const m = f.size * 1.5;
     if (f.x > right - m && f.dir > 0) { f.dir = -1; f.lastTurn = t; }
     else if (f.x < m && f.dir < 0) { f.dir = 1; f.lastTurn = t; }
+    else if (p && Math.abs(dx) > LEASH && Math.sign(dx) !== f.dir) { f.dir = -f.dir; f.lastTurn = t; }
     else if (t - f.lastTurn > TURN_COOLDOWN_MS && Math.random() < .01 * dt) {
       f.dir = -f.dir; f.lastTurn = t;
       if (!f.small) f.targetY = 70 + Math.random() * (bottom - 120);
