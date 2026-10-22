@@ -9,7 +9,8 @@ Every session is a glowing fish: it **races around while the agent is working**,
 ## Features
 
 - One fish per Copilot CLI session that was active in the last hour, labelled with its session name (set with `/rename`).
-- Each session gets its own species — tropical fish, koi, sturgeon, angelfish or pufferfish — stable per session ID.
+- Each session gets its own species — tropical fish, koi, sturgeon, angelfish or pufferfish. New sessions get the species
+  that's least common in the tank so you get a good mix, and a session keeps its species (even across page reloads).
 - A small fish of the same species and colours for every running subagent, swimming close to its parent.
 - Every few minutes a humpback whale glides by far in the background (add `?whale` to the URL to summon it right away).
 - Side panel listing sessions with a 🟢 working / 🔴 idle / blinking 🔴 waiting-for-input dot, and their subagents

@@ -287,7 +287,7 @@ function makeFish(key, sessionId, small, near) {
     dir: Math.random() < .5 ? -1 : 1, face: 1, vy: 0, speed: .3,
     size: small ? 15 + h % 6 : 40 + h % 5,
     body: BODY[(hs >>> 3) % BODY.length], neon: NEON[hs % NEON.length],
-    pattern: (hs >>> 7) % 3, species: BIG_SPECIES[hash(sessionId + ':species') % BIG_SPECIES.length],
+    pattern: (hs >>> 7) % 3, species: small && fish.get(sessionId) ? fish.get(sessionId).species : speciesFor(sessionId),
     variant: (hs >>> 11) % 12, spots: Array.from({ length: 6 }, (_, i) => { const r = rng(hs + i * 97); return { x: r() * 1.5 - .85, y: r() * .6 - .35, rx: .12 + r() * .14, ry: .08 + r() * .1, rot: r() * 3 }; }),
     phase: Math.random() * TAU, targetY: 0, lastTurn: performance.now(), bob: Math.random() * TAU,
   };
@@ -602,6 +602,24 @@ const SPECIES = {
 };
 const BIG_SPECIES = Object.keys(SPECIES);
 
+// A new session gets the species least represented in the tank right now, so we get variety.
+// Choices are remembered (also across reloads) so a session's fish never changes species.
+const SPECIES_KEY = 'fishtank.species';
+let speciesOf = {};
+try { speciesOf = JSON.parse(localStorage.getItem(SPECIES_KEY)) || {}; } catch { }
+function speciesFor(sessionId) {
+  if (SPECIES[speciesOf[sessionId]]) return speciesOf[sessionId];
+  const count = Object.fromEntries(BIG_SPECIES.map(s => [s, 0]));
+  for (const f of fish.values()) if (!f.small) count[f.species]++;
+  const min = Math.min(...Object.values(count));
+  const options = BIG_SPECIES.filter(s => count[s] === min);
+  return speciesOf[sessionId] = options[hash(sessionId + ':species') % options.length];
+}
+function saveSpecies(ids) {
+  for (const id of Object.keys(speciesOf)) if (!ids.has(id)) delete speciesOf[id];
+  try { localStorage.setItem(SPECIES_KEY, JSON.stringify(speciesOf)); } catch { }
+}
+
 function drawFish(f, t, glow) {
   const sp = SPECIES[f.species], s = f.size, ph = f.phase;
   const w = Math.sin(ph) * s * (.12 + Math.min(f.speed, 5) * .035), sway = Math.sin(ph * .7) * s * .05;
@@ -651,6 +669,7 @@ function sync(data) {
     }
   }
   for (const k of [...fish.keys()]) if (!wanted.has(k)) fish.delete(k);
+  saveSpecies(new Set(data.sessions.map(s => s.id)));
 
   const sorted = [...data.sessions].sort((a, b) => b.lastEvent - a.lastEvent);
   if (!sorted.length) { listEl.innerHTML = '<div class="empty">No sessions active in the last hour</div>'; return; }
