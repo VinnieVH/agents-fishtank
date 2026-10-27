@@ -17,6 +17,9 @@ Every session is a glowing fish: it **races around while the agent is working**,
   that's least common in the tank so you get a good mix, and a session keeps its species (even across page reloads).
 - A small fish of the same species and colours for every running subagent, swimming close to its parent.
 - Every few minutes a humpback whale or a great white shark glides by far in the background, never both at once (add `?whale` or `?shark` to the URL to summon one right away).
+- When every session is idle (or there are none), a little red crab comes out to stroll along the sand: he looks
+  around, snaps his claws or does a little dance. When a new fish appears or a session gets busy, he jumps in fright and
+  sprints off the screen.
 - Day/night cycle that follows the real sun for your PC's clock and timezone: bright water by day, a warm glow at dawn
   and dusk, and moonlit water at night with bioluminescent plankton and extra-glowy fish. The location is estimated
   from your timezone; set it exactly with `?lat=51.05&lon=3.72`. Preview a time with `?time=22:30`, or watch a whole
@@ -93,8 +96,8 @@ The page is a [Vite](https://vite.dev) + TypeScript + PixiJS app in `src/`:
 | Path                 | What                                                                   |
 | -------------------- | ---------------------------------------------------------------------- |
 | `src/main.ts`        | Sets up the Pixi app, the layers, the session → fish sync and the loop |
-| `src/scene/`         | Fish (swim physics, bending body, labels), water, sky overlay, whale and shark passers-by, credits gauge |
-| `src/art/`           | Canvas 2D painters for the fish, terrain, whale and shark, used as textures |
+| `src/scene/`         | Fish (swim physics, bending body, labels), water, sky overlay, whale and shark passers-by, crab, credits gauge |
+| `src/art/`           | Canvas 2D painters for the fish, terrain, whale, shark and crab, used as textures |
 | `src/sky.ts`         | Sun position and day/night light                                       |
 | `src/species.ts`     | Species table and the least-common species picker                      |
 | `src/panel.ts`       | Side panel and the live `/events` connection                           |
@@ -124,6 +127,7 @@ URL parameters for the page (combine them with `&`, e.g. <http://localhost:4321/
 | `?time=22:30`        | Show the tank at a fixed time of day                                |
 | `?timelapse`         | Run a whole day in about a minute                                   |
 | `?whale` / `?shark`  | Summon the humpback whale or the great white shark right away         |
+| `?crab`              | Keep the crab out on the sand, even while sessions are busy (he still bolts when a new fish arrives) |
 
 ## Uninstall
 

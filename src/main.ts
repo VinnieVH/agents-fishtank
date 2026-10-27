@@ -8,6 +8,7 @@ import { SkyOverlay } from './scene/sky';
 import { Water } from './scene/water';
 import { Passersby } from './scene/passersby';
 import { Gauge } from './scene/gauge';
+import { Crab } from './scene/crab';
 import { lightFor, locationFromParams, makeClock, sunPosition, type Light } from './sky';
 import { SpeciesStore } from './species';
 import { paintTexture } from './art/canvas';
@@ -27,8 +28,9 @@ const sky = new SkyOverlay();
 const fishLayer = new Container({ sortableChildren: true });
 const marksLayer = new Container();
 const gauge = new Gauge(res);
+const crab = new Crab(res, params);
 app.stage.addChild(terrain, passersby, water.rays, water.shimmer, water.backWeeds, water.anemones, water.bubbles,
-  sky, water.anemoneTips, water.plankton, fishLayer, marksLayer, water.frontWeeds, gauge);
+  sky, water.anemoneTips, water.plankton, fishLayer, marksLayer, water.frontWeeds, crab, gauge);
 
 let W = 0, H = 0, gold = 1, gems = 5;
 function paintBackdrop() {
@@ -60,6 +62,7 @@ function sync(data: Snapshot) {
     const sp = small && fish.get(sessionId) ? fish.get(sessionId)!.species : species.get(sessionId, bigOnes);
     const f = new Fish(key, sessionId, small, sp, W, bottom, res, near);
     fish.set(key, f); fishLayer.addChild(f.body); marksLayer.addChild(f.marks);
+    crab.scare();
     return f;
   };
   for (const s of data.sessions) {
@@ -99,9 +102,11 @@ app.ticker.add(ticker => {
   const t = performance.now(), dt = Math.min(3, ticker.deltaMS / 16.7);
   if (t - lastSky > 1000 || timelapse) { updateLight(); lastSky = t; sky.update(light); }
   const busy = [...sessions.values()].some(s => s.state === 'working');
+  const calm = [...sessions.values()].every(s => s.state === 'idle'); // also true with no sessions at all
 
   passersby.update(t, dt, W, H);
   gauge.update(t, dt);
+  crab.update(t, dt, W, H, calm, light.night);
   water.update(t, dt, busy, light.day, light.night);
   const tank = { t, dt, right: W, bottom: sandY(H) - 40, night: light.night };
   for (const f of fish.values()) f.update(tank, sessions.get(f.sessionId)?.state ?? 'idle', f.small ? fish.get(f.sessionId) : undefined);
