@@ -2,6 +2,7 @@ import { Container, MeshRope, Point, Text } from 'pixi.js';
 import { paintFish, type FishLook, type FishTextures } from '../art/fishArt';
 import { SPECIES, type Species } from '../species';
 import { hash, rng, TAU } from '../util';
+import type { Flake, Pinch } from './food';
 
 export type State = 'working' | 'waiting' | 'idle';
 
@@ -25,6 +26,8 @@ export class Fish {
   targetY: number;
   lastTurn = performance.now();
   bob = Math.random() * TAU;
+  /** Food this fish was sent after; it eats the flakes one by one, then goes back to what it was doing. */
+  meal: Pinch | null = null;
 
   readonly body = new Container();
   private rope: MeshRope;
@@ -83,34 +86,54 @@ export class Fish {
 
   setLabel(text: string) { if (text !== this.label) this.labelText.text = this.label = text; }
 
+  get mouthX() { return this.x + this.face * SPECIES[this.species].bounds[2] * this.size * .85; }
+
+  /** The nearest flake of its meal that is still there (and forgets the meal once it's all gone). */
+  private nextBite(): Flake | null {
+    const left = this.meal?.filter(f => !f.eaten && !f.gone) ?? [];
+    if (!left.length) { this.meal = null; return null; }
+    const mx = this.mouthX, d = (f: Flake) => Math.hypot(f.x - mx, f.y - this.y);
+    return left.reduce((a, b) => d(a) <= d(b) ? a : b);
+  }
+
   /** Physics step (ported 1:1 from the canvas version), then pose the rope and the marks. */
   update(tank: Tank, state: State, parent: Fish | undefined) {
     const { t, dt, right, bottom, night } = tank, sp = SPECIES[this.species];
-    const dx = parent ? parent.x - this.x : 0;
-    // subagents stay on a short leash and sprint to catch up when they fall behind
-    const target = SPEED[state] * sp.speed * (this.small ? (Math.abs(dx) > LEASH ? 1.7 : 1.2) : 1);
-    this.speed += (target - this.speed) * .03 * dt;
+    const food = this.nextBite(), reach = Math.max(10, this.size * .45);
+    const gap = food ? Math.hypot(food.x - this.mouthX, food.y - this.y) : 0;
+    const dx = parent && !food ? parent.x - this.x : 0;
+    // subagents stay on a short leash and sprint to catch up when they fall behind; hungry fish dart to the food and slow down to nibble
+    const target = food ? Math.min(3.2, .7 + gap * .03) * sp.speed
+      : SPEED[state] * sp.speed * (this.small ? (Math.abs(dx) > LEASH ? 1.7 : 1.2) : 1);
+    this.speed += (target - this.speed) * (food ? .08 : .03) * dt;
     this.phase += (.05 + this.speed * .13) * dt;
     this.x += this.dir * this.speed * dt;
-    if (parent) {
+    if (food) this.targetY = food.y;
+    else if (parent) {
       if (Math.random() < .03 * dt || Math.abs(parent.y - this.targetY) > LEASH + parent.size)
         this.targetY = parent.y + (hash(this.key) & 1 ? 1 : -1) * ((parent.size + this.size) * sp.half + 8 + Math.random() * 25);
     } else if (Math.random() < .01 * dt) this.targetY = 70 + Math.random() * (bottom - 120);
-    this.targetY = Math.max(50, Math.min(bottom - this.size, this.targetY));
-    const agility = Math.max(.35, Math.min(1.2, this.speed / 3));
-    this.vy += ((this.targetY - this.y) * .0025 - this.vy * .06) * dt * agility;
-    const maxVy = Math.max(.5, this.speed * .7);
+    const floor = food ? bottom + 46 : bottom; // it may dip down to the sand for food
+    this.targetY = Math.max(50, Math.min(floor - (food ? 0 : this.size), this.targetY));
+    const agility = food ? 1.6 : Math.max(.35, Math.min(1.2, this.speed / 3));
+    this.vy += ((this.targetY - this.y) * (food ? .006 : .0025) - this.vy * (food ? .09 : .06)) * dt * agility;
+    const maxVy = Math.max(food ? 1.4 : .5, this.speed * .7);
     this.vy = Math.max(-maxVy, Math.min(maxVy, this.vy));
     this.y += (this.vy + Math.sin(t / 900 + this.bob) * .25) * dt;
     const m = this.size * 1.5;
-    if (this.x > right - m && this.dir > 0) { this.dir = -1; this.lastTurn = t; }
+    if (food) {
+      const fdx = food.x - this.x;
+      if (Math.abs(fdx) > this.size * .3 && Math.sign(fdx) !== this.dir) { this.dir = -this.dir; this.lastTurn = t; }
+      if (gap < reach) food.eaten = true;
+    }
+    else if (this.x > right - m && this.dir > 0) { this.dir = -1; this.lastTurn = t; }
     else if (this.x < m && this.dir < 0) { this.dir = 1; this.lastTurn = t; }
     else if (parent && Math.abs(dx) > LEASH && Math.sign(dx) !== this.dir) { this.dir = -this.dir; this.lastTurn = t; }
     else if (t - this.lastTurn > TURN_COOLDOWN_MS && Math.random() < .01 * dt) {
       this.dir = -this.dir; this.lastTurn = t;
       if (!this.small) this.targetY = 70 + Math.random() * (bottom - 120);
     }
-    this.y = Math.max(40, Math.min(bottom, this.y));
+    this.y = Math.max(40, Math.min(food ? floor : Math.max(bottom, this.y - dt), this.y)); // after a meal on the sand, rise back gently
     this.face += (this.dir - this.face) * .12 * dt;
     if (Math.abs(this.face) < .05) this.face = this.dir * .05;
 
@@ -139,7 +162,7 @@ export class Fish {
     this.labelText.position.set(this.x, this.y + s * labelY);
     this.question.visible = !this.small && state === 'waiting';
     if (this.question.visible) this.question.position.set(this.x, this.y - s * markY + Math.sin(t / 300) * 4);
-    const sleeping = !this.small && state === 'idle', k = (t / 1200) % 3;
+    const sleeping = !this.small && state === 'idle' && !this.meal, k = (t / 1200) % 3;
     this.zs.forEach((z, i) => {
       z.visible = sleeping && k > i;
       z.position.set(this.x + this.face * (s * .5 + i * 7), this.y - s * (markY - .3 + i * .25));

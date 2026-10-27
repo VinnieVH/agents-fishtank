@@ -9,6 +9,7 @@ import { Water } from './scene/water';
 import { Passersby } from './scene/passersby';
 import { Gauge } from './scene/gauge';
 import { Crab } from './scene/crab';
+import { Food } from './scene/food';
 import { lightFor, locationFromParams, makeClock, sunPosition, type Light } from './sky';
 import { SpeciesStore } from './species';
 import { paintTexture } from './art/canvas';
@@ -29,7 +30,8 @@ const fishLayer = new Container({ sortableChildren: true });
 const marksLayer = new Container();
 const gauge = new Gauge(res);
 const crab = new Crab(res, params);
-app.stage.addChild(terrain, passersby, water.rays, water.shimmer, water.backWeeds, water.anemones, water.bubbles,
+const food = new Food(res);
+app.stage.addChild(terrain, passersby, water.rays, water.shimmer, water.backWeeds, water.anemones, water.bubbles, food,
   sky, water.anemoneTips, water.plankton, fishLayer, marksLayer, water.frontWeeds, crab, gauge);
 
 let W = 0, H = 0, gold = 1, gems = 5;
@@ -87,6 +89,17 @@ function sync(data: Snapshot) {
 }
 connect(sync);
 
+// ---------- feeding: click the water to drop a pinch of food; the nearest fish that isn't eating yet comes for it ----------
+app.canvas.style.cursor = 'pointer';
+app.canvas.addEventListener('pointerdown', e => {
+  const r = app.canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+  if (y > sandY(H)) return; // not in the sand
+  const pinch = food.drop(x, y);
+  const all = [...fish.values()], free = all.filter(f => !f.meal);
+  const pick = (free.length ? free : all).reduce<Fish | null>((a, f) => !a || Math.hypot(f.x - x, f.y - y) < Math.hypot(a.x - x, a.y - y) ? f : a, null);
+  if (pick) pick.meal = pinch;
+});
+
 // ---------- day / night: follows the real sun for this PC's clock and timezone ----------
 // Location is estimated from the timezone; override with ?lat=51.05&lon=3.72. Preview with ?time=21:30 or ?timelapse.
 const clock = makeClock(params), where = locationFromParams(params), timelapse = params.has('timelapse');
@@ -107,6 +120,7 @@ app.ticker.add(ticker => {
   passersby.update(t, dt, W, H);
   gauge.update(t, dt);
   crab.update(t, dt, W, H, calm, light.night);
+  food.update(t, dt, sandY(H) + 6);
   water.update(t, dt, busy, light.day, light.night);
   const tank = { t, dt, right: W, bottom: sandY(H) - 40, night: light.night };
   for (const f of fish.values()) f.update(tank, sessions.get(f.sessionId)?.state ?? 'idle', f.small ? fish.get(f.sessionId) : undefined);

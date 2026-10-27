@@ -20,6 +20,8 @@ Every session is a glowing fish: it **races around while the agent is working**,
 - When every session is idle (or there are none), a little red crab comes out to stroll along the sand: he looks
   around, snaps his claws or does a little dance. When a new fish appears or a session gets busy, he jumps in fright and
   sprints off the screen.
+- Click the water to drop a pinch of fish food: it sinks slowly, and the nearest fish that isn't already eating darts
+  over and gobbles it up flake by flake. Uneaten flakes settle on the sand and fade away.
 - Day/night cycle that follows the real sun for your PC's clock and timezone: bright water by day, a warm glow at dawn
   and dusk, and moonlit water at night with bioluminescent plankton and extra-glowy fish. The location is estimated
   from your timezone; set it exactly with `?lat=51.05&lon=3.72`. Preview a time with `?time=22:30`, or watch a whole
@@ -96,7 +98,7 @@ The page is a [Vite](https://vite.dev) + TypeScript + PixiJS app in `src/`:
 | Path                 | What                                                                   |
 | -------------------- | ---------------------------------------------------------------------- |
 | `src/main.ts`        | Sets up the Pixi app, the layers, the session → fish sync and the loop |
-| `src/scene/`         | Fish (swim physics, bending body, labels), water, sky overlay, whale and shark passers-by, crab, credits gauge |
+| `src/scene/`         | Fish (swim physics, bending body, labels), water, sky overlay, whale and shark passers-by, crab, fish food, credits gauge |
 | `src/art/`           | Canvas 2D painters for the fish, terrain, whale, shark and crab, used as textures |
 | `src/sky.ts`         | Sun position and day/night light                                       |
 | `src/species.ts`     | Species table and the least-common species picker                      |
