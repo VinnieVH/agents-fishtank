@@ -1,4 +1,5 @@
 import { BlurFilter, CanvasSource, Container, Sprite, Texture } from 'pixi.js';
+import { paintShark } from '../art/shark';
 import { paintWhale } from '../art/whale';
 
 interface Kind {
@@ -13,6 +14,8 @@ interface Kind {
 const KINDS: Kind[] = [
   { name: 'whale', paint: paintWhale, length: W => Math.max(260, Math.min(460, W * .3)),
     box: { w: 1.2, h: .56, ox: .62, oy: .2 }, speed: .5, beat: .022, bob: 18, bobPeriod: 6000, tilt: .05, depth: [.14, .3] },
+  { name: 'shark', paint: paintShark, length: W => Math.max(200, Math.min(360, W * .22)),
+    box: { w: 1.1, h: .5, ox: .54, oy: .27 }, speed: .8, beat: .06, bob: 8, bobPeriod: 4000, tilt: .025, depth: [.18, .36] },
 ];
 
 /** One big animal drifting by far in the background, hazed into the water. */
@@ -68,11 +71,13 @@ class Passerby extends Sprite {
 }
 
 /**
- * Sends a whale past now and then. `?whale` in the URL summons it right away.
+ * Sends a whale or a great white past now and then, never both at once.
+ * `?whale` or `?shark` in the URL summons that one right away.
  */
 export class Passersby extends Container {
   private all: Passerby[];
   private active: Passerby | null = null;
+  private last: Passerby | null = null;
   private next: number;
   private summon: Passerby | undefined;
 
@@ -87,12 +92,14 @@ export class Passersby extends Container {
   update(t: number, dt: number, W: number, H: number) {
     if (!this.active) {
       if (t < this.next) return;
-      this.active = this.summon ?? this.all[Math.floor(Math.random() * this.all.length)];
+      // mostly alternate, so the same animal rarely shows up twice in a row
+      const others = this.all.filter(p => p !== this.last);
+      this.active = this.summon ?? (Math.random() < .7 ? others[Math.floor(Math.random() * others.length)] : this.all[Math.floor(Math.random() * this.all.length)]);
       this.summon = undefined;
       this.active.start(t, W, H);
     }
     if (!this.active.update(t, dt, W)) {
-      this.active = null;
+      this.last = this.active; this.active = null;
       this.next = t + 90000 + Math.random() * 120000;
     }
   }
