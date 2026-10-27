@@ -3,9 +3,19 @@
 $ErrorActionPreference = 'Stop'
 
 $node = Get-Command node -ErrorAction SilentlyContinue
-if (-not $node) { Write-Error 'Node.js 18+ is required. Install it from https://nodejs.org and run this again.' }
-$major = [int]((& node --version).TrimStart('v').Split('.')[0])
-if ($major -lt 18) { Write-Error "Node.js 18+ is required (found $(& node --version))." }
+if (-not $node) { Write-Error 'Node.js 20.19+ is required. Install it from https://nodejs.org and run this again.' }
+$ver = [version]((& node --version).TrimStart('v'))
+if ($ver -lt [version]'20.19.0') { Write-Error "Node.js 20.19+ is required (found v$ver)." }
+
+# Build the page (Vite + PixiJS) into dist/, which server.js serves.
+Push-Location $PSScriptRoot
+try {
+  Write-Host 'Installing dependencies and building the fishtank...'
+  & npm ci --no-audit --no-fund
+  if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' }
+  & npm run build
+  if ($LASTEXITCODE -ne 0) { throw 'npm run build failed.' }
+} finally { Pop-Location }
 
 $copilotHome = if ($env:COPILOT_HOME) { $env:COPILOT_HOME } else { Join-Path $env:USERPROFILE '.copilot' }
 $hooksDir = Join-Path $copilotHome 'hooks'

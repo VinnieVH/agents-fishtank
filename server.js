@@ -164,20 +164,41 @@ if (!KEEP_ALIVE) {
   }), 5000);
 }
 
+// The page is built by Vite into dist/ (npm run build).
+const DIST = path.join(__dirname, 'dist');
+const MIME = {
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.wasm': 'application/wasm',
+};
+function serveStatic(url, res) {
+  let rel;
+  try { rel = decodeURIComponent(url === '/' ? '/index.html' : url); } catch { res.writeHead(400); res.end(); return; }
+  const file = path.join(DIST, path.normalize(rel));
+  if (!file.startsWith(DIST + path.sep)) { res.writeHead(403); res.end(); return; }
+  fs.stat(file, (err, st) => {
+    if (err || !st.isFile()) {
+      if (rel === '/index.html') {
+        res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('The fishtank page is not built yet. Run: npm install && npm run build');
+      } else { res.writeHead(404); res.end(); }
+      return;
+    }
+    const cache = rel.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache';
+    res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': cache });
+    fs.createReadStream(file).pipe(res);
+  });
+}
+
 http.createServer((req, res) => {
-  if (req.url === '/events') {
+  const url = req.url.split('?')[0];
+  if (url === '/events') {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
     res.write(`data: ${JSON.stringify(snapshot())}\n\n`);
     clients.add(res);
     req.on('close', () => clients.delete(res));
     return;
   }
-  if (req.url === '/' || req.url === '/index.html') {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    fs.createReadStream(path.join(__dirname, 'index.html')).pipe(res);
-    return;
-  }
-  res.writeHead(404); res.end();
+  serveStatic(url, res);
 }).on('error', err => {
   if (err.code === 'EADDRINUSE') { console.log(`Port ${PORT} is already in use (fishtank already running?).`); process.exit(0); }
   throw err;

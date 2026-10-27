@@ -5,11 +5,16 @@ set -e
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if ! command -v node >/dev/null 2>&1; then
-  echo "Node.js 18+ is required. Install it from https://nodejs.org and run this again." >&2; exit 1
+  echo "Node.js 20.19+ is required. Install it from https://nodejs.org and run this again." >&2; exit 1
 fi
-MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
-if [ "$MAJOR" -lt 18 ]; then echo "Node.js 18+ is required (found $(node --version))." >&2; exit 1; fi
+if ! node -e 'const [a,b]=process.versions.node.split(".").map(Number); process.exit(a>20||(a===20&&b>=19)?0:1)'; then
+  echo "Node.js 20.19+ is required (found $(node --version))." >&2; exit 1
+fi
 if ! command -v curl >/dev/null 2>&1; then echo "curl is required." >&2; exit 1; fi
+
+# Build the page (Vite + PixiJS) into dist/, which server.js serves.
+echo "Installing dependencies and building the fishtank..."
+(cd "$DIR" && npm ci --no-audit --no-fund && npm run build)
 
 chmod +x "$DIR/start-fishtank.sh"
 HOOKS_DIR="${COPILOT_HOME:-$HOME/.copilot}/hooks"
