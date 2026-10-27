@@ -2,10 +2,12 @@ import { Application, Container, Sprite, Texture } from 'pixi.js';
 import './style.css';
 import { paintTerrain, sandY } from './art/terrain';
 import { connect, renderPanel, setSkyText, type Session, type Snapshot } from './panel';
+import { credits } from './credits';
 import { Fish } from './scene/fish';
 import { SkyOverlay } from './scene/sky';
 import { Water } from './scene/water';
 import { Passersby } from './scene/passersby';
+import { Gauge } from './scene/gauge';
 import { lightFor, locationFromParams, makeClock, sunPosition, type Light } from './sky';
 import { SpeciesStore } from './species';
 import { paintTexture } from './art/canvas';
@@ -24,13 +26,14 @@ const water = new Water();
 const sky = new SkyOverlay();
 const fishLayer = new Container({ sortableChildren: true });
 const marksLayer = new Container();
+const gauge = new Gauge(res);
 app.stage.addChild(terrain, passersby, water.rays, water.shimmer, water.backWeeds, water.anemones, water.bubbles,
-  sky, water.anemoneTips, water.plankton, fishLayer, marksLayer, water.frontWeeds);
+  sky, water.anemoneTips, water.plankton, fishLayer, marksLayer, water.frontWeeds, gauge);
 
-let W = 0, H = 0;
+let W = 0, H = 0, gold = 1, gems = 5;
 function paintBackdrop() {
   const old = terrain.texture;
-  terrain.texture = paintTexture(W, H, res, g => paintTerrain(g, W, H));
+  terrain.texture = paintTexture(W, H, res, g => paintTerrain(g, W, H, gold, gems));
   if (old !== Texture.EMPTY) old.destroy(true);
 }
 function resize() {
@@ -38,6 +41,7 @@ function resize() {
   paintBackdrop();
   water.build(W, H);
   sky.resize(W, H);
+  gauge.layout(W, H);
 }
 app.renderer.on('resize', resize);
 resize();
@@ -71,6 +75,12 @@ function sync(data: Snapshot) {
   for (const [k, f] of fish) if (!wanted.has(k)) { f.destroy(); fish.delete(k); }
   species.prune(new Set(data.sessions.map(s => s.id)));
   renderPanel(data, id => fish.get(id)?.neon ?? '#fff');
+
+  // credits: the pressure gauge, and the gold and gems in the treasure chest (repainted only when they change)
+  const c = credits(data.quota);
+  gauge.set(c);
+  const g = c ? c.gold : 1, s = c ? c.gems : 5;
+  if (g !== gold || s !== gems) { gold = g; gems = s; paintBackdrop(); }
 }
 connect(sync);
 
@@ -91,6 +101,7 @@ app.ticker.add(ticker => {
   const busy = [...sessions.values()].some(s => s.state === 'working');
 
   passersby.update(t, dt, W, H);
+  gauge.update(t, dt);
   water.update(t, dt, busy, light.day, light.night);
   const tank = { t, dt, right: W, bottom: sandY(H) - 40, night: light.night };
   for (const f of fish.values()) f.update(tank, sessions.get(f.sessionId)?.state ?? 'idle', f.small ? fish.get(f.sessionId) : undefined);

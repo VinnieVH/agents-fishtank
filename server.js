@@ -16,6 +16,39 @@ const KEEP_ALIVE = process.env.FISHTANK_KEEP_ALIVE === '1';
 // id -> { offset, partial, state, lastEvent, subagents: Map, title, name, nameMtime }
 const sessions = new Map();
 
+// Latest premium credit snapshot. The CLI logs one with every model call (quotaSnapshots.premium_interactions).
+let quota = null;
+function noteQuota(d, ts) {
+  const q = d.quotaSnapshots && d.quotaSnapshots.premium_interactions;
+  if (!q || (quota && ts < quota.at)) return;
+  quota = {
+    entitlement: q.entitlementRequests, used: q.usedRequests, remainingPct: q.remainingPercentage,
+    unlimited: !!q.isUnlimitedEntitlement, overage: q.overage || 0, resetDate: q.resetDate || '', at: ts,
+  };
+}
+
+// On startup, find the last snapshot in the most recently written logs (also older than an hour),
+// so the credits show before the first model call of a new session. Only the tail of each file is read.
+function seedQuota() {
+  let files = [];
+  try {
+    files = fs.readdirSync(ROOT, { withFileTypes: true }).filter(d => d.isDirectory()).map(d => {
+      const file = path.join(ROOT, d.name, 'events.jsonl');
+      try { return { file, st: fs.statSync(file) }; } catch { return null; }
+    }).filter(Boolean).sort((a, b) => b.st.mtimeMs - a.st.mtimeMs).slice(0, 10);
+  } catch { return; }
+  for (const { file, st } of files) {
+    const len = Math.min(st.size, 4 * 1024 * 1024), buf = Buffer.alloc(len);
+    try { const fd = fs.openSync(file, 'r'); fs.readSync(fd, buf, 0, len, st.size - len); fs.closeSync(fd); } catch { continue; }
+    const lines = buf.toString('utf8').split('\n');
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (!lines[i].includes('"quotaSnapshots"')) continue;
+      try { const ev = JSON.parse(lines[i]); noteQuota(ev.data || {}, Date.parse(ev.timestamp) || st.mtimeMs); break; } catch { /* partial line */ }
+    }
+    if (quota) return;
+  }
+}
+
 const WORKING = new Set([
   'user.message', 'assistant.turn_start', 'assistant.message', 'model.turn_started',
   'model.model_call_started', 'model.response', 'tool.execution_complete',
@@ -29,6 +62,7 @@ function applyEvent(s, ev) {
   const d = ev.data || {};
   const ts = Date.parse(ev.timestamp) || Date.now();
   s.lastEvent = Math.max(s.lastEvent, ts);
+  if (d.quotaSnapshots) noteQuota(d, ts);
   if (t === 'tool.execution_start') {
     s.state = d.toolName === 'ask_user' ? 'waiting' : 'working';
   } else if (t === 'permission.requested') {
@@ -110,7 +144,7 @@ function snapshot() {
     if (state === 'working' && stale) state = 'idle';
     list.push({ id, state, name: s.name || s.title || id.slice(0, 8), subagents, lastEvent: s.lastEvent });
   }
-  return { sessions: list, time: now };
+  return { sessions: list, time: now, quota };
 }
 
 function poll() {
@@ -126,6 +160,7 @@ setInterval(() => {
   for (const res of clients) res.write(msg);
 }, 1000);
 poll();
+if (!quota) seedQuota();
 
 // Each live CLI session holds an inuse.<pid>.lock file; the PID is the copilot process.
 function lockPids() {

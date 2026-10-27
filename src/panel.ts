@@ -1,3 +1,4 @@
+import type { Quota } from './credits';
 import type { State } from './scene/fish';
 import { dur, esc } from './util';
 
@@ -6,7 +7,7 @@ export interface Subagent {
   status: 'running' | 'done' | 'failed' | 'stopped'; start: number; end?: number;
 }
 export interface Session { id: string; name: string; state: State; lastEvent: number; subagents: Subagent[] }
-export interface Snapshot { time: number; sessions: Session[] }
+export interface Snapshot { time: number; sessions: Session[]; quota?: Quota | null }
 
 const listEl = document.getElementById('sessions')!, connEl = document.getElementById('conn')!;
 
