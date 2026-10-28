@@ -77,7 +77,7 @@ async function finish(code) {
 
 try {
   await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
-  await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/` });
+  await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/${process.env.SEED ? '?seed=' + process.env.SEED : ''}` }); // SEED=3 to try another
   for (let i = 0; !(await run('!!window.__ready && window.__ready()').catch(() => false)); i++) {
     if (i > 120) throw new Error('The tank never loaded');
     await sleep(250);
@@ -96,7 +96,7 @@ try {
   } else {
     // H.264 in yuv420p with the index up front: plays everywhere, including Safari, and starts before it's all loaded
     const ff = spawn(FFMPEG, ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-i', '-',
-      '-c:v', 'libx264', '-preset', 'slow', '-crf', '28', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out],
+      '-c:v', 'libx264', '-preset', 'slow', '-crf', '31', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out],
       { stdio: ['pipe', 'inherit', 'inherit'] });
     const done = new Promise((resolve, reject) => ff.on('close', c => c ? reject(new Error(`ffmpeg exited with ${c}`)) : resolve()));
     const frames = Math.round(length * FPS);

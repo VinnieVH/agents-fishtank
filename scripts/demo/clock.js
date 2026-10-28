@@ -14,7 +14,7 @@
   };
   performance.now = () => now;
 
-  let seed = 7;
+  let seed = Number(new URLSearchParams(location.search).get('seed')) || 7; // the stage picks one that frames the story well
   Math.random = () => { // mulberry32
     seed = (seed + 0x6d2b79f5) | 0;
     let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);

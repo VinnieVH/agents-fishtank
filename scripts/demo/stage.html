@@ -38,7 +38,7 @@
 </style>
 </head>
 <body>
-<iframe id="tank" src="tank.html?time=14:20"></iframe>
+<iframe id="tank"></iframe>
 <div id="term" class="term">
   <div class="bar"><i></i><i></i><i></i><span>~/shop — claude</span></div>
   <div class="body"><span class="you">&gt; fix the redirect loop after signing in</span>
@@ -72,7 +72,25 @@ const clamp = x => Math.min(1, Math.max(0, x));
 const ease = x => x < .5 ? 2 * x * x : 1 - (-2 * x + 2) ** 2 / 2;
 const ramp = (t, a, b) => clamp((t - a) / (b - a)); // 0 before a, 1 after b
 
-// ---- the sessions: the star is "Fix login redirect"; the other two keep working in the background ----
+// ---- the sessions: the star is "Fix login redirect" (the octopus); one of every other creature swims around it ----
+// [id, name, source, creature, glow, state]; the creatures and glows are set before the tank loads (its look memory)
+const CAST = [
+  ['demo-star', 'Fix login redirect', 'claude', 'octopus', '#ff00e6'],
+  ['demo-docs', 'Write API docs', 'claude', 'tropical', '#39ff14', 'working'],
+  ['demo-pay', 'Refactor payment service', 'copilot', 'koi', '#00f0ff', 'working'],
+  ['demo-deps', 'Upgrade dependencies', 'claude', 'sturgeon', '#fff200', 'idle'],
+  ['demo-dark', 'Add dark mode', 'claude', 'angelfish', '#ff6a00', 'working'],
+  ['demo-e2e', 'Fix flaky e2e tests', 'copilot', 'puffer', '#b026ff', 'working'],
+  ['demo-pg', 'Migrate to Postgres 17', 'claude', 'squid', '#00ffb3', 'working'],
+  ['demo-ci', 'Speed up CI', 'copilot', 'shrimp', '#ff2e63', 'working'],
+  ['demo-pdf', 'Invoice PDF export', 'claude', 'lobster', '#3d8bff', 'idle'],
+  ['demo-rate', 'Rate limiter', 'claude', 'angler', '#b6ff00', 'working'],
+  ['demo-search', 'Search autocomplete', 'copilot', 'lionfish', '#ff9ad5', 'working'],
+  ['demo-a11y', 'Accessibility audit', 'claude', 'seahorse', '#ffb000', 'working'],
+];
+const SEED = 6; // where the fish swim; chosen so the octopus is in clear view when it needs you
+localStorage.setItem('fishtank.species', JSON.stringify(Object.fromEntries(CAST.map(([id, , , species, neon]) => [id, { species, neon }]))));
+tank.src = 'tank.html?time=14:20&seed=' + (new URLSearchParams(location.search).get('seed') || SEED);
 const STAR = { needs: 7, answered: 12, finished: 20.5 };
 function sessions(t) {
   const now = clock(t);
@@ -81,12 +99,10 @@ function sessions(t) {
   const starEvent = star === 'working' ? now - (t % 2) * 1000 : ms(t < STAR.answered ? STAR.needs : STAR.finished);
   const explore = t >= 2 ? [{ id: 'a-explore', name: 'Explore', type: 'Explore', status: t < STAR.needs - .5 ? 'running' : 'done',
     start: ms(2), end: t < STAR.needs - .5 ? undefined : ms(STAR.needs - .5) }] : [];
-  return [
-    { id: 'demo-star', source: 'claude', name: 'Fix login redirect', state: star, lastEvent: starEvent, subagents: explore },
-    { id: 'demo-docs', source: 'claude', name: 'Write API docs', state: 'working', lastEvent: now - (t % 3) * 1000, subagents: [] },
-    { id: 'demo-pay', source: 'copilot', name: 'Refactor payment service', state: 'working', lastEvent: now - (t % 4) * 1000,
-      subagents: [{ id: 'p-tests', name: 'run tests', type: 'task', status: 'running', start: ms(-40) }] },
-  ];
+  return CAST.map(([id, name, source, , , state], i) => id === 'demo-star'
+    ? { id, source, name, state: star, lastEvent: starEvent, subagents: explore }
+    : { id, source, name, state, lastEvent: state === 'idle' ? ms(-60 - i * 20) : now - ((t + i) % 4) * 1000,
+        subagents: id === 'demo-pay' ? [{ id: 'p-tests', name: 'run tests', type: 'task', status: 'running', start: ms(-40) }] : [] });
 }
 const clock = t => new Date(2026, 9, 28, 14, 20).getTime() + (t + WARM) * 1000;
 const WARM = 4; // seconds the tank runs before the first frame, so the fish are already swimming
