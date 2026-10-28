@@ -35,7 +35,7 @@ You need **Claude Code** and/or **GitHub Copilot CLI**. Nothing else; not even N
 ### Download it
 
 Get the installer for your computer from the
-[latest release](https://github.com/VinnieVH/copilot-fishtank/releases/latest):
+[latest release](https://github.com/VinnieVH/agents-fishtank/releases/latest):
 
 | Your computer | Download |
 | --- | --- |
@@ -58,8 +58,8 @@ Get the installer for your computer from the
 You need [Git](https://git-scm.com) and [Node.js](https://nodejs.org) 22.18 or newer.
 
 ```bash
-git clone https://github.com/VinnieVH/copilot-fishtank.git
-cd copilot-fishtank
+git clone https://github.com/VinnieVH/agents-fishtank.git
+cd agents-fishtank
 npm ci
 npm run dist
 ```

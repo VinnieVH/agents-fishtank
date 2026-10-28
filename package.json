@@ -33,9 +33,9 @@
   "author": "Vincent Van Herreweghe",
   "repository": {
     "type": "git",
-    "url": "https://github.com/VinnieVH/copilot-fishtank.git"
+    "url": "https://github.com/VinnieVH/agents-fishtank.git"
   },
-  "homepage": "https://github.com/VinnieVH/copilot-fishtank",
+  "homepage": "https://github.com/VinnieVH/agents-fishtank",
   "build": {
     "appId": "com.vinnievh.agent-fishtank",
     "productName": "Agent Fishtank",
