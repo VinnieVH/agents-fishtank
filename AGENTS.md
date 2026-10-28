@@ -24,7 +24,9 @@ change.
 The demo video on the website (`site/demo.mp4`) is recorded from the real tank by `npm run demo:record` (needs Google
 Chrome and ffmpeg; set `CHROME`/`FFMPEG` if they aren't in the usual place). The story (sessions, terminal and
 mouse) is in `scripts/demo/stage.html`. Re-record it when the tank's look changes noticeably; check a few frames first
-with `node scripts/demo/record.mjs --stills 3,8,11,17,22 <dir>`. Keep the video around 3 MB: each new recording adds
+with `node scripts/demo/record.mjs --stills 3,8,11,17,22 <dir>`. The website's creatures page (`site/creatures.html`)
+shows pictures made by `node scripts/demo/creatures.mjs` (writes `site/creatures/*.png`); run it again after adding
+or changing a creature, and add a card for a new one. Keep the video around 3 MB: each new recording adds
 to the repository's size for good.
 
 ## Rules
