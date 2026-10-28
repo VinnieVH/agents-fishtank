@@ -3,11 +3,13 @@ import './style.css';
 import { paintTerrain, sandY } from './art/terrain';
 import { connect, renderPanel, setSkyText, type Session, type Snapshot } from './panel';
 import { credits } from './credits';
+import { airTanks } from './limits';
 import { Fish } from './scene/fish';
 import { SkyOverlay } from './scene/sky';
 import { Water } from './scene/water';
 import { Passersby } from './scene/passersby';
 import { Gauge } from './scene/gauge';
+import { AirTanks } from './scene/tanks';
 import { Crab } from './scene/crab';
 import { Food } from './scene/food';
 import { lightFor, locationFromParams, makeClock, sunPosition, type Light } from './sky';
@@ -31,8 +33,9 @@ const marksLayer = new Container();
 const gauge = new Gauge(res);
 const crab = new Crab(res, params);
 const food = new Food(res);
+const tanks = new AirTanks(res);
 app.stage.addChild(terrain, passersby, water.rays, water.shimmer, water.backWeeds, water.anemones, water.bubbles, food,
-  sky, water.anemoneTips, water.plankton, fishLayer, marksLayer, water.frontWeeds, crab, gauge);
+  sky, water.anemoneTips, water.plankton, fishLayer, marksLayer, water.frontWeeds, tanks, crab, gauge);
 
 let W = 0, H = 0, gold = 1, gems = 5;
 function paintBackdrop() {
@@ -46,6 +49,7 @@ function resize() {
   water.build(W, H);
   sky.resize(W, H);
   gauge.layout(W, H);
+  tanks.layout(W, H);
 }
 app.renderer.on('resize', resize);
 resize();
@@ -86,6 +90,9 @@ function sync(data: Snapshot) {
   gauge.set(c);
   const g = c ? c.gold : 1, s = c ? c.gems : 5;
   if (g !== gold || s !== gems) { gold = g; gems = s; paintBackdrop(); }
+
+  // Claude plan usage: the diver's air tanks
+  tanks.set(airTanks(data.limits, data.time));
 }
 connect(sync);
 
@@ -119,6 +126,7 @@ app.ticker.add(ticker => {
 
   passersby.update(t, dt, W, H);
   gauge.update(t, dt);
+  tanks.update(t, dt);
   crab.update(t, dt, W, H, calm, light.night);
   food.update(t, dt, sandY(H) + 6);
   water.update(t, dt, busy, light.day, light.night);

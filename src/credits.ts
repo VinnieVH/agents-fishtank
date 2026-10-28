@@ -1,8 +1,6 @@
-/** Premium credit snapshot as sent by server.js (from the CLI's quotaSnapshots.premium_interactions). */
-export interface Quota {
-  entitlement: number; used: number; remainingPct: number; unlimited: boolean;
-  overage: number; resetDate: string; at: number;
-}
+import type { Quota } from '../shared/types';
+
+export type { Quota } from '../shared/types';
 
 export interface Credits {
   usedPct: number;    // 0..100, like VS Code's "80% used"

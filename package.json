@@ -1,18 +1,19 @@
 {
-  "name": "copilot-fishtank",
+  "name": "agent-fishtank",
   "version": "1.0.0",
-  "description": "A live aquarium that visualizes GitHub Copilot CLI agent activity",
-  "main": "server.js",
+  "type": "module",
+  "description": "A live aquarium that visualizes GitHub Copilot CLI and Claude Code agent activity",
+  "main": "server/index.ts",
   "scripts": {
-    "start": "node server.js",
+    "start": "node server/index.ts",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.server.json",
     "test": "vitest run"
   },
   "engines": {
-    "node": ">=20.19"
+    "node": ">=22.18"
   },
   "license": "MIT",
   "dependencies": {

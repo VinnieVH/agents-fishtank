@@ -1,0 +1,12 @@
+{
+  // The server and scripts run straight from source with Node's type stripping (node server/index.ts),
+  // so they may only use TypeScript syntax that can be erased: no enums, namespaces or parameter properties.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "types": ["node"],
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": ["server", "shared", "scripts"]
+}

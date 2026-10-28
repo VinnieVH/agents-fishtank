@@ -48,7 +48,7 @@ export class Gauge extends Container {
     this.position.set(cx - C, cy - C);
     const used = c.unlimited ? '∞' : `${Math.floor(c.usedPct)}%`;
     const left = c.unlimited ? 'unlimited' : `${c.left.toLocaleString()} left`;
-    const reset = [left, c.reset ? `resets ${c.reset.toLocaleDateString([], { month: 'short', day: 'numeric' })}` : ''].filter(Boolean).join(' · ');
+    const reset = [left, c.reset ? `resets ${c.reset.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}` : ''].filter(Boolean).join(' · ');
     const key = [r, stem, used, reset, c.usedPct >= 80].join('|');
     if (key === this.key) return;
     const geomChanged = r !== this.r || !this.needle.texture || this.needle.texture === Texture.EMPTY;

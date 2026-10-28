@@ -1,13 +1,9 @@
-import type { Quota } from './credits';
-import type { State } from './scene/fish';
+import type { Snapshot, Source } from '../shared/types';
 import { dur, esc } from './util';
 
-export interface Subagent {
-  id: string; name: string; type?: string; description?: string; model?: string;
-  status: 'running' | 'done' | 'failed' | 'stopped'; start: number; end?: number;
-}
-export interface Session { id: string; name: string; state: State; lastEvent: number; subagents: Subagent[] }
-export interface Snapshot { time: number; sessions: Session[]; quota?: Quota | null }
+export type { Session, Snapshot } from '../shared/types';
+
+const SOURCE: Record<Source, string> = { copilot: 'Copilot', claude: 'Claude' };
 
 const listEl = document.getElementById('sessions')!, connEl = document.getElementById('conn')!;
 
@@ -31,6 +27,7 @@ export function renderPanel(data: Snapshot, colorOf: (id: string) => string) {
     }).join('')}</ul>` : '';
     return `<div class="session ${s.state}">
       <div class="row"><i class="dot ${dot}"></i><span class="name" title="${esc(s.name)}">${esc(s.name)}</span>
+        <span class="src ${s.source}">${SOURCE[s.source]}</span>
         <span class="swatch" style="background:${color};box-shadow:0 0 6px ${color}"></span></div>
       <div class="meta">${label}${s.state === 'waiting' ? '<span class="tag waiting">input</span>' : ''} · ${dur(now - s.lastEvent)} ago</div>
       ${subHtml}</div>`;
@@ -41,7 +38,7 @@ export function renderPanel(data: Snapshot, colorOf: (id: string) => string) {
 export function connect(onData: (data: Snapshot) => void) {
   const es = new EventSource('/events');
   es.onmessage = e => { onData(JSON.parse(e.data)); connEl.textContent = 'live · updated ' + new Date().toLocaleTimeString(); };
-  es.onerror = () => { connEl.textContent = 'disconnected — is server.js running?'; };
+  es.onerror = () => { connEl.textContent = 'disconnected — is the server running? (npm start)'; };
   es.addEventListener('shutdown', () => {
     es.close();
     document.getElementById('closed')!.hidden = false;
