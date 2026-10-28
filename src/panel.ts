@@ -1,4 +1,4 @@
-import type { Snapshot, Source } from '../shared/types';
+import type { Session, Snapshot, Source } from '../shared/types';
 import type { Air, Tanks } from './limits';
 import type { Phase } from './sky';
 import { dur, esc } from './util';
@@ -7,12 +7,17 @@ export type { Session, Snapshot } from '../shared/types';
 
 const SOURCE: Record<Source, string> = { copilot: 'Copilot', claude: 'Claude' };
 
-const listEl = document.getElementById('sessions')!, connEl = document.getElementById('conn')!;
+const listEl = document.getElementById('sessions')!, connEl = document.getElementById('conn')!, countEl = document.getElementById('count')!;
 
 /** Renders the session list. colorOf gives the fish's neon colour for the swatch. */
 export function renderPanel(data: Snapshot, colorOf: (id: string) => string) {
   const now = data.time;
-  const sorted = [...data.sessions].sort((a, b) => b.lastEvent - a.lastEvent);
+  // the ones that need you on top, so they're never scrolled out of sight; then the most recently active
+  const waits = (s: Session) => s.state === 'waiting' ? 0 : 1;
+  const sorted = [...data.sessions].sort((a, b) => waits(a) - waits(b) || b.lastEvent - a.lastEvent);
+  const need = sorted.filter(s => s.state === 'waiting').length;
+  countEl.hidden = !sorted.length;
+  countEl.innerHTML = `${sorted.length} session${sorted.length === 1 ? '' : 's'}${need ? ` · <b>${need} need${need === 1 ? 's' : ''} you</b>` : ''}`;
   if (!sorted.length) { listEl.innerHTML = '<div class="empty">No sessions active in the last hour</div>'; return; }
   listEl.innerHTML = sorted.map(s => {
     const dot = s.state === 'working' ? 'on' : s.state === 'waiting' ? 'wait' : 'off';
