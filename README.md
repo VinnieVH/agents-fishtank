@@ -27,7 +27,10 @@ which session needs your attention.
 Each fish is named after its session: the name you gave it, Claude Code's title for it, or the start of your first
 prompt. Sessions get different creatures and glow colours, so no two look alike: a tropical fish, koi, sturgeon,
 angelfish, pufferfish, squid, shrimp, lobster, anglerfish, lionfish, octopus or seahorse
-([meet them all](https://vinnievh.github.io/agents-fishtank/creatures.html)). And just for fun: the water follows the real time of day (with glowing plankton at night), a whale or shark
+([meet them all](https://vinnievh.github.io/agents-fishtank/creatures.html)). Click a fish to jump to its session: the
+Claude desktop app opens it, iTerm or Terminal switches to its tab (other terminals and editors come to the front),
+and a Copilot session that has ended is resumed in a new terminal window. On a Mac, the first click asks to let Agent Fishtank
+control iTerm or Terminal; allow it (or later in **System Settings → Privacy & Security → Automation**). And just for fun: the water follows the real time of day (with glowing plankton at night), a whale or shark
 drifts by now and then, a crab comes out when everything is quiet, and you can click the water to feed the fish.
 
 ## Install
@@ -270,6 +273,8 @@ Windows.
 | `shared/types.ts` | The live feed's types, shared by the server and the page |
 | `server/server.ts` | HTTP server: `/events` feed, `/hook/claude`, `/statusline/claude`, `/settings`, the page, idle check |
 | `server/copilot.ts`, `server/claude.ts` | Session state from Copilot's logs and from Claude Code's hooks and files |
+| `server/desktop.ts` | Which Claude Code sessions run in the Claude desktop app, so clicking their fish opens them there |
+| `server/terminal.ts` | Brings a session's terminal tab to the front, or resumes a session in a new terminal window |
 | `server/logtail.ts` | Follows a growing log a few new lines at a time |
 | `server/index.ts` | Runs the server on its own, for development |
 | `electron/main.ts` | The app: window, menu, connect dialog, notifications, start at login, quitting when idle |

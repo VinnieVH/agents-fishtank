@@ -9,7 +9,13 @@ export interface Subagent {
   status: 'running' | 'done' | 'failed' | 'stopped'; start: number; end?: number;
 }
 
-export interface Session { id: string; source: Source; name: string; state: State; lastEvent: number; subagents: Subagent[] }
+export interface Session {
+  id: string; source: Source; name: string; state: State; lastEvent: number; subagents: Subagent[];
+  /** Opens the session where it runs, e.g. a Claude Code session in the Claude desktop app; clicking its fish follows it. */
+  link?: string;
+  /** Clicking its fish brings the terminal it runs in to the front, or resumes it in a new one (POST /open). */
+  terminal?: boolean;
+}
 
 /** Copilot premium credit snapshot (from the CLI's quotaSnapshots.premium_interactions). Claude Code has plan limits instead (ClaudeLimits). */
 export interface Quota {

@@ -8,6 +8,8 @@ import type { ClaudeLimits, Snapshot } from '../shared/types.ts';
 import { DEFAULT_SETTINGS, mergeSettings, type Settings } from '../shared/settings.ts';
 import { Copilot } from './copilot.ts';
 import { Claude, limitsFrom, parseHook } from './claude.ts';
+import { DesktopSessions } from './desktop.ts';
+import { focusTerminal, resumeInTerminal } from './terminal.ts';
 
 const IDLE_GRACE_MS = 15 * 1000;         // idle once no agent CLI process has been running this long
 const MAX_HOOK_BYTES = 16 * 1024 * 1024; // hook payloads include tool input, e.g. a whole file being written
@@ -20,6 +22,8 @@ export interface ServerOptions {
   distDir: string;
   copilotSessionDir?: string;
   claudeConfigDir?: string;
+  /** The Claude desktop app's sessions folder (server/desktop.ts), for testing. */
+  claudeDesktopSessionsDir?: string;
   /**
    * Called once when no Copilot CLI or Claude Code has been running for a while. With `waitForCli`, only after one
    * has been seen running, so a fishtank opened by hand doesn't go away by itself.
@@ -49,7 +53,7 @@ export interface Fishtank {
 /** Starts the server; rejects with the listen error, e.g. EADDRINUSE when another fishtank already runs. */
 export function startServer(o: ServerOptions): Promise<Fishtank> {
   const copilot = new Copilot(o.copilotSessionDir || path.join(os.homedir(), '.copilot', 'session-state'));
-  const claude = new Claude(o.claudeConfigDir || path.join(os.homedir(), '.claude'));
+  const claude = new Claude(o.claudeConfigDir || path.join(os.homedir(), '.claude'), new DesktopSessions(o.claudeDesktopSessionsDir));
 
   // Claude plan usage arrives with status line updates (electron/cli.ts statusline). The last one is kept in a temp
   // file, so the air tanks show right away the next time the fishtank starts.
@@ -124,9 +128,9 @@ export function startServer(o: ServerOptions): Promise<Fishtank> {
     });
   }
 
-  // The settings dialog posts its changes here. Besides JSON (see above), only the fishtank's own page may: a request
-  // from anywhere but a localhost origin is refused.
-  function changeSettingsFrom(req: http.IncomingMessage, res: http.ServerResponse) {
+  // The page posts settings changes and fish clicks here. Besides JSON (see above), only the fishtank's own page may:
+  // a request from anywhere but a localhost origin is refused.
+  function fromPage(req: http.IncomingMessage, res: http.ServerResponse, act: (body: unknown) => void | Promise<void>) {
     let host = '';
     try { host = new URL(req.headers.origin || '').hostname; } catch { /* no origin */ }
     const json = (req.headers['content-type'] || '').startsWith('application/json');
@@ -134,13 +138,22 @@ export function startServer(o: ServerOptions): Promise<Fishtank> {
     const chunks: Buffer[] = [];
     let size = 0;
     req.on('data', (c: Buffer) => { size += c.length; if (size <= 64 * 1024) chunks.push(c); });
-    req.on('end', () => {
-      let change: unknown = null;
-      try { change = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { /* ignored below */ }
-      if (size > 64 * 1024 || !change) { res.writeHead(400); res.end(); return; }
-      try { changeSettings(change); } catch (e) { res.writeHead(500); res.end(String(e)); return; }
+    req.on('end', async () => {
+      let body: unknown = null;
+      try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { /* ignored below */ }
+      if (size > 64 * 1024 || !body) { res.writeHead(400); res.end(); return; }
+      try { await act(body); } catch (e) { res.writeHead(500); res.end(String(e)); return; }
       res.writeHead(204); res.end();
     });
+  }
+
+  /** Brings the terminal of the session { id } to the front; a Copilot session that has ended is resumed in a new one. */
+  async function open(body: unknown) {
+    const id = body && typeof body === 'object' && 'id' in body && typeof body.id === 'string' ? body.id : '';
+    const pid = claude.pidOf(id) ?? copilot.pidOf(id);
+    if (pid) { if (await focusTerminal(pid)) return; }
+    else if (copilot.has(id) && /^[A-Za-z0-9-]{1,64}$/.test(id) && await resumeInTerminal(['copilot', '--resume', id], copilot.cwdOf(id))) return;
+    throw new Error('No terminal found for this session');
   }
 
   const DIST = path.resolve(o.distDir);
@@ -175,7 +188,8 @@ export function startServer(o: ServerOptions): Promise<Fishtank> {
     if (req.method === 'POST' && url === '/statusline/claude') {
       return receive(req, res, body => { const l = limitsFrom(body, Date.now()); if (l) noteLimits(l); });
     }
-    if (req.method === 'POST' && url === '/settings') return changeSettingsFrom(req, res);
+    if (req.method === 'POST' && url === '/settings') return fromPage(req, res, changeSettings);
+    if (req.method === 'POST' && url === '/open') return fromPage(req, res, open);
     if (url === '/events') {
       res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
       res.write(`data: ${JSON.stringify(snapshot())}\n\n`);

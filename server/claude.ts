@@ -5,7 +5,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { ClaudeLimits, LimitWindow, Session, State } from '../shared/types.ts';
+import { DesktopSessions } from './desktop.ts';
 import { LogTail } from './logtail.ts';
+import { canFocusTerminals } from './terminal.ts';
 import { RECENT_MS, STALE_MS, forgetOldSubagents, newTracked, pidAlive, stopSubagents, titleFrom, toSession, type Tracked } from './session.ts';
 
 /** The hook input fields we use (https://code.claude.com/docs/en/hooks). */
@@ -26,6 +28,8 @@ export interface ClaudeSession extends Tracked {
   ended: boolean;
   /** Has sent a hook event, i.e. has really been used (not just opened). */
   hooked: boolean;
+  /** The Claude Code process, while it runs. */
+  pid?: number;
   /** From the running session's file: its state right now, and the name the user gave it with /rename. */
   live?: { state: State; name: string };
   /** The session's titles from its transcript: the one Claude Code generated, and one the user set. */
@@ -173,7 +177,9 @@ export class Claude {
   /** When we last looked for a session's transcript, for sessions no hook has told us about yet. */
   private searched = new Map<string, number>();
 
-  constructor(configDir: string) { this.configDir = configDir; }
+  private desktop: DesktopSessions;
+
+  constructor(configDir: string, desktop = new DesktopSessions()) { this.configDir = configDir; this.desktop = desktop; }
 
   private session(id: string) {
     let s = this.sessions.get(id);
@@ -198,11 +204,12 @@ export class Claude {
       if (typeof r.sessionId !== 'string' || !r.sessionId) continue;
       const s = this.session(r.sessionId);
       s.live = liveFrom(r);
+      s.pid = pid;
       if (typeof r.statusUpdatedAt === 'number') s.lastEvent = Math.max(s.lastEvent, r.statusUpdatedAt);
       live.add(r.sessionId);
     }
     for (const [id, s] of this.sessions) {
-      if (!live.has(id)) s.live = undefined;
+      if (!live.has(id)) { s.live = undefined; s.pid = undefined; }
       // an opened session that's gone again without ever being used, e.g. its temporary id before the first message
       if (!s.live && !isShown(s)) { this.sessions.delete(id); this.searched.delete(id); continue; }
       if (!s.transcript) this.findTranscript(id, s);
@@ -231,10 +238,15 @@ export class Claude {
       forgetOldSubagents(s, now);
       const shown = { ...s, state: s.live?.state ?? s.state, name: nameOf(s) };
       const session = toSession(id, 'claude', shown, now);
-      if (session) out.push(session);
+      if (!session) continue;
+      const link = this.desktop.link(id, now);
+      out.push(link ? { ...session, link } : s.pid && canFocusTerminals ? { ...session, terminal: true } : session);
     }
     return out;
   }
+
+  /** The process of a running session, to bring its terminal to the front. */
+  pidOf(id: string) { return this.sessions.get(id)?.pid; }
 
   /** True while any Claude Code session is running (as of the last poll; spares and daemons don't count), or one that
    *  hasn't ended was recently active. */

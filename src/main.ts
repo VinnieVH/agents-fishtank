@@ -102,10 +102,28 @@ function sync(data: Snapshot) {
 }
 connect(sync);
 
+// ---------- clicking a fish opens its session: in the Claude desktop app, or by bringing its terminal to the front ----------
+/** The session whose fish (or subagent fish) is at (x, y) and can be opened; the biggest fish wins, as it's drawn on top. */
+function sessionAt(x: number, y: number) {
+  let best: { size: number; session: Session } | undefined;
+  for (const f of fish.values()) {
+    const session = sessions.get(f.sessionId);
+    if (session && (session.link || session.terminal) && f.hit(x, y) && (!best || f.size > best.size)) best = { size: f.size, session };
+  }
+  return best?.session;
+}
+
+function open(s: Session) {
+  if (s.link) { location.href = s.link; return; } // the desktop app catches the navigation (electron/main.ts)
+  void fetch('/open', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: s.id }) });
+}
+
 // ---------- feeding: click the water to drop a pinch of food; the nearest fish that isn't eating yet comes for it ----------
 app.canvas.style.cursor = 'pointer';
 app.canvas.addEventListener('pointerdown', e => {
   const r = app.canvas.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+  const session = sessionAt(x, y);
+  if (session) { open(session); return; }
   if (y > sandY(H)) return; // not in the sand
   const pinch = food.drop(x, y);
   const all = [...fish.values()], free = all.filter(f => !f.meal);

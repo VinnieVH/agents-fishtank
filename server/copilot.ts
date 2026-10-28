@@ -4,6 +4,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import type { Quota, Session } from '../shared/types.ts';
 import { LogTail } from './logtail.ts';
+import { canFocusTerminals } from './terminal.ts';
 import { RECENT_MS, forgetOldSubagents, newTracked, pidAlive, stopSubagents, titleFrom, toSession, type Tracked } from './session.ts';
 
 // A session seen for the first time is read from at most this far before the end: its recent state is all we need,
@@ -142,7 +143,34 @@ export class Copilot {
       if (now - s.lastEvent > RECENT_MS && now - s.mtime > RECENT_MS) this.sessions.delete(id);
       else forgetOldSubagents(s, now);
     }
-    return [...this.sessions].flatMap(([id, s]) => toSession(id, 'copilot', s, now) ?? []);
+    return [...this.sessions].flatMap(([id, s]) => {
+      const session = toSession(id, 'copilot', s, now);
+      if (!session) return [];
+      return canFocusTerminals ? { ...session, terminal: true } : session; // its terminal, or resumed in a new one
+    });
+  }
+
+  has(id: string) { return this.sessions.has(id); }
+
+  /** The folder a session was started in, from its workspace.yaml (best effort), to resume it there. */
+  cwdOf(id: string) {
+    if (!this.sessions.has(id)) return undefined;
+    try {
+      const m = /^cwd:\s*(.+)$/m.exec(fs.readFileSync(path.join(this.root, id, 'workspace.yaml'), 'utf8'));
+      return m ? m[1].trim().replace(/^(['"])(.*)\1$/, '$2') : undefined;
+    } catch { return undefined; }
+  }
+
+  /** The CLI process of a running session (it holds an inuse.<pid>.lock file), to bring its terminal to the front. */
+  pidOf(id: string) {
+    if (!this.sessions.has(id)) return undefined;
+    let files: string[] = [];
+    try { files = fs.readdirSync(path.join(this.root, id)); } catch { return undefined; }
+    for (const f of files) {
+      const m = /^inuse\.(\d+)\.lock$/.exec(f);
+      if (m && pidAlive(Number(m[1]))) return Number(m[1]);
+    }
+    return undefined;
   }
 
   // Each live CLI session holds an inuse.<pid>.lock file; the PID is the copilot process.

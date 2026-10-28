@@ -155,6 +155,12 @@ function createWindow() {
   });
   win.on('closed', () => { win = null; if (!quitting) app.quit(); });
   win.webContents.setWindowOpenHandler(({ url }) => { void shell.openExternal(url); return { action: 'deny' }; });
+  // a fish's session link (claude://…, see server/desktop.ts) opens in the app it belongs to, not in this window
+  win.webContents.on('will-navigate', (e, url) => {
+    if (!url.startsWith('claude:')) return;
+    e.preventDefault();
+    void shell.openExternal(url);
+  });
   const url = new URL(process.env.FISHTANK_DEV_URL || tank!.url);
   for (const arg of process.argv) {
     const m = /^--([a-z]+)(?:=(.*))?$/.exec(arg);

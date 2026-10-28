@@ -93,6 +93,13 @@ export class Fish {
 
   setLabel(text: string) { if (text !== this.label) this.labelText.text = this.label = text; }
 
+  /** Whether (x, y) is on the fish, or on the question mark above it, with a few pixels to spare. */
+  hit(x: number, y: number) {
+    const sp = SPECIES[this.species], [l, top, r, bottom] = sp.bounds, s = this.size, pad = 6;
+    const dx = (x - this.x) * Math.sign(this.face), dy = y - this.y;
+    return dx >= l * s - pad && dx <= r * s + pad && dy >= Math.min(top, -sp.markY - .5) * s - pad && dy <= bottom * s + pad;
+  }
+
   get mouthX() { return this.x + this.face * SPECIES[this.species].bounds[2] * this.size * .85; }
 
   /** The nearest flake of its meal that is still there (and forgets the meal once it's all gone). */
