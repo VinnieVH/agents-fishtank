@@ -19,8 +19,8 @@ To try the packaged app: `npm run dist:dir`, then `release/mac-arm64/Agent Fisht
 ## Rules
 
 - **Commits:** Conventional Commits, title only (no body, no footer, no `Co-Authored-By`), e.g.
-  `feat(tanks): show Claude usage in the side panel`. Mark breaking changes with `!`. Commit and push only when the
-  user asks.
+  `feat(tanks): show Claude usage in the side panel`. Mark breaking changes with `!`. Commit only when the user asks.
+  The user pushes with GitKraken (agent sessions have no GitHub login), so ask them to push.
 - **The server runs straight from source** with Node's type stripping (`node server/index.ts`): in `server/`,
   `shared/` and `electron/` use only erasable TypeScript (no enums, namespaces or parameter properties).
   `npm run typecheck` enforces it.
@@ -53,10 +53,13 @@ Use this whenever the user asks to release, publish, ship or "push a new version
    ```bash
    npm version <major|minor|patch> -m "chore(release): %s"
    ```
-5. **Push the commit and the tag:**
-   ```bash
-   git push --follow-tags
-   ```
+5. **Have the user push the commit and the tag.** The user pushes with GitKraken; agent sessions have no GitHub
+   login, so don't try `git push`. Ask them to:
+   - push `main` as usual, **and**
+   - push the tag: in GitKraken's left panel under **Tags**, right-click **vX.Y.Z** → **Push vX.Y.Z to origin**.
+     (Pushing the branch alone doesn't send the tag, and without the tag no release is built.)
+
+   From a terminal with a GitHub login, `git push --follow-tags` does both.
 6. **Follow the build.** `.github/workflows/release.yml` checks the tag matches `package.json`, builds and
    smoke-tests the app on macOS and Windows, then publishes the GitHub release with the installers and generated
    release notes. It takes about 10–15 minutes. Point the user to
