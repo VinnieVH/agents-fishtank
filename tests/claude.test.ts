@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { applyHook, Claude, limitsFrom, liveFrom, newClaudeSession, parseHook, type HookEvent } from '../server/claude.ts';
+import { applyHook, Claude, limitsFrom, liveFrom, nameOf, newClaudeSession, noteTitles, parseHook, type HookEvent } from '../server/claude.ts';
 import { toSession } from '../server/session.ts';
 
 const T = 1_000_000;
@@ -137,5 +137,38 @@ describe('plan usage from the status line', () => {
     expect(limitsFrom(JSON.stringify({ rate_limits: { seven_day: { used_percentage: 10, resets_at: 1 } } }), 0)?.fiveHour).toBeNull();
     expect(limitsFrom(JSON.stringify({ model: { id: 'x' } }), 0)).toBeNull();
     expect(limitsFrom('nope', 0)).toBeNull();
+  });
+});
+
+describe('session names', () => {
+  const ai = (t: string) => JSON.stringify({ type: 'ai-title', aiTitle: t, sessionId: 's1' });
+  const custom = (t: string) => JSON.stringify({ type: 'custom-title', customTitle: t, sessionId: 's1' });
+
+  it('prefers a name you gave, then Claude Code\'s title, then the first prompt', () => {
+    const s = play(['UserPromptSubmit', { prompt: 'can you look at the failing test' }]);
+    expect(nameOf(s)).toBe('can you look at the failing test');
+    noteTitles(s, [JSON.stringify({ type: 'user', message: { content: 'x' } }), ai('Fix flaky login test')]);
+    expect(nameOf(s)).toBe('Fix flaky login test');
+    noteTitles(s, [ai('Fix flaky login test and CI'), custom('login-fix')]);
+    expect(nameOf(s)).toBe('login-fix');
+    s.live = { state: 'idle', name: 'renamed in the CLI' };
+    expect(nameOf(s)).toBe('renamed in the CLI');
+  });
+
+  it('follows the transcript, also of a session no hook told us about', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fishtank-titles-'));
+    try {
+      fs.mkdirSync(path.join(dir, 'sessions'));
+      fs.mkdirSync(path.join(dir, 'projects', '-Users-me-app'), { recursive: true });
+      const transcript = path.join(dir, 'projects', '-Users-me-app', 's1.jsonl');
+      fs.writeFileSync(transcript, [JSON.stringify({ type: 'user', message: { content: 'hi' } }), ai('Multi-CLI support')].join('\n') + '\n');
+      fs.writeFileSync(path.join(dir, 'sessions', process.pid + '.json'), JSON.stringify({ sessionId: 's1', status: 'busy', name: 'app-2b', nameSource: 'derived', statusUpdatedAt: Date.now() }));
+      const c = new Claude(dir);
+      c.poll();
+      expect(c.list(Date.now())).toMatchObject([{ id: 's1', name: 'Multi-CLI support', state: 'working' }]);
+      fs.appendFileSync(transcript, custom('fishtank') + '\n');
+      c.poll();
+      expect(c.list(Date.now())[0].name).toBe('fishtank');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });

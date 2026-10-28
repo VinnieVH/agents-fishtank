@@ -1,10 +1,11 @@
-// Claude Code: its hooks POST every event to /hook/claude (registered in ~/.claude/settings.json by the installer).
+// Claude Code: its hooks POST every event to /hook/claude (added to ~/.claude/settings.json when the app connects).
 // The transcript format is internal to Claude Code, so we rely on the documented hook payloads, refined by the small
 // file Claude Code keeps per running session (<config>/sessions/<pid>.json), which says the moment a session goes
 // busy, idle or waiting, also on an interrupt or a denied permission, which fire no hook.
 import fs from 'node:fs';
 import path from 'node:path';
 import type { ClaudeLimits, LimitWindow, Session, State } from '../shared/types.ts';
+import { LogTail } from './logtail.ts';
 import { RECENT_MS, STALE_MS, forgetOldSubagents, newTracked, pidAlive, stopSubagents, titleFrom, toSession, type Tracked } from './session.ts';
 
 /** The hook input fields we use (https://code.claude.com/docs/en/hooks). */
@@ -18,17 +19,44 @@ export interface HookEvent {
   notification_type?: string;
   prompt?: string;
   session_title?: string;
+  transcript_path?: string;
 }
 
 export interface ClaudeSession extends Tracked {
   ended: boolean;
   /** From the running session's file: its state right now, and the name the user gave it with /rename. */
   live?: { state: State; name: string };
+  /** The session's titles from its transcript: the one Claude Code generated, and one the user set. */
+  titles: { ai: string; custom: string };
+  transcript?: LogTail;
   /** Agent tool calls waiting for their SubagentStart, to give the subagent its description and model. */
   launching: { type: string; description: string; model: string }[];
 }
 
-export const newClaudeSession = (): ClaudeSession => ({ ...newTracked(), ended: false, launching: [] });
+export const newClaudeSession = (): ClaudeSession => ({ ...newTracked(), ended: false, launching: [], titles: { ai: '', custom: '' } });
+
+// Claude Code repeats its title records through the transcript, so the end of a long one has them too.
+const TRANSCRIPT_FIRST_READ = 4 * 1024 * 1024;
+
+/**
+ * Picks the session's titles out of transcript lines. The transcript format is internal to Claude Code, so this is
+ * best effort: if it changes, the fish keeps the start of the first prompt as its name.
+ */
+export function noteTitles(s: ClaudeSession, lines: string[]) {
+  for (const line of lines) {
+    if (!line.includes('-title"')) continue; // cheap check: titles are a handful of lines among many
+    try {
+      const e = JSON.parse(line);
+      if (e.type === 'ai-title' && typeof e.aiTitle === 'string') s.titles.ai = e.aiTitle;
+      else if (e.type === 'custom-title' && typeof e.customTitle === 'string') s.titles.custom = e.customTitle;
+    } catch { /* partial or other line */ }
+  }
+}
+
+/** What the fish is called: a name the user gave it, Claude Code's title, else the start of the first prompt. */
+export function nameOf(s: ClaudeSession) {
+  return s.live?.name || s.titles.custom || s.titles.ai || s.name || s.title;
+}
 
 // Tools that stop and wait for the user's answer, like Copilot's ask_user.
 const ASKS_USER = new Set(['AskUserQuestion', 'ExitPlanMode']);
@@ -37,6 +65,7 @@ const NEEDS_USER = new Set(['permission_prompt', 'elicitation_dialog', 'agent_ne
 
 export function applyHook(s: ClaudeSession, ev: HookEvent, ts: number) {
   s.lastEvent = Math.max(s.lastEvent, ts);
+  if (ev.transcript_path && !ev.agent_id && s.transcript?.file !== ev.transcript_path) s.transcript = new LogTail(ev.transcript_path, TRANSCRIPT_FIRST_READ);
   // Tool calls inside a subagent shouldn't change what the main session is doing.
   const main = !ev.agent_id;
   switch (ev.hook_event_name) {
@@ -125,6 +154,8 @@ export class Claude {
   private sessions = new Map<string, ClaudeSession>();
   /** PIDs of the running sessions, from the last poll. */
   private pids: number[] = [];
+  /** When we last looked for a session's transcript, for sessions no hook has told us about yet. */
+  private searched = new Map<string, number>();
 
   constructor(configDir: string) { this.configDir = configDir; }
 
@@ -152,15 +183,32 @@ export class Claude {
       if (typeof r.statusUpdatedAt === 'number') s.lastEvent = Math.max(s.lastEvent, r.statusUpdatedAt);
       live.add(r.sessionId);
     }
-    for (const [id, s] of this.sessions) if (!live.has(id)) s.live = undefined;
+    for (const [id, s] of this.sessions) {
+      if (!live.has(id)) s.live = undefined;
+      if (!s.transcript) this.findTranscript(id, s);
+      const update = s.transcript?.read();
+      if (update) noteTitles(s, update.lines);
+    }
+  }
+
+  /** <config>/projects/<project>/<session id>.jsonl; looked up at most every 10 s until found. */
+  private findTranscript(id: string, s: ClaudeSession) {
+    const now = Date.now();
+    if (now - (this.searched.get(id) ?? 0) < 10_000) return;
+    this.searched.set(id, now);
+    const projects = path.join(this.configDir, 'projects');
+    let dirs: string[] = [];
+    try { dirs = fs.readdirSync(projects); } catch { return; }
+    const file = dirs.map(d => path.join(projects, d, id + '.jsonl')).find(f => fs.existsSync(f));
+    if (file) { s.transcript = new LogTail(file, TRANSCRIPT_FIRST_READ); this.searched.delete(id); }
   }
 
   list(now: number): Session[] {
     const out: Session[] = [];
     for (const [id, s] of this.sessions) {
-      if (!s.live && now - s.lastEvent > RECENT_MS) { this.sessions.delete(id); continue; }
+      if (!s.live && now - s.lastEvent > RECENT_MS) { this.sessions.delete(id); this.searched.delete(id); continue; }
       forgetOldSubagents(s, now);
-      const shown = s.live ? { ...s, state: s.live.state, name: s.live.name || s.name } : s;
+      const shown = { ...s, state: s.live?.state ?? s.state, name: nameOf(s) };
       const session = toSession(id, 'claude', shown, now);
       if (session) out.push(session);
     }

@@ -3,13 +3,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import type { Quota, Session } from '../shared/types.ts';
+import { LogTail } from './logtail.ts';
 import { RECENT_MS, forgetOldSubagents, newTracked, pidAlive, stopSubagents, titleFrom, toSession, type Tracked } from './session.ts';
 
 // A session seen for the first time is read from at most this far before the end: its recent state is all we need,
 // and long sessions write logs of hundreds of MB.
 const FIRST_READ_BYTES = 8 * 1024 * 1024;
 
-interface CopilotSession extends Tracked { offset: number; partial: string; nameMtime: number; mtime: number; midLine: boolean }
+interface CopilotSession extends Tracked { log: LogTail; nameMtime: number; mtime: number }
 
 interface PremiumQuota {
   entitlementRequests: number; usedRequests: number; remainingPercentage: number;
@@ -120,24 +121,15 @@ export class Copilot {
     let s = this.sessions.get(id);
     if (!s) {
       if (Date.now() - st.mtimeMs > RECENT_MS) return;
-      const offset = Math.max(0, st.size - FIRST_READ_BYTES);
-      s = { ...newTracked(), offset, partial: '', nameMtime: 0, mtime: 0, midLine: offset > 0 }; // midLine: drop the cut-off first line
+      s = { ...newTracked(), log: new LogTail(file, FIRST_READ_BYTES), nameMtime: 0, mtime: 0 };
       this.sessions.set(id, s);
     }
     s.mtime = st.mtimeMs;
     this.readName(id, s);
-    if (st.size < s.offset) { s.offset = 0; s.partial = ''; s.midLine = false; s.subagents.clear(); }
-    if (st.size === s.offset) return;
-    const fd = fs.openSync(file, 'r');
-    const buf = Buffer.alloc(st.size - s.offset);
-    fs.readSync(fd, buf, 0, buf.length, s.offset);
-    fs.closeSync(fd);
-    s.offset = st.size;
-    const lines = (s.partial + buf.toString('utf8')).split('\n');
-    s.partial = lines.pop() ?? '';
-    if (s.midLine) { lines.shift(); s.midLine = false; }
-    for (const line of lines) {
-      if (!line.trim()) continue;
+    const update = s.log.read();
+    if (!update) return;
+    if (update.restarted) s.subagents.clear();
+    for (const line of update.lines) {
       try { this.applyEvent(s, JSON.parse(line)); } catch { /* ignore malformed line */ }
     }
   }
