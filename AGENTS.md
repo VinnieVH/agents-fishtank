@@ -37,6 +37,10 @@ to the repository's size for good.
   `npm run typecheck` enforces it.
 - **Never touch the user's real agent settings while testing.** Point `CLAUDE_CONFIG_DIR`, `COPILOT_HOME` and
   `FISHTANK_PORT` at a scratch folder and a spare port. The user's own app runs on port 4321.
+- **A packaged test build (`npm run dist:dir`) shares the installed app's data folder** (settings, `state.json`), and
+  turning on "Start in the background when I log in" there registers a real login item. Tell the user before testing
+  with it, and switch that setting back off afterwards. `npx electron . --user-data-dir=<scratch dir>` keeps a source
+  run apart.
 - **Don't extract files from `app.asar` into the repo** (`asar extract-file` writes into the current folder and can
   overwrite `package.json`). Read packaged files with
   `ELECTRON_RUN_AS_NODE=1 npx electron -p 'require("<path>/app.asar/package.json")'`.
