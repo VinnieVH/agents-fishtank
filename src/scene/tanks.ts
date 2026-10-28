@@ -4,19 +4,20 @@ import { sandY } from '../art/terrain';
 import type { Air, Tanks } from '../limits';
 import { TAU } from '../util';
 
-// A diver's two scuba tanks standing in the sand against the rocks on the left, showing Claude's plan usage as the air
-// left in them: the big yellow one for the 5-hour window, the slim coral one leaning on it for the week. A dive slate
-// in the sand says how much is left and when it refills. An almost empty tank leaks bubbles from its valve.
-const INK = '#1d2a33', RED = '#c81f33', FONT = '"Segoe UI", system-ui, sans-serif';
+// A diver's two scuba tanks standing forward on the sand by the rocks on the left, with Claude's plan usage as the air
+// left in them: the big yellow one for the 5-hour window, the slim coral one leaning on it for the week. An almost
+// empty tank leaks bubbles from its valve. The exact numbers and refill times are in the side panel.
+// (Copilot's credits gauge has the bottom-right corner, so both can show at once.)
+const INK = '#1d2a33', FONT = '"Segoe UI", system-ui, sans-serif';
 
 interface Look { w: number; h: number; body: string; shade: string; light: string; label: string; tilt: number }
 const BIG: Look = { w: 46, h: 112, body: '#f6c945', shade: '#d39b1c', light: '#fff0a8', label: '5H', tilt: 0 };
 const SLIM: Look = { w: 34, h: 96, body: '#ff8a65', shade: '#d9583a', light: '#ffc3ab', label: 'WEEK', tilt: -.1 };
 
-// texture layout: the tanks side by side over the slate
-const CW = 176, TOP = 30, BASE = TOP + BIG.h, SLATE_Y = BASE + 10, SLATE_H = 36, CH = SLATE_Y + SLATE_H + 4;
-const BIG_X = CW / 2 - 22, SLIM_X = BIG_X + BIG.w / 2 + 6 + SLIM.w / 2;
-const K = 1.3; // drawn bigger than the layout units above, so the slate stays readable
+// texture layout: the tanks side by side, standing on BASE
+const CW = 116, TOP = 30, BASE = TOP + BIG.h, CH = BASE + 10;
+const BIG_X = 34, SLIM_X = BIG_X + BIG.w / 2 + 6 + SLIM.w / 2;
+const K = 1.3; // drawn bigger than the layout units above
 
 interface Bubble { x: number; y: number; r: number; vy: number; phase: number }
 
@@ -40,8 +41,9 @@ export class AirTanks extends Container {
 
   layout(W: number, H: number) {
     this.W = W;
-    // in the sand by the rocks on the left; on narrow screens the panel covers the bottom, so float them top-left
-    if (W >= 760) this.position.set(Math.max(4, W * .08 + 30 - CW * K / 2), sandY(H) + 18 - BASE * K);
+    // well forward on the sand by the rocks on the left; on narrow screens the panel covers the bottom, so hang
+    // top-left (the gauge hangs top-right)
+    if (W >= 760) this.position.set(Math.max(16, W * .08 + 30 - CW * K / 2), sandY(H) + 48 - BASE * K);
     else this.position.set(6, 12);
     this.paint();
   }
@@ -69,7 +71,7 @@ export class AirTanks extends Container {
   private paint() {
     const t = this.tanks;
     if (!t || !this.W) return;
-    const key = [t.fiveHour && [Math.round(t.fiveHour.left), t.fiveHour.refill], t.week && [Math.round(t.week.left), t.week.refill]].join('|');
+    const key = [t.fiveHour && Math.round(t.fiveHour.left), t.week && Math.round(t.week.left)].join('|');
     if (key === this.key) return;
     this.key = key;
     const old = this.art.texture;
@@ -77,7 +79,6 @@ export class AirTanks extends Container {
       g.scale(K, K);
       paintTank(g, SLIM_X, BASE, SLIM, t.week); // behind, leaning on the big one
       paintTank(g, BIG_X, BASE, BIG, t.fiveHour);
-      paintSlate(g, t);
     });
     if (old && old !== Texture.EMPTY) old.destroy(true);
   }
@@ -144,18 +145,4 @@ function paintTank(g: CanvasRenderingContext2D, cx: number, base: number, look: 
   for (let q = 1; q < 4; q++) { const y = wy + wh * q / 4; g.beginPath(); g.moveTo(wx + ww, y); g.lineTo(wx + ww + 4, y); g.stroke(); }
   if (!air) { g.fillStyle = '#9fb3c2'; g.font = `800 ${ww}px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', 0, wy + wh / 2); }
   g.restore();
-}
-
-/** The dive slate in the sand: a white board with a cord hole and two lines of pencil. */
-function paintSlate(g: CanvasRenderingContext2D, t: Tanks) {
-  const x = 6, w = CW - 12, y = SLATE_Y;
-  toon(g, rect(x, y, w, SLATE_H, 5), '#eef3ef', 2, () => { g.fillStyle = '#d6ddd8'; g.fillRect(x, y + SLATE_H - 6, w, 6); });
-  outline(g, circle(x + 8, y + 8, 2.4), 1.4);
-  const line = (name: string, air: Air | null, ly: number) => {
-    const text = !air ? `${name}  –` : `${name}  ${Math.floor(air.left)}% left${air.refill ? ` · refills ${air.refill}` : ''}`;
-    g.fillStyle = air?.low ? RED : INK; g.font = `600 10.5px ${FONT}`; g.textAlign = 'left'; g.textBaseline = 'middle';
-    g.fillText(text, x + 16, ly, w - 22);
-  };
-  line('5h', t.fiveHour, y + 11);
-  line('week', t.week, y + 25);
 }

@@ -1,4 +1,5 @@
 import type { Snapshot, Source } from '../shared/types';
+import type { Air, Tanks } from './limits';
 import { dur, esc } from './util';
 
 export type { Session, Snapshot } from '../shared/types';
@@ -38,12 +39,30 @@ export function renderPanel(data: Snapshot, colorOf: (id: string) => string) {
 export function connect(onData: (data: Snapshot) => void) {
   const es = new EventSource('/events');
   es.onmessage = e => { onData(JSON.parse(e.data)); connEl.textContent = 'live · updated ' + new Date().toLocaleTimeString(); };
-  es.onerror = () => { connEl.textContent = 'disconnected — is the server running? (npm start)'; };
+  es.onerror = () => { connEl.textContent = 'disconnected — reconnecting…'; };
   es.addEventListener('shutdown', () => {
     es.close();
     document.getElementById('closed')!.hidden = false;
-    window.close(); // only works if the browser allows it; otherwise the overlay stays
+    window.close(); // the app closes its window; a browser may refuse, then the overlay stays
   });
+}
+
+const usageEl = document.getElementById('usage')!;
+let usageHtml = '';
+
+/** Claude plan usage under the sessions: air left in the 5-hour and weekly tanks, and when they refill. */
+export function renderUsage(t: Tanks | null) {
+  const row = (name: string, air: Air | null) => {
+    if (!air) return '';
+    const level = air.low ? 'low' : air.warn ? 'warn' : 'ok', left = Math.floor(air.left);
+    return `<div class="limit"><span class="lname">${name}</span><span class="air"><i class="${level}" style="width:${left}%"></i></span>
+      <span class="lval">${left}% left${air.refill ? ` · refills ${esc(air.refill)}` : ''}</span></div>`;
+  };
+  const html = t ? `<div class="usage-title">Claude usage</div>${row('5h', t.fiveHour)}${row('Week', t.week)}` : '';
+  if (html === usageHtml) return;
+  usageHtml = html;
+  usageEl.innerHTML = html;
+  usageEl.hidden = !t;
 }
 
 const skyEl = document.getElementById('sky')!;

@@ -1,7 +1,7 @@
 import { Application, Container, Sprite, Texture } from 'pixi.js';
 import './style.css';
 import { paintTerrain, sandY } from './art/terrain';
-import { connect, renderPanel, setSkyText, type Session, type Snapshot } from './panel';
+import { connect, renderPanel, renderUsage, setSkyText, type Session, type Snapshot } from './panel';
 import { credits } from './credits';
 import { airTanks } from './limits';
 import { Fish } from './scene/fish';
@@ -91,8 +91,10 @@ function sync(data: Snapshot) {
   const g = c ? c.gold : 1, s = c ? c.gems : 5;
   if (g !== gold || s !== gems) { gold = g; gems = s; paintBackdrop(); }
 
-  // Claude plan usage: the diver's air tanks
-  tanks.set(airTanks(data.limits, data.time));
+  // Claude plan usage: the diver's air tanks, and the numbers in the panel
+  const air = airTanks(data.limits, data.time);
+  tanks.set(air);
+  renderUsage(air);
 }
 connect(sync);
 
