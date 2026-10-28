@@ -36,8 +36,20 @@ canvas { display: block; position: fixed; inset: 0; }
 .subs .sname { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .subs li.done .sname, .subs li.stopped .sname { opacity: .55; }
 .subs li.failed .sname { color: #ff8a9c; }
+.src { font-size: 9.5px; font-weight: 700; letter-spacing: .4px; padding: 1px 6px; border-radius: 6px; flex: none; }
+.src.copilot { color: #b9a6ff; background: rgba(150,120,255,.16); }
+.src.claude { color: #ffb38a; background: rgba(217,119,87,.18); }
 .badge { font-size: 10px; padding: 0 6px; border-radius: 6px; background: rgba(120,200,255,.13); color: #9fd3ff; flex: none; }
 .time { font-size: 10.5px; opacity: .55; font-variant-numeric: tabular-nums; flex: none; }
+
+#usage { padding: 9px 16px 10px; border-top: 1px solid rgba(120,220,255,.12); }
+.usage-title { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; opacity: .55; margin-bottom: 5px; }
+.limit { display: flex; align-items: center; gap: 8px; font-size: 11.5px; padding: 2px 0; }
+.lname { width: 34px; font-weight: 600; flex: none; }
+.air { flex: 1; min-width: 40px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.1); overflow: hidden; }
+.air i { display: block; height: 100%; border-radius: 3px; }
+.air i.ok { background: #6fe3ff; } .air i.warn { background: var(--amber); } .air i.low { background: #ff5a6b; }
+.lval { flex: none; opacity: .75; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 #panel footer { padding: 10px 16px 12px; border-top: 1px solid rgba(120,220,255,.12); font-size: 11px; opacity: .7; display: flex; gap: 14px; }
 #panel footer span { display: flex; align-items: center; gap: 5px; }

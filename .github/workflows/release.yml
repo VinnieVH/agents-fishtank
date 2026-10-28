@@ -1,0 +1,77 @@
+name: Release
+
+# Builds the desktop app for macOS (.dmg, Apple Silicon and Intel) and Windows (.exe installer, x64 and Arm), smoke-tests
+# the packaged command line on each, and attaches the installers to a GitHub release for tags like v1.2.0.
+# The apps are unsigned for now (see README): signing only needs certificates added as secrets here later.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run dist
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Smoke-test the packaged app
+        shell: bash
+        env:
+          FISHTANK_PORT: '4399'
+          CLAUDE_CONFIG_DIR: ${{ runner.temp }}/claude
+          COPILOT_HOME: ${{ runner.temp }}/copilot
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            fishtank() { sh "release/mac-arm64/Agent Fishtank.app/Contents/Resources/bin/fishtank.sh" "$@"; }
+          else
+            fishtank() { "release/win-unpacked/resources/bin/fishtank.cmd" "$@"; }
+          fi
+          # the status line passes your usage on and prints a default line without a status line of your own
+          out=$(echo '{"model":{"display_name":"Opus"},"rate_limits":{"five_hour":{"used_percentage":40,"resets_at":1893456000}}}' | fishtank statusline 4399)
+          echo "statusline: $out"
+          [ "$out" = "Opus · 5h 40% used" ]
+          # the session-start hook starts the app and prints nothing (Claude Code would add it to the conversation)
+          out=$(echo '{}' | fishtank start)
+          [ -z "$out" ]
+          for i in $(seq 1 60); do curl -sf -o /dev/null http://127.0.0.1:4399/ && break; sleep 0.5; done
+          curl -sf -o /dev/null http://127.0.0.1:4399/ && echo "app is up"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ runner.os }}
+          path: |
+            release/*.dmg
+            release/*.exe
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: installers-*
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            *.dmg
+            *.exe

@@ -2,9 +2,10 @@ import { Container, MeshRope, Point, Text } from 'pixi.js';
 import { paintFish, type FishLook, type FishTextures } from '../art/fishArt';
 import { SPECIES, type Species } from '../species';
 import { hash, rng, TAU } from '../util';
+import type { State } from '../../shared/types';
 import type { Flake, Pinch } from './food';
 
-export type State = 'working' | 'waiting' | 'idle';
+export type { State } from '../../shared/types';
 
 const BODY = ['#ff7a3d', '#ffcf3d', '#ff4d8d', '#3dc8ff', '#9b5cff', '#3dffa0', '#ff5c5c', '#5c7cff'];
 const NEON = ['#39ff14', '#00f0ff', '#ff00e6', '#fff200', '#ff6a00', '#b026ff', '#00ffb3', '#ff2e63'];
