@@ -72,7 +72,7 @@ class Passerby extends Sprite {
 
 /**
  * Sends a whale or a great white past now and then, never both at once.
- * `?whale` or `?shark` in the URL summons that one right away.
+ * `?whale` or `?shark` in the URL summons that one right away. With `enabled` off (the visitors setting) none come.
  */
 export class Passersby extends Container {
   private all: Passerby[];
@@ -80,6 +80,7 @@ export class Passersby extends Container {
   private last: Passerby | null = null;
   private next: number;
   private summon: Passerby | undefined;
+  enabled = true;
 
   constructor(now: number, params: URLSearchParams, res: number) {
     super();
@@ -91,7 +92,7 @@ export class Passersby extends Container {
 
   update(t: number, dt: number, W: number, H: number) {
     if (!this.active) {
-      if (t < this.next) return;
+      if (t < this.next || (!this.enabled && !this.summon)) return;
       // mostly alternate, so the same animal rarely shows up twice in a row
       const others = this.all.filter(p => p !== this.last);
       this.active = this.summon ?? (Math.random() < .7 ? others[Math.floor(Math.random() * others.length)] : this.all[Math.floor(Math.random() * this.all.length)]);

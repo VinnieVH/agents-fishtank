@@ -8,7 +8,9 @@
 <body>
 <div id="closed" hidden><div>🐟💤<h2>All sessions closed</h2><p>No Copilot CLI or Claude Code is running, so the fishtank has stopped. You can close this window.</p></div></div>
 <aside id="panel">
-  <header><div class="title"><h1>Agent Fishtank</h1><span id="sky" hidden></span></div><div id="conn">Connecting…</div></header>
+  <header><div class="title"><h1>Agent Fishtank</h1><span id="sky" hidden></span>
+    <button id="gear" type="button" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-1.7-1L15 3.5h-4l-.4 2.5a7.4 7.4 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.4 7.4 0 0 0 1.7-1l2.4 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg></button>
+  </div><div id="conn">Connecting…</div></header>
   <div id="sessions"><div class="empty">Waiting for data…</div></div>
   <div id="usage" hidden></div>
   <footer>
@@ -17,6 +19,68 @@
     <span><i class="dot sm off"></i>idle</span>
   </footer>
 </aside>
+<dialog id="settings" aria-labelledby="settings-title">
+  <form method="dialog">
+    <header><h2 id="settings-title">Settings</h2><button class="close" value="close" aria-label="Close">✕</button></header>
+
+    <section>
+      <h3>Scenery</h3>
+      <label class="field">Daylight
+        <select name="daylight">
+          <option value="sun">Follows the real sun</option>
+          <option value="day">Always day</option>
+          <option value="night">Always night</option>
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" name="customLocation"> Use my exact location for the sun
+        <small>Otherwise it's estimated from your timezone.</small></label>
+      <div class="coords" data-when="customLocation">
+        <label>Latitude <input name="lat" type="number" step="0.01" min="-90" max="90" placeholder="51.05"></label>
+        <label>Longitude <input name="lon" type="number" step="0.01" min="-180" max="180" placeholder="3.72"></label>
+      </div>
+      <label class="check"><input type="checkbox" name="visitors"> A whale or shark swims by now and then</label>
+      <label class="check"><input type="checkbox" name="crabAlways"> Keep the crab out on the sand
+        <small>Normally it only comes out when every session is idle.</small></label>
+    </section>
+
+    <section>
+      <h3>Motion</h3>
+      <label class="field">Animation
+        <select name="motion">
+          <option value="auto">Automatic</option>
+          <option value="full">Lively</option>
+          <option value="calm">Calm</option>
+          <option value="minimal">Minimal</option>
+        </select>
+      </label>
+      <small class="hint">Calm and Minimal slow down the water, light and fish. Automatic is Lively, or Calm when your
+        system asks for reduced motion.</small>
+    </section>
+
+    <section data-desktop>
+      <h3>Notifications</h3>
+      <label class="check"><input type="checkbox" name="notifyWaiting"> When a session needs you</label>
+      <label class="check"><input type="checkbox" name="notifyFinished"> When a session finishes its work</label>
+      <label class="field">Only after it has waited for
+        <select name="notifyAfter">
+          <option value="30">30 seconds</option>
+          <option value="60">1 minute</option>
+          <option value="300">5 minutes</option>
+        </select>
+      </label>
+      <small class="hint">So you're not told about a session you're already working in. Never while the fishtank
+        window is in front.</small>
+    </section>
+
+    <section data-desktop>
+      <h3>Opening and closing</h3>
+      <label class="check"><input type="checkbox" name="openOnSession"> Open the fishtank when a session starts</label>
+      <label class="check"><input type="checkbox" name="quitWhenIdle"> Quit after the last session ends</label>
+      <label class="check"><input type="checkbox" name="openAtLogin"> Start in the background when I log in</label>
+    </section>
+    <p class="saved">Changes are saved right away.</p>
+  </form>
+</dialog>
 <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

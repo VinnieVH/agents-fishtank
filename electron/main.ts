@@ -1,9 +1,12 @@
 // The Agent Fishtank desktop app: runs the fishtank server and shows the tank in its own window.
 // Claude Code and Copilot CLI start it from a session-start hook (electron/cli.ts start); it quits once the last
-// session has closed. Closing the window while sessions run only hides it: Claude Code's hooks keep posting to it.
+// session has closed, unless the settings say to keep running. Closing the window while it keeps running only hides
+// it: Claude Code's hooks keep posting to it.
 import fs from 'node:fs';
 import path from 'node:path';
-import { app, BrowserWindow, dialog, Menu, shell, type MenuItemConstructorOptions } from 'electron';
+import { app, BrowserWindow, dialog, Menu, Notification, shell, type MenuItemConstructorOptions } from 'electron';
+import type { Snapshot, State as SessionState } from '../shared/types.ts';
+import type { Settings } from '../shared/settings.ts';
 import { DEFAULT_PORT, startServer, type Fishtank } from '../server/server.ts';
 import { connect, connected, disconnect, installed, places, type Cli, type Launcher } from './connect.ts';
 import { repoFrom } from './releases.ts';
@@ -11,6 +14,8 @@ import { Updates } from './updates.ts';
 
 const port = Number(process.env.FISHTANK_PORT) || DEFAULT_PORT;
 const fromHook = process.argv.includes('--from-hook');
+// started with the computer (the "open at login" setting): stays in the background
+const atLogin = process.argv.includes('--at-login') || (process.platform === 'darwin' && app.getLoginItemSettings().wasOpenedAtLogin);
 const where = places();
 const isMac = process.platform === 'darwin';
 const NAMES: Record<Cli, string> = { claude: 'Claude Code', copilot: 'GitHub Copilot CLI' };
@@ -29,6 +34,7 @@ else {
   app.on('activate', show); // Dock icon clicked
   app.on('before-quit', () => { quitting = true; tank?.stop(); });
   app.on('window-all-closed', () => { /* closing is handled per window */ });
+  if (process.platform === 'win32') app.setAppUserModelId('com.vinnievh.agent-fishtank'); // or notifications don't show
   app.whenReady().then(main);
 }
 
@@ -41,6 +47,11 @@ async function main() {
       claudeConfigDir: where.claudeDir,
       onIdle: () => app.quit(),
       waitForCli: !fromHook, // opened by hand: stay until a session has come and gone
+      keepRunning: () => atLogin,
+      settingsFile: path.join(app.getPath('userData'), 'settings.json'),
+      desktop: true,
+      onSettings: applySettings,
+      onSnapshot: watchSessions,
     });
   } catch (e) {
     const inUse = (e as NodeJS.ErrnoException).code === 'EADDRINUSE';
@@ -55,6 +66,52 @@ async function main() {
   buildMenu();
   await firstRun();
   startUpdates();
+}
+
+// ---------- settings that concern the app (the page shows the dialog; the server keeps them) ----------
+
+function applySettings(s: Settings) {
+  // only the installed app can start with the computer; `npm run app` would register Electron itself
+  if (!app.isPackaged || app.getLoginItemSettings().openAtLogin === s.openAtLogin) return;
+  app.setLoginItemSettings({ openAtLogin: s.openAtLogin, args: ['--at-login'] });
+}
+
+/** Keeps running with no sessions: closing the window then hides it, and only Quit ends the app. */
+const staying = () => atLogin || !(tank?.settings().quitWhenIdle ?? true);
+
+/** Each session's state, since when, the one before it, and whether that's been dealt with (told, or not news). */
+let watched: Map<string, { state: SessionState; since: number; from?: SessionState; done: boolean }> | null = null;
+
+/**
+ * Opens the window when the first session starts, and notifies when a session has been waiting for an answer, or
+ * done, for a while (notifyAfter): by then you're clearly not in that session already.
+ */
+function watchSessions(snap: Snapshot) {
+  const s = tank?.settings();
+  if (!s) return;
+  const first = !watched, before = watched ?? new Map();
+  if (s.openOnSession && !first && !before.size && snap.sessions.length && win && !win.isVisible()) show();
+  watched = new Map();
+  const front = !!win && win.isVisible() && win.isFocused();
+  for (const x of snap.sessions) {
+    const w = before.get(x.id);
+    // the sessions there when the app started aren't news
+    const now = w && w.state === x.state ? w : { state: x.state, since: snap.time, from: w?.state, done: first };
+    watched.set(x.id, now);
+    if (now.done || snap.time - now.since < s.notifyAfter * 1000) continue;
+    now.done = true;
+    if (front) continue;
+    const who = x.source === 'claude' ? 'Claude Code' : 'Copilot CLI';
+    if (x.state === 'waiting' && s.notifyWaiting) notify(`${x.name} needs you`, `${who} is waiting for your answer.`);
+    else if (x.state === 'idle' && now.from === 'working' && s.notifyFinished) notify(`${x.name} is done`, `${who} finished and waits for your next message.`);
+  }
+}
+
+function notify(title: string, body: string) {
+  if (!Notification.isSupported()) return;
+  const n = new Notification({ title, body, silent: false });
+  n.on('click', show);
+  n.show();
 }
 
 // ---------- remembered between starts (userData/state.json) ----------
@@ -90,9 +147,11 @@ function createWindow() {
     autoHideMenuBar: true, show: false,
     webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
   });
-  win.once('ready-to-show', () => win?.show());
+  // in the background when started with the computer, or by a session while "open when a session starts" is off
+  const hidden = atLogin || (fromHook && !tank!.settings().openOnSession);
+  win.once('ready-to-show', () => { if (!hidden) win?.show(); });
   win.on('close', e => {
-    if (!quitting && tank?.cliRunning()) { e.preventDefault(); win?.hide(); }
+    if (!quitting && (tank?.cliRunning() || staying())) { e.preventDefault(); win?.hide(); }
   });
   win.on('closed', () => { win = null; if (!quitting) app.quit(); });
   win.webContents.setWindowOpenHandler(({ url }) => { void shell.openExternal(url); return { action: 'deny' }; });
@@ -102,6 +161,11 @@ function createWindow() {
     if (m && PAGE_OPTIONS.includes(m[1])) url.searchParams.set(m[1], m[2] ?? '');
   }
   void win.loadURL(url.toString());
+}
+
+function openSettings() {
+  show();
+  void win?.webContents.executeJavaScript('window.openSettings?.()');
 }
 
 function show() {
@@ -162,10 +226,11 @@ function buildMenu() {
     enabled: !!l, click: () => { void toggle(cli); },
   }));
   const update: MenuItemConstructorOptions = { label: 'Check for Updates…', enabled: !!updates, click: () => { void updates?.check(true); } };
+  const settings: MenuItemConstructorOptions = { label: isMac ? 'Settings…' : 'Settings', accelerator: 'CmdOrCtrl+,', click: openSettings };
   const template: MenuItemConstructorOptions[] = [
     isMac
-      ? { label: app.name, submenu: [{ role: 'about' }, update, { type: 'separator' }, ...items, { type: 'separator' }, { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' }, { type: 'separator' }, { role: 'quit' }] }
-      : { label: 'File', submenu: [...items, { type: 'separator' }, update, { type: 'separator' }, { role: 'quit' }] },
+      ? { label: app.name, submenu: [{ role: 'about' }, update, { type: 'separator' }, settings, { type: 'separator' }, ...items, { type: 'separator' }, { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' }, { type: 'separator' }, { role: 'quit' }] }
+      : { label: 'File', submenu: [settings, { type: 'separator' }, ...items, { type: 'separator' }, update, { type: 'separator' }, { role: 'quit' }] },
     { label: 'View', submenu: [{ role: 'reload' }, { role: 'togglefullscreen' }, ...(app.isPackaged ? [] : [{ role: 'toggleDevTools' } as const])] },
     { role: 'windowMenu' },
   ];

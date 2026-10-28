@@ -15,6 +15,8 @@ import { Food } from './scene/food';
 import { lightFor, locationFromParams, makeClock, sunPosition, type Light } from './sky';
 import { SpeciesStore } from './species';
 import { paintTexture } from './art/canvas';
+import { showSettings } from './settings';
+import { DEFAULT_SETTINGS, type Settings } from '../shared/settings';
 
 const params = new URLSearchParams(location.search);
 const res = Math.min(2, devicePixelRatio || 1);
@@ -31,7 +33,7 @@ const sky = new SkyOverlay();
 const fishLayer = new Container({ sortableChildren: true });
 const marksLayer = new Container();
 const gauge = new Gauge(res);
-const crab = new Crab(res, params);
+const crab = new Crab(res);
 const food = new Food(res);
 const tanks = new AirTanks(res);
 app.stage.addChild(terrain, passersby, water.rays, water.shimmer, water.backWeeds, water.anemones, water.bubbles, food,
@@ -60,6 +62,7 @@ let sessions = new Map<string, Session>();
 const species = new SpeciesStore(localStorage);
 
 function sync(data: Snapshot) {
+  applySettings(data.settings ?? DEFAULT_SETTINGS, !!data.desktop);
   sessions = new Map(data.sessions.map(s => [s.id, s]));
   const wanted = new Set<string>();
   const bottom = sandY(H) - 40;
@@ -109,10 +112,37 @@ app.canvas.addEventListener('pointerdown', e => {
   if (pick) pick.meal = pinch;
 });
 
+// ---------- settings (the dialog in settings.ts); options in the URL win, e.g. ?time=21:30 for screenshots ----------
+const AMBIENT = { full: 1, calm: .35, minimal: .1 }; // how fast the water and light move
+const SWIM = { full: 1, calm: .75, minimal: .5 };    // and the fish, the crab and the visitors (none at minimal)
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+let settings: Settings | null = null, desktop = false, motion: keyof typeof AMBIENT = 'full';
+
+function applySettings(next: Settings, isDesktop: boolean) {
+  if (settings && JSON.stringify(next) === JSON.stringify(settings) && isDesktop === desktop) return;
+  settings = next; desktop = isDesktop;
+  showSettings(next, isDesktop);
+  // the sun: a fixed time for always day or night, the location if given
+  const p = new URLSearchParams(params);
+  if (!p.has('time') && !p.has('timelapse') && next.daylight !== 'sun') p.set('time', next.daylight === 'day' ? '13:00' : '23:30');
+  if (next.location && !p.has('lat') && !p.has('lon')) { p.set('lat', String(next.location.lat)); p.set('lon', String(next.location.lon)); }
+  clock = makeClock(p); where = locationFromParams(p); lastSky = -Infinity;
+  crab.always = next.crabAlways || params.has('crab');
+  setMotion();
+}
+function setMotion() {
+  const m = settings?.motion ?? 'auto';
+  motion = m === 'auto' ? (reducedMotion.matches ? 'calm' : 'full') : m;
+  document.body.classList.toggle('still', motion === 'minimal');
+  passersby.enabled = (settings?.visitors ?? true) && motion !== 'minimal';
+}
+reducedMotion.addEventListener('change', setMotion);
+
 // ---------- day / night: follows the real sun for this PC's clock and timezone ----------
 // Location is estimated from the timezone; override with ?lat=51.05&lon=3.72. Preview with ?time=21:30 or ?timelapse.
-const clock = makeClock(params), where = locationFromParams(params), timelapse = params.has('timelapse');
-let light: Light = lightFor(90, 0), lastSky = -Infinity;
+let clock = makeClock(params), where = locationFromParams(params);
+const timelapse = params.has('timelapse');
+let light: Light = lightFor(90, 0), lastSky = -Infinity, ambientT = 0;
 function updateLight() {
   const d = clock(), { el, ha } = sunPosition(d, where);
   light = lightFor(el, ha);
@@ -122,16 +152,19 @@ function updateLight() {
 // ---------- animation ----------
 app.ticker.add(ticker => {
   const t = performance.now(), dt = Math.min(3, ticker.deltaMS / 16.7);
+  // the scenery runs on its own clock, slowed down by the animation setting
+  const slow = AMBIENT[motion], swim = SWIM[motion];
+  ambientT += ticker.deltaMS * slow;
   if (t - lastSky > 1000 || timelapse) { updateLight(); lastSky = t; sky.update(light); }
   const busy = [...sessions.values()].some(s => s.state === 'working');
   const calm = [...sessions.values()].every(s => s.state === 'idle'); // also true with no sessions at all
 
-  passersby.update(t, dt, W, H);
+  passersby.update(t, dt * swim, W, H);
   gauge.update(t, dt, light.night);
   tanks.update(t, dt, light.night);
-  crab.update(t, dt, W, H, calm, light.night);
+  crab.update(t, dt * swim, W, H, calm, light.night);
   food.update(t, dt, sandY(H) + 6);
-  water.update(t, dt, busy, light.day, light.night);
-  const tank = { t, dt, right: W, bottom: sandY(H) - 40, night: light.night };
+  water.update(ambientT, dt * slow, busy, light.day, light.night);
+  const tank = { t, dt: dt * swim, right: W, bottom: sandY(H) - 40, night: light.night };
   for (const f of fish.values()) f.update(tank, sessions.get(f.sessionId)?.state ?? 'idle', f.small ? fish.get(f.sessionId) : undefined);
 });

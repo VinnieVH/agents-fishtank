@@ -1,4 +1,5 @@
 // The live feed the server streams to the page over /events.
+import type { Settings } from './settings.ts';
 
 export type State = 'working' | 'waiting' | 'idle';
 export type Source = 'copilot' | 'claude';
@@ -22,4 +23,9 @@ export interface LimitWindow { usedPct: number; resetsAt: number } // resetsAt i
 /** Claude Pro/Max usage limits; a window is null when Claude Code didn't report it. */
 export interface ClaudeLimits { fiveHour: LimitWindow | null; sevenDay: LimitWindow | null; at: number }
 
-export interface Snapshot { time: number; sessions: Session[]; quota?: Quota | null; limits?: ClaudeLimits | null }
+export interface Snapshot {
+  time: number; sessions: Session[]; quota?: Quota | null; limits?: ClaudeLimits | null;
+  settings?: Settings;
+  /** Shown in the desktop app, which offers the notification and launch settings. */
+  desktop?: boolean;
+}

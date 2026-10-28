@@ -34,8 +34,6 @@ You need **Claude Code** and/or **GitHub Copilot CLI**. Nothing else; not even N
 
 ### Download it
 
-> The first release isn't out yet. Until then, [build it yourself](#or-build-it-yourself) (takes a few minutes).
-
 Get the installer for your computer from the
 [latest release](https://github.com/VinnieVH/copilot-fishtank/releases/latest):
 
@@ -75,7 +73,8 @@ Windows. Install from there as described above. (On a Mac you can also copy
 The first time Agent Fishtank starts, it asks to connect to the agents it finds on your computer. Click **Connect**.
 
 That's it. From now on the fishtank **opens by itself when you start a session** and **closes after the last one
-ends**. You can close the window any time; it comes back with your next session.
+ends**. You can close the window any time; it comes back with your next session. Prefer it to stay open, or to start
+with your computer? See [Settings](#settings).
 
 To connect or disconnect later, use the menu: **Agent Fishtank** in the menu bar on a Mac, the **File** menu on
 Windows (press Alt if you don't see it).
@@ -140,18 +139,28 @@ The tank shows sessions that were active in the last hour. Check that the agent 
 **Disconnect from …** when it is). A new Claude Code session gets its fish with your first message (a session you've
 only opened isn't shown yet); a Copilot session as soon as it writes to its log.
 
-## Options
+## Settings
 
-Start the app with these to play with the scenery. On a Mac:
-`open -a "Agent Fishtank" --args --time=22:30 --shark`. On Windows: `"Agent Fishtank.exe" --time=22:30 --shark`.
+Click the **gear** at the top of the panel, or choose **Settings…** in the menu (**Agent Fishtank** menu on a Mac,
+**File** on Windows; press Alt to show it). Shortcut: ⌘, on a Mac, Ctrl+, on Windows. Changes apply right away and
+are remembered.
 
-| Option | What it does |
-| --- | --- |
-| `--time=22:30` | Show the tank at a fixed time of day |
-| `--timelapse` | Run a whole day in about a minute |
-| `--lat=51.05 --lon=3.72` | Your exact location, for the sun (by default it's guessed from your timezone) |
-| `--whale` / `--shark` | Summon the whale or the shark right away |
-| `--crab` | Keep the crab out on the sand, even while sessions are busy |
+| Setting | What it does | Default |
+| --- | --- | --- |
+| **Daylight** | Follow the real sun, or keep the tank always day or always night | Follows the sun |
+| **Use my exact location** | Latitude and longitude for sunrise and sunset, instead of a guess from your timezone | Off |
+| **Whale or shark** | Lets the occasional whale or shark swim by | On |
+| **Keep the crab out** | The crab stays on the sand, not only when every session is idle | Off |
+| **Animation** | **Lively**, **Calm** (the water, light and fish move slower) or **Minimal** (barely moving, no visitors). **Automatic** is Lively, or Calm when your system is set to reduce motion | Automatic |
+| **Notify when a session needs you** | A notification when a fish gets its `?`: a permission prompt or a question | On |
+| **Notify when a session finishes** | A notification when an agent is done and waits for your next message | Off |
+| **Only after it has waited for** | 30 seconds, 1 minute or 5 minutes. A session you answer within that time doesn't notify, so you're not told about the one you're working in | 1 minute |
+| **Open when a session starts** | Bring up the window when you start a session. Off: the fishtank runs in the background; open it from the Dock (Mac) or by starting Agent Fishtank again | On |
+| **Quit after the last session** | Off: the fishtank keeps running after your sessions end; closing the window only hides it. Quit from the menu | On |
+| **Start in the background when I log in** | Starts with your computer and keeps running, without opening the window | Off |
+
+Notifications don't appear while the fishtank window is in front either, and clicking one opens the tank. On a Mac, allow
+them the first time macOS asks (or later in **System Settings → Notifications → Agent Fishtank**).
 
 <details>
 <summary>Environment variables</summary>
@@ -200,8 +209,12 @@ sends over the internet is the update check to GitHub.
 - **Big logs:** a Copilot log is read from its last 8 MB the first time and a Claude transcript from its last 4 MB;
   after that only new lines. Sessions are forgotten an hour after they went quiet.
 - **Quitting:** every 5 seconds the app checks whether a CLI still runs (Copilot's `inuse.<pid>.lock` files, Claude
-  Code's session files). Once none has for ~15 seconds it quits. Closing the window while sessions run only hides it,
-  so the hooks keep working. Opened by hand, it stays until a session has come and gone.
+  Code's session files). Once none has for ~15 seconds it quits, unless **Quit after the last session** is off or it
+  was started at login. Closing the window while sessions run only hides it, so the hooks keep working. Opened by
+  hand, it stays until a session has come and gone.
+- **Settings:** the server keeps them in `settings.json` in the app's data folder (`npm start` uses a temp file) and
+  sends them to the page with every update; the page's dialog posts changes to `/settings` (JSON from a localhost page
+  only). The app itself acts on the notification and launch settings (`electron/main.ts`).
 - **Updates:** the app asks GitHub for the latest published release (`electron/updates.ts`). It can't install updates
   by itself yet: on macOS that needs a signed app.
 </details>
@@ -226,7 +239,18 @@ npm run dist:dir     # package the app for this computer into release/ (unpacked
 npm run dist         # build the installers into release/
 ```
 
-In a browser (`npm start` / `npm run dev`) the [options](#options) are URL parameters: `?time=22:30&shark`.
+For screenshots and trying out the scenery, these options override the settings. In a browser (`npm start` /
+`npm run dev`) they're URL parameters: `?time=22:30&shark`. The app takes them as arguments:
+`open -a "Agent Fishtank" --args --time=22:30 --shark` on a Mac, `"Agent Fishtank.exe" --time=22:30 --shark` on
+Windows.
+
+| Option | What it does |
+| --- | --- |
+| `time=22:30` | Show the tank at a fixed time of day |
+| `timelapse` | Run a whole day in about a minute |
+| `lat=51.05`, `lon=3.72` | A location for the sun |
+| `whale` / `shark` | Summon the whale or the shark right away |
+| `crab` | Keep the crab out on the sand |
 
 | Path | What |
 | --- | --- |
@@ -234,13 +258,14 @@ In a browser (`npm start` / `npm run dev`) the [options](#options) are URL param
 | `src/scene/` | Fish, water, sky, whale and shark, crab, fish food, credits gauge, air tanks |
 | `src/art/` | Canvas 2D painters for the fish, terrain, whale, shark and crab |
 | `src/panel.ts` | Side panel, Claude usage and the live `/events` connection |
+| `src/settings.ts`, `shared/settings.ts` | The settings dialog; the settings, their defaults and validation |
 | `src/sky.ts`, `src/species.ts`, `src/credits.ts`, `src/limits.ts` | Sun and light, species picker, Copilot credits, Claude usage |
 | `shared/types.ts` | The live feed's types, shared by the server and the page |
-| `server/server.ts` | HTTP server: `/events` feed, `/hook/claude`, `/statusline/claude`, the page, idle check |
+| `server/server.ts` | HTTP server: `/events` feed, `/hook/claude`, `/statusline/claude`, `/settings`, the page, idle check |
 | `server/copilot.ts`, `server/claude.ts` | Session state from Copilot's logs and from Claude Code's hooks and files |
 | `server/logtail.ts` | Follows a growing log a few new lines at a time |
 | `server/index.ts` | Runs the server on its own, for development |
-| `electron/main.ts` | The app: window, menu, connect dialog, quitting when idle |
+| `electron/main.ts` | The app: window, menu, connect dialog, notifications, start at login, quitting when idle |
 | `electron/connect.ts` | Connects/disconnects Claude Code and Copilot CLI |
 | `electron/updates.ts`, `electron/releases.ts` | Update check and prompt |
 | `electron/cli.ts`, `electron/bin/` | The app's command line (`start`, `statusline`, `disconnect`) and its launchers |

@@ -4,6 +4,6 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   build: { target: 'es2022' },
   server: {
-    proxy: { '/events': { target: `http://127.0.0.1:${process.env.FISHTANK_PORT || 4321}` } },
+    proxy: Object.fromEntries(['/events', '/settings'].map(p => [p, { target: `http://127.0.0.1:${process.env.FISHTANK_PORT || 4321}` }])),
   },
 });

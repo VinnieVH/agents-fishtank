@@ -18,11 +18,11 @@ export class Crab extends Sprite {
   private wx = 0; private dir = 1; private until = 0; private calmSince = -1; private next = 0; private sway = 0;
   private scaredAt = 0; private spooked = false;
   private pose: CrabPose = { step: 0, walking: 0, open: 0, armL: 0, armR: 0, look: 0, brows: 0, fright: 0 };
-  private readonly always: boolean;
+  /** Out on the sand even while sessions are busy (the crabAlways setting, or ?crab). */
+  always = false;
 
-  constructor(private res: number, params: URLSearchParams) {
+  constructor(private res: number) {
     super();
-    this.always = params.has('crab');
     this.visible = false;
   }
 
