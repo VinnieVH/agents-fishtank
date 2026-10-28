@@ -136,8 +136,8 @@ The app isn't signed yet; see [Install](#install) for the one-time step.
 
 **A session's fish doesn't show up.**
 The tank shows sessions that were active in the last hour. Check that the agent is connected (the menu says
-**Disconnect from …** when it is). A Claude Code session then shows up within seconds; a Copilot session as soon as
-it writes to its log.
+**Disconnect from …** when it is). A new Claude Code session gets its fish with your first message (a session you've
+only opened isn't shown yet); a Copilot session as soon as it writes to its log.
 
 ## Options
 
@@ -187,7 +187,9 @@ sends over the internet is the update check to GitHub.
   documented [hooks](https://code.claude.com/docs/en/hooks): `http` hooks POST every prompt, tool call, permission
   prompt, stop and subagent start/stop to `http://127.0.0.1:4321/hook/claude`. Hooks don't fire on everything (not
   when you press Esc or answer a permission prompt), so the app also reads the small file Claude Code keeps per
-  running session (`~/.claude/sessions/<pid>.json`), which says the moment a session turns busy, idle or waiting. For
+  running session (`~/.claude/sessions/<pid>.json`), which says the moment a session turns busy, idle or waiting
+  (spare processes Claude Code starts in advance, and its daemons, are skipped). A session gets its fish once it's
+  used: a session that's only been opened runs under a temporary id until the first message. For
   the session title it follows the transcript, reading only new lines and picking out just the title records. Those
   two sources aren't documented; if Claude Code changes them, the app falls back to the hooks and the first prompt.
 - **Claude plan usage:** Claude Code only gives it to the status line, so connecting sets the status line to

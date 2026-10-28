@@ -172,3 +172,42 @@ describe('session names', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+describe('opened but unused sessions', () => {
+  function registry() {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fishtank-spare-'));
+    fs.mkdirSync(path.join(dir, 'sessions'));
+    // a PID that's certainly alive
+    const write = (entry: object) => fs.writeFileSync(path.join(dir, 'sessions', process.pid + '.json'), JSON.stringify({ statusUpdatedAt: Date.now(), ...entry }));
+    return { dir, write, done: () => fs.rmSync(dir, { recursive: true, force: true }) };
+  }
+
+  it('ignores spare session processes and daemons, also for staying open', () => {
+    const r = registry();
+    try {
+      const c = new Claude(r.dir);
+      r.write({ sessionId: 'spare-1', status: 'idle', kind: 'bg', spare: true });
+      c.poll();
+      expect(c.list(Date.now())).toEqual([]);
+      expect(c.running()).toBe(false);
+      r.write({ sessionId: 'd-1', status: 'idle', kind: 'daemon' });
+      c.poll();
+      expect(c.running()).toBe(false);
+    } finally { r.done(); }
+  });
+
+  it('shows one fish when "+ New" opens a session and the first message arrives under another id', () => {
+    const r = registry();
+    try {
+      const c = new Claude(r.dir);
+      r.write({ sessionId: 'temp-id', status: 'idle', kind: 'interactive', name: 'app-3', nameSource: 'derived' });
+      c.poll();
+      expect(c.list(Date.now())).toEqual([]);     // opened, not used yet: no fish
+      expect(c.running()).toBe(true);             // but it keeps the app open
+      c.handle({ hook_event_name: 'UserPromptSubmit', session_id: 'real-id', prompt: 'Add a crab' });
+      r.write({ sessionId: 'real-id', status: 'busy', kind: 'interactive' });
+      c.poll();
+      expect(c.list(Date.now())).toMatchObject([{ id: 'real-id', name: 'Add a crab', state: 'working' }]);
+    } finally { r.done(); }
+  });
+});

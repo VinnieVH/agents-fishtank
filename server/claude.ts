@@ -24,6 +24,8 @@ export interface HookEvent {
 
 export interface ClaudeSession extends Tracked {
   ended: boolean;
+  /** Has sent a hook event, i.e. has really been used (not just opened). */
+  hooked: boolean;
   /** From the running session's file: its state right now, and the name the user gave it with /rename. */
   live?: { state: State; name: string };
   /** The session's titles from its transcript: the one Claude Code generated, and one the user set. */
@@ -33,7 +35,13 @@ export interface ClaudeSession extends Tracked {
   launching: { type: string; description: string; model: string }[];
 }
 
-export const newClaudeSession = (): ClaudeSession => ({ ...newTracked(), ended: false, launching: [], titles: { ai: '', custom: '' } });
+export const newClaudeSession = (): ClaudeSession => ({ ...newTracked(), ended: false, hooked: false, launching: [], titles: { ai: '', custom: '' } });
+
+/**
+ * Whether the session gets a fish: once it has been used (a hook, a title, a name). A session that's only been
+ * opened (e.g. "+ New" in the desktop app) runs under a temporary id until the first message, so it would show up twice.
+ */
+export const isShown = (s: ClaudeSession) => s.hooked || !!(s.titles.ai || s.titles.custom || s.live?.name);
 
 // Claude Code repeats its title records through the transcript, so the end of a long one has them too.
 const TRANSCRIPT_FIRST_READ = 4 * 1024 * 1024;
@@ -65,6 +73,7 @@ const NEEDS_USER = new Set(['permission_prompt', 'elicitation_dialog', 'agent_ne
 
 export function applyHook(s: ClaudeSession, ev: HookEvent, ts: number) {
   s.lastEvent = Math.max(s.lastEvent, ts);
+  s.hooked = true;
   if (ev.transcript_path && !ev.agent_id && s.transcript?.file !== ev.transcript_path) s.transcript = new LogTail(ev.transcript_path, TRANSCRIPT_FIRST_READ);
   // Tool calls inside a subagent shouldn't change what the main session is doing.
   const main = !ev.agent_id;
@@ -126,7 +135,14 @@ export function parseHook(body: string): HookEvent | null {
 }
 
 /** A running session's file, <config>/sessions/<pid>.json. Undocumented, so every field is optional. */
-interface RunningSession { sessionId?: string; status?: string; name?: string; nameSource?: string; statusUpdatedAt?: number }
+interface RunningSession {
+  sessionId?: string; status?: string; name?: string; nameSource?: string; statusUpdatedAt?: number;
+  kind?: string;   // interactive, bg, daemon, daemon-worker
+  spare?: boolean; // a session process started in advance, waiting for your next session
+}
+
+/** Spare session processes and Claude Code's daemons register too, but aren't sessions anyone is using. */
+export const isRealSession = (r: RunningSession) => r.spare !== true && r.kind !== 'daemon' && r.kind !== 'daemon-worker';
 
 const LIVE_STATE: Record<string, State> = { busy: 'working', waiting: 'waiting', idle: 'idle' };
 
@@ -172,12 +188,14 @@ export class Claude {
     const dir = path.join(this.configDir, 'sessions');
     let files: string[] = [];
     try { files = fs.readdirSync(dir).filter(f => /^\d+\.json$/.test(f)); } catch { /* none running, or an older Claude Code */ }
-    this.pids = files.map(f => Number(f.slice(0, -5))).filter(pidAlive);
+    this.pids = [];
     const live = new Set<string>();
-    for (const pid of this.pids) {
+    for (const pid of files.map(f => Number(f.slice(0, -5))).filter(pidAlive)) {
       let r: RunningSession;
       try { r = JSON.parse(fs.readFileSync(path.join(dir, pid + '.json'), 'utf8')); } catch { continue; }
-      if (typeof r?.sessionId !== 'string' || !r.sessionId) continue;
+      if (!r || !isRealSession(r)) continue;
+      this.pids.push(pid);
+      if (typeof r.sessionId !== 'string' || !r.sessionId) continue;
       const s = this.session(r.sessionId);
       s.live = liveFrom(r);
       if (typeof r.statusUpdatedAt === 'number') s.lastEvent = Math.max(s.lastEvent, r.statusUpdatedAt);
@@ -185,6 +203,8 @@ export class Claude {
     }
     for (const [id, s] of this.sessions) {
       if (!live.has(id)) s.live = undefined;
+      // an opened session that's gone again without ever being used, e.g. its temporary id before the first message
+      if (!s.live && !isShown(s)) { this.sessions.delete(id); this.searched.delete(id); continue; }
       if (!s.transcript) this.findTranscript(id, s);
       const update = s.transcript?.read();
       if (update) noteTitles(s, update.lines);
@@ -207,6 +227,7 @@ export class Claude {
     const out: Session[] = [];
     for (const [id, s] of this.sessions) {
       if (!s.live && now - s.lastEvent > RECENT_MS) { this.sessions.delete(id); this.searched.delete(id); continue; }
+      if (!isShown(s)) continue;
       forgetOldSubagents(s, now);
       const shown = { ...s, state: s.live?.state ?? s.state, name: nameOf(s) };
       const session = toSession(id, 'claude', shown, now);
@@ -215,7 +236,8 @@ export class Claude {
     return out;
   }
 
-  /** True while any Claude Code session is running (as of the last poll), or one that hasn't ended was recently active. */
+  /** True while any Claude Code session is running (as of the last poll; spares and daemons don't count), or one that
+   *  hasn't ended was recently active. */
   running(now = Date.now()) {
     return this.pids.length > 0 || [...this.sessions.values()].some(s => !s.ended && now - s.lastEvent < STALE_MS);
   }
