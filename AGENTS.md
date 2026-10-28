@@ -71,7 +71,8 @@ Use this whenever the user asks to release, publish, ship or "push a new version
    `curl -s https://api.github.com/repos/VinnieVH/copilot-fishtank/actions/runs?per_page=1` (`gh run watch` if the
    GitHub CLI is installed).
 7. **Check the release** once the run is green: https://github.com/VinnieVH/copilot-fishtank/releases/latest should
-   list `Agent-Fishtank-X.Y.Z-arm64.dmg`, `Agent-Fishtank-X.Y.Z-x64.dmg` and `Agent-Fishtank-Setup-X.Y.Z.exe`.
+   list `Agent-Fishtank-arm64.dmg`, `Agent-Fishtank-x64.dmg` and `Agent-Fishtank-Setup.exe`. (The names have no
+   version on purpose: `releases/latest/download/<name>` links, used by the website and README, always give the newest.)
    Installed apps offer the update within six hours, or right away via **Check for Updates…**.
 
 **If the workflow fails,** nothing is published and nobody is prompted. Don't move or reuse the tag: fix the problem

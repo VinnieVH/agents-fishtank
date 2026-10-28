@@ -30,6 +30,14 @@ describe('pickAsset', () => {
     expect(pickAsset(release, 'win32', 'arm64')).toMatch(/Setup-1\.2\.0\.exe$/); // one installer for both
   });
 
+  it('finds the installers without a version in their name too', () => {
+    const plain = { ...release, assets: ['Agent-Fishtank-arm64.dmg', 'Agent-Fishtank-x64.dmg', 'Agent-Fishtank-Setup.exe']
+      .map(name => ({ name, browser_download_url: `https://example.com/${name}` })) };
+    expect(pickAsset(plain, 'darwin', 'arm64')).toBe('https://example.com/Agent-Fishtank-arm64.dmg');
+    expect(pickAsset(plain, 'darwin', 'x64')).toBe('https://example.com/Agent-Fishtank-x64.dmg');
+    expect(pickAsset(plain, 'win32', 'x64')).toBe('https://example.com/Agent-Fishtank-Setup.exe');
+  });
+
   it('falls back to the release page', () => {
     expect(pickAsset({ ...release, assets: [] }, 'darwin', 'arm64')).toBe(release.html_url);
     expect(pickAsset(release, 'linux', 'x64')).toBe(release.html_url);

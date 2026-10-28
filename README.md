@@ -41,9 +41,9 @@ Get the installer for your computer from the
 
 | Your computer | Download |
 | --- | --- |
-| Mac with Apple Silicon (M1 or newer) | `Agent-Fishtank-<version>-arm64.dmg` |
-| Mac with Intel | `Agent-Fishtank-<version>-x64.dmg` |
-| Windows (x64 or Arm) | `Agent-Fishtank-Setup-<version>.exe` |
+| Mac with Apple Silicon (M1 or newer) | [Agent-Fishtank-arm64.dmg](https://github.com/VinnieVH/agents-fishtank/releases/latest/download/Agent-Fishtank-arm64.dmg) |
+| Mac with Intel | [Agent-Fishtank-x64.dmg](https://github.com/VinnieVH/agents-fishtank/releases/latest/download/Agent-Fishtank-x64.dmg) |
+| Windows (x64 or Arm) | [Agent-Fishtank-Setup.exe](https://github.com/VinnieVH/agents-fishtank/releases/latest/download/Agent-Fishtank-Setup.exe) |
 
 **On a Mac**
 1. Open the `.dmg` and drag **Agent Fishtank** into **Applications**.

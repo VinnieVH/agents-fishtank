@@ -94,10 +94,10 @@
       "oneClick": true,
       "perMachine": false,
       "include": "build/installer.nsh",
-      "artifactName": "Agent-Fishtank-Setup-${version}.exe"
+      "artifactName": "Agent-Fishtank-Setup.exe"
     },
     "dmg": {
-      "artifactName": "Agent-Fishtank-${version}-${arch}.dmg"
+      "artifactName": "Agent-Fishtank-${arch}.dmg"
     }
   }
 }
