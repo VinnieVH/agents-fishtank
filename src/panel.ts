@@ -1,5 +1,6 @@
 import type { Snapshot, Source } from '../shared/types';
 import type { Air, Tanks } from './limits';
+import type { Phase } from './sky';
 import { dur, esc } from './util';
 
 export type { Session, Snapshot } from '../shared/types';
@@ -66,4 +67,8 @@ export function renderUsage(t: Tanks | null) {
 }
 
 const skyEl = document.getElementById('sky')!;
-export function setSkyText(text: string) { if (skyEl.textContent !== text) skyEl.textContent = text; }
+/** The badge in the panel's top-right corner with the time of day in the tank; the clock time shows on hover. */
+export function setSky(phase: Phase, time: string) {
+  if (skyEl.textContent !== phase) { skyEl.textContent = phase; skyEl.className = phase.toLowerCase(); skyEl.hidden = false; }
+  skyEl.title = `${phase} in the tank · ${time}`;
+}

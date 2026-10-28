@@ -1,7 +1,7 @@
 import { Application, Container, Sprite, Texture } from 'pixi.js';
 import './style.css';
 import { paintTerrain, sandY } from './art/terrain';
-import { connect, renderPanel, renderUsage, setSkyText, type Session, type Snapshot } from './panel';
+import { connect, renderPanel, renderUsage, setSky, type Session, type Snapshot } from './panel';
 import { credits } from './credits';
 import { airTanks } from './limits';
 import { Fish } from './scene/fish';
@@ -116,7 +116,7 @@ let light: Light = lightFor(90, 0), lastSky = -Infinity;
 function updateLight() {
   const d = clock(), { el, ha } = sunPosition(d, where);
   light = lightFor(el, ha);
-  setSkyText(`${light.phase} · ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+  setSky(light.phase, d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
 }
 
 // ---------- animation ----------
