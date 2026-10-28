@@ -67,8 +67,9 @@ function sync(data: Snapshot) {
   const wanted = new Set<string>();
   const bottom = sandY(H) - 40;
   const add = (key: string, sessionId: string, small: boolean, near?: Fish) => {
-    const bigOnes = [...fish.values()].filter(f => !f.small).map(f => f.species);
-    const sp = small && fish.get(sessionId) ? fish.get(sessionId)!.species : species.get(sessionId, bigOnes);
+    const bigOnes = [...fish.values()].filter(f => !f.small).map(f => ({ species: f.species, neon: f.neon }));
+    const parent = fish.get(sessionId);
+    const sp = small && parent ? { species: parent.species, neon: parent.neon } : species.get(sessionId, bigOnes);
     const f = new Fish(key, sessionId, small, sp, W, bottom, res, near);
     fish.set(key, f); fishLayer.addChild(f.body); marksLayer.addChild(f.marks);
     crab.scare();

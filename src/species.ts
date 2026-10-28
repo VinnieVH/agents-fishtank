@@ -1,6 +1,6 @@
 import { hash } from './util';
 
-export type Species = 'tropical' | 'koi' | 'sturgeon' | 'angelfish' | 'puffer';
+export type Species = 'tropical' | 'koi' | 'sturgeon' | 'angelfish' | 'puffer' | 'squid' | 'shrimp' | 'lobster' | 'angler' | 'lionfish' | 'octopus';
 
 export interface SpeciesInfo {
   /** half body height incl. fins, in body units */
@@ -22,6 +22,12 @@ export const SPECIES: Record<Species, SpeciesInfo> = {
   sturgeon:  { half: .5,   size: 1.1,  speed: .8,  labelY: .55, markY: .7,   bounds: [-1.84, -.66, 1.34, .44] },
   angelfish: { half: 1.55, size: .8,   speed: .85, labelY: 1.7, markY: 1.75, bounds: [-1.46, -1.6, .92, 1.6] },
   puffer:    { half: .7,   size: 1.25, speed: .7,  labelY: .95, markY: .95,  bounds: [-.98, -.78, .84, .78] },
+  squid:     { half: .55,  size: 1,    speed: 1.1, labelY: .75, markY: .75,  bounds: [-1.8, -.62, 1.16, .62] },
+  shrimp:    { half: .6,   size: .95,  speed: .9,  labelY: .8,  markY: 1,    bounds: [-1.38, -.94, 1.22, .66] },
+  lobster:   { half: .65,  size: .85,  speed: .75, labelY: .8,  markY: .9,   bounds: [-1.46, -.8, 1.76, .66] },
+  angler:    { half: .7,   size: 1.1,  speed: .7,  labelY: .8,  markY: 1.15, bounds: [-1.26, -1.12, 1.42, .72] },
+  lionfish:  { half: .9,   size: .95,  speed: .75, labelY: 1,   markY: 1.2,  bounds: [-1.42, -1.3, 1, 1] },
+  octopus:   { half: 1,    size: .85,  speed: .85, labelY: 1.25, markY: 1.05, bounds: [-1.55, -1, 1.55, 1.3] },
 };
 export const ALL_SPECIES = Object.keys(SPECIES) as Species[];
 
@@ -34,16 +40,37 @@ export function pickSpecies(sessionId: string, inTank: Iterable<Species>): Speci
   return options[hash(sessionId + ':species') % options.length];
 }
 
-/** Remembers each session's species (also across reloads) so a fish never changes species. */
+/** Neon glow colours, far enough apart to tell sessions apart (also in the panel's swatches). */
+export const NEON = ['#39ff14', '#00f0ff', '#ff00e6', '#fff200', '#ff6a00', '#b026ff', '#00ffb3', '#ff2e63',
+  '#3d8bff', '#b6ff00', '#ff9ad5', '#ffb000', '#7a5cff', '#00c2a8', '#ff4040', '#e8f4ff'];
+
+/** A session's species and glow colour. */
+export interface Look { species: Species; neon: string }
+
+/**
+ * The glow colour least used in the tank, above all among fish of the same species, so two fish that look the same
+ * are as rare as possible. Ties are broken by the session id.
+ */
+export function pickNeon(sessionId: string, species: Species, inTank: Iterable<Look>): string {
+  const score = new Map(NEON.map(n => [n, 0]));
+  for (const l of inTank) if (score.has(l.neon)) score.set(l.neon, score.get(l.neon)! + (l.species === species ? 100 : 1));
+  const min = Math.min(...score.values());
+  const options = NEON.filter(n => score.get(n) === min);
+  return options[hash(sessionId + ':neon') % options.length];
+}
+
+/** Remembers each session's look (also across reloads) so a fish never changes species or colour. */
 export class SpeciesStore {
-  private map: Record<string, Species> = {};
+  private map: Record<string, Look | Species> = {}; // a bare species was stored before fish got their colour here
   constructor(private storage: Pick<Storage, 'getItem' | 'setItem'> | null, private key = 'fishtank.species') {
     try { this.map = JSON.parse(storage?.getItem(key) || '{}') || {}; } catch { this.map = {}; }
   }
-  get(sessionId: string, inTank: Iterable<Species>): Species {
+  get(sessionId: string, inTank: Look[]): Look {
     const known = this.map[sessionId];
-    if (known && known in SPECIES) return known;
-    return this.map[sessionId] = pickSpecies(sessionId, inTank);
+    const kept = typeof known === 'string' ? known : known?.species;
+    const species = kept && kept in SPECIES ? kept : pickSpecies(sessionId, inTank.map(l => l.species));
+    const neon = typeof known === 'object' && NEON.includes(known.neon) ? known.neon : pickNeon(sessionId, species, inTank);
+    return this.map[sessionId] = { species, neon };
   }
   /** Forget sessions that are gone and persist. */
   prune(live: Set<string>) {

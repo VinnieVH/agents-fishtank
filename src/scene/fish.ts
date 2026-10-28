@@ -1,6 +1,6 @@
 import { Container, MeshRope, Point, Text } from 'pixi.js';
 import { paintFish, type FishLook, type FishTextures } from '../art/fishArt';
-import { SPECIES, type Species } from '../species';
+import { SPECIES, type Look } from '../species';
 import { hash, rng, TAU } from '../util';
 import type { State } from '../../shared/types';
 import type { Flake, Pinch } from './food';
@@ -8,7 +8,6 @@ import type { Flake, Pinch } from './food';
 export type { State } from '../../shared/types';
 
 const BODY = ['#ff7a3d', '#ffcf3d', '#ff4d8d', '#3dc8ff', '#9b5cff', '#3dffa0', '#ff5c5c', '#5c7cff'];
-const NEON = ['#39ff14', '#00f0ff', '#ff00e6', '#fff200', '#ff6a00', '#b026ff', '#00ffb3', '#ff2e63'];
 const SPEED: Record<State, number> = { working: 3.5, waiting: .9, idle: .3 };
 const TURN_COOLDOWN_MS = 3000; // minimum time between direction changes
 const LEASH = 90; // max px a subagent fish strays from its parent before turning back
@@ -42,11 +41,11 @@ export class Fish {
   private question: Text;
   private zs: Text[];
 
-  constructor(readonly key: string, readonly sessionId: string, readonly small: boolean, species: Species,
+  constructor(readonly key: string, readonly sessionId: string, readonly small: boolean, { species, neon }: Look,
     W: number, bottom: number, res: number, near?: Fish) {
     const h = hash(key), hs = hash(sessionId);
     this.look = {
-      species, small, body: BODY[(hs >>> 3) % BODY.length], neon: NEON[hs % NEON.length],
+      species, small, body: BODY[(hs >>> 3) % BODY.length], neon,
       pattern: (hs >>> 7) % 3, variant: (hs >>> 11) % 12,
       spots: Array.from({ length: 6 }, (_, i) => { const r = rng(hs + i * 97); return { x: r() * 1.5 - .85, y: r() * .6 - .35, rx: .12 + r() * .14, ry: .08 + r() * .1, rot: r() * 3 }; }),
     };

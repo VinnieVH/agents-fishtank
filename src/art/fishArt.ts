@@ -305,15 +305,364 @@ function drawPuffer(f: FishLook, s: number, w: number, sway: number, ph: number)
   ctx.beginPath(); ctx.ellipse(s * .66, s * .1, s * .05, s * .045, 0, 0, TAU); ctx.fillStyle = '#c4574a'; ctx.fill(); ink(inkC, s, .9, .7);
 }
 
+/** A limb, arm or antenna: a tapering tube with an ink edge, following the given curve. */
+function tube(path: () => void, width: number, fill: string, inkCol: string, s: number) {
+  const edge = Math.max(1.1, s * .045);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  path(); ctx.strokeStyle = inkCol; ctx.lineWidth = width + edge * 2; ctx.stroke();
+  path(); ctx.strokeStyle = fill; ctx.lineWidth = width; ctx.stroke();
+}
+
+// Squid: swims mantle first, fins at the tip, big eyes, arms and two long tentacles trailing behind
+const SQUID = ['#ff8fa3', '#c38bff', '#ffb36b', '#7fe0ff'];
+function squidMantle(s: number) {
+  ctx.beginPath(); ctx.moveTo(s * 1.12, 0);
+  ctx.bezierCurveTo(s * .95, -s * .3, s * .2, -s * .4, -s * .42, -s * .34);
+  ctx.quadraticCurveTo(-s * .6, 0, -s * .42, s * .34);
+  ctx.bezierCurveTo(s * .2, s * .4, s * .95, s * .3, s * 1.12, 0);
+  ctx.closePath();
+}
+function squidFins(s: number) {
+  ctx.beginPath();
+  for (const d of [-1, 1]) { ctx.moveTo(s * 1.1, 0); ctx.quadraticCurveTo(s * .95, d * s * .55, s * .62, d * s * .58); ctx.quadraticCurveTo(s * .6, d * s * .3, s * .42, d * s * .3); }
+  ctx.closePath();
+}
+function squidHead(s: number) { ctx.beginPath(); ctx.ellipse(-s * .58, 0, s * .26, s * .27, 0, 0, TAU); }
+function drawSquid(f: FishLook, s: number) {
+  const base = SQUID[f.variant % SQUID.length], inkC = shade(base, -.65), arm = shade(base, -.08), dark = shade(base, -.3);
+  // arms (eight short, two long tentacles with clubs), drawn first so the head covers their roots
+  const arms = [-.2, -.13, -.06, 0, .06, .13, .2].map((y, i) => [y, 1.3 + (i % 3) * .1] as const);
+  for (const [y, len] of arms) tube(() => { ctx.beginPath(); ctx.moveTo(-s * .7, y * s);
+    ctx.bezierCurveTo(-s * 1, y * s * 1.6 + s * .05, -s * 1.15, y * s * 2 - s * .05, -s * len, y * s * 2.2); }, s * .07, arm, inkC, s);
+  for (const d of [-1, 1]) {
+    tube(() => { ctx.beginPath(); ctx.moveTo(-s * .7, d * s * .05); ctx.bezierCurveTo(-s * 1.1, d * s * .2, -s * 1.35, -d * s * .05, -s * 1.62, d * s * .18); }, s * .045, arm, inkC, s);
+    shape(() => { ctx.beginPath(); ctx.ellipse(-s * 1.66, d * s * .19, s * .1, s * .05, d * .3, 0, TAU); }, arm, inkC, s);
+  }
+  shape(() => squidFins(s), shade(base, .1), inkC, s);
+  ctx.fillStyle = bodyFill(shade(base, .35), base, shade(base, -.2), -s * .4, s * .4); squidMantle(s); ctx.fill();
+  ctx.save(); squidMantle(s); ctx.clip();
+  ctx.fillStyle = dark; ctx.globalAlpha = .5; // chromatophore spots
+  f.spots.forEach(p => { ctx.beginPath(); ctx.arc((p.x * .7 + .35) * s, p.y * .7 * s, s * (.04 + p.rx * .15), 0, TAU); ctx.fill(); });
+  ctx.globalAlpha = 1;
+  shine(s * .35, -s * .2, s * .38, s * .06, -.05, [[s * .85, -s * .1, s * .035], [-s * .05, -s * .22, s * .03]]);
+  ctx.restore();
+  squidMantle(s); ink(inkC, s);
+  shape(() => squidHead(s), bodyFill(shade(base, .25), base, shade(base, -.15), -s * .27, s * .27), inkC, s);
+  eye(-s * .55, -s * .06, s * .2, inkC);
+}
+
+// Shrimp: curved, segmented, a spiky rostrum, long antennae sweeping back, little legs and a tail fan
+const SHRIMP = ['#ff8a6b', '#ff6f91', '#ffa94d', '#ff5c5c'];
+function shrimpBody(s: number) {
+  ctx.beginPath(); ctx.moveTo(s * .85, -s * .06);
+  ctx.bezierCurveTo(s * .72, -s * .52, -s * .2, -s * .6, -s * .86, -s * .16);
+  ctx.lineTo(-s * .9, s * .06);
+  ctx.bezierCurveTo(-s * .3, s * .14, s * .3, s * .32, s * .85, s * .12);
+  ctx.closePath();
+}
+function shrimpTail(s: number) {
+  ctx.beginPath(); ctx.moveTo(-s * .84, -s * .08);
+  ctx.quadraticCurveTo(-s * 1.05, -s * .42, -s * 1.28, -s * .36);
+  ctx.quadraticCurveTo(-s * 1.2, -s * .1, -s * 1.34, s * .02);
+  ctx.quadraticCurveTo(-s * 1.18, s * .14, -s * 1.24, s * .34);
+  ctx.quadraticCurveTo(-s * 1.02, s * .3, -s * .86, s * .06);
+  ctx.closePath();
+}
+function drawShrimp(f: FishLook, s: number) {
+  const base = SHRIMP[f.variant % SHRIMP.length], inkC = shade(base, -.65), limb = shade(base, -.12);
+  for (const [x, len] of [[.5, .2], [.3, .26], [.1, .28], [-.12, .26], [-.34, .22]]) // walking and swimming legs
+    tube(() => { ctx.beginPath(); ctx.moveTo(x * s, s * .16); ctx.quadraticCurveTo((x - .02) * s, (.2 + len * .6) * s, (x - .08) * s, (.2 + len) * s); }, s * .035, limb, inkC, s);
+  tube(() => { ctx.beginPath(); ctx.moveTo(s * .82, -s * .1); ctx.bezierCurveTo(s * .9, -s * .75, -s * .1, -s * .9, -s * .65, -s * .72); }, s * .02, limb, inkC, s);
+  tube(() => { ctx.beginPath(); ctx.moveTo(s * .84, -s * .06); ctx.bezierCurveTo(s * 1.05, -s * .6, s * .2, -s * .78, -s * 1.05, -s * .58); }, s * .02, limb, inkC, s);
+  shape(() => shrimpTail(s), shade(base, .05), inkC, s);
+  streaks(shade(base, -.45), s, [[-s * .9, -s * .02, -s * 1.22, -s * .3], [-s * .92, s * .02, -s * 1.28, s * .02], [-s * .9, s * .05, -s * 1.18, s * .28]]);
+  shape(() => { ctx.beginPath(); ctx.moveTo(s * .78, -s * .2); ctx.lineTo(s * 1.18, -s * .26); ctx.lineTo(s * .84, -s * .06); ctx.closePath(); }, shade(base, .15), inkC, s);
+  ctx.fillStyle = bodyFill(shade(base, .35), base, shade(base, -.15), -s * .55, s * .3); shrimpBody(s); ctx.fill();
+  ctx.save(); shrimpBody(s); ctx.clip();
+  ctx.strokeStyle = inkC; ctx.globalAlpha = .45; ctx.lineWidth = Math.max(.8, s * .03); // shell segments
+  for (const x of [.3, .02, -.24, -.48, -.7]) { ctx.beginPath(); ctx.moveTo(x * s, -s * .6); ctx.quadraticCurveTo((x - .1) * s, -s * .1, (x + .02) * s, s * .4); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = shade(base, .45); ctx.globalAlpha = .5;
+  ctx.beginPath(); ctx.ellipse(-s * .05, s * .14, s * .7, s * .07, .08, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+  shine(s * .1, -s * .35, s * .32, s * .06, -.12, [[-s * .4, -s * .28, s * .035], [s * .5, -s * .32, s * .03]]);
+  ctx.restore();
+  shrimpBody(s); ink(inkC, s);
+  eye(s * .62, -s * .2, s * .14, inkC);
+}
+
+// Lobster: carapace and segmented tail, two big claws reaching forward, long antennae, a tail fan
+const LOBSTER = ['#d9412b', '#e8642c', '#3d6fd9', '#c43a6a'];
+function lobsterShell(s: number) {
+  ctx.beginPath(); ctx.moveTo(s * .8, -s * .02);
+  ctx.bezierCurveTo(s * .7, -s * .38, s * .1, -s * .4, -s * .2, -s * .3);
+  ctx.bezierCurveTo(-s * .55, -s * .26, -s * .85, -s * .2, -s * 1.02, -s * .1);
+  ctx.lineTo(-s * 1.02, s * .1);
+  ctx.bezierCurveTo(-s * .85, s * .2, -s * .55, s * .26, -s * .2, s * .3);
+  ctx.bezierCurveTo(s * .1, s * .4, s * .7, s * .34, s * .8, -s * .02);
+  ctx.closePath();
+}
+function lobsterFan(s: number) {
+  ctx.beginPath(); ctx.moveTo(-s * 1, -s * .1);
+  ctx.quadraticCurveTo(-s * 1.2, -s * .38, -s * 1.42, -s * .3);
+  ctx.quadraticCurveTo(-s * 1.32, 0, -s * 1.42, s * .3);
+  ctx.quadraticCurveTo(-s * 1.2, s * .38, -s * 1, s * .1);
+  ctx.closePath();
+}
+function lobsterClaw(s: number, d: number) {
+  const y = d * s * .42;
+  ctx.beginPath(); ctx.moveTo(s * .95, y);
+  ctx.bezierCurveTo(s * 1.05, y - s * .22, s * 1.5, y - s * .22, s * 1.66, y - s * .04); // upper jaw
+  ctx.quadraticCurveTo(s * 1.4, y - s * .02, s * 1.3, y + s * .02);
+  ctx.quadraticCurveTo(s * 1.45, y + s * .06, s * 1.6, y + s * .1);                       // lower jaw
+  ctx.bezierCurveTo(s * 1.4, y + s * .22, s * 1.05, y + s * .2, s * .95, y);
+  ctx.closePath();
+}
+function drawLobster(f: FishLook, s: number) {
+  const base = LOBSTER[f.variant % LOBSTER.length], inkC = shade(base, -.65), limb = shade(base, -.12), light = shade(base, .3);
+  for (const x of [.45, .25, .05]) tube(() => { ctx.beginPath(); ctx.moveTo(x * s, s * .25); ctx.quadraticCurveTo((x + .05) * s, s * .45, (x - .05) * s, s * .58); }, s * .04, limb, inkC, s);
+  for (const d of [-1, 1]) tube(() => { ctx.beginPath(); ctx.moveTo(s * .7, d * s * .16); ctx.quadraticCurveTo(s * .82, d * s * .4, s * 1, d * s * .42); }, s * .09, limb, inkC, s);
+  tube(() => { ctx.beginPath(); ctx.moveTo(s * .78, -s * .12); ctx.bezierCurveTo(s * 1.1, -s * .55, s * 1.45, -s * .75, s * 1.72, -s * .62); }, s * .025, limb, inkC, s);
+  tube(() => { ctx.beginPath(); ctx.moveTo(s * .8, -s * .08); ctx.bezierCurveTo(s * .9, -s * .5, s * .55, -s * .78, s * .2, -s * .74); }, s * .025, limb, inkC, s);
+  shape(() => lobsterFan(s), shade(base, .05), inkC, s);
+  streaks(shade(base, -.45), s, [[-s * 1.05, -s * .05, -s * 1.36, -s * .24], [-s * 1.05, 0, -s * 1.36, 0], [-s * 1.05, s * .05, -s * 1.36, s * .24]]);
+  ctx.fillStyle = bodyFill(light, base, shade(base, -.2), -s * .4, s * .4); lobsterShell(s); ctx.fill();
+  ctx.save(); lobsterShell(s); ctx.clip();
+  ctx.strokeStyle = inkC; ctx.globalAlpha = .45; ctx.lineWidth = Math.max(.8, s * .03); // tail segments
+  for (const x of [-.2, -.4, -.6, -.8]) { ctx.beginPath(); ctx.moveTo(x * s, -s * .4); ctx.quadraticCurveTo((x - .06) * s, 0, x * s, s * .4); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = shade(base, -.35); ctx.globalAlpha = .35; // bumpy shell
+  f.spots.forEach(p => { ctx.beginPath(); ctx.arc((p.x * .35 + .35) * s, p.y * .5 * s, s * .03, 0, TAU); ctx.fill(); });
+  ctx.globalAlpha = 1;
+  shine(s * .3, -s * .2, s * .3, s * .06, -.1, [[-s * .3, -s * .18, s * .035], [-s * .62, -s * .12, s * .03]]);
+  ctx.restore();
+  lobsterShell(s); ink(inkC, s);
+  for (const d of [1, -1]) { // the far claw first
+    ctx.fillStyle = bodyFill(light, base, shade(base, -.2), d * s * .42 - s * .2, d * s * .42 + s * .2); lobsterClaw(s, d); ctx.fill(); ink(inkC, s);
+    shine(s * 1.25, d * s * .42 - s * .1, s * .14, s * .03, -.05, []);
+  }
+  eye(s * .6, -s * .14, s * .13, inkC);
+}
+
+// Anglerfish: a dark round body, a wide grin full of teeth, and a glowing lure dangling in front of its face
+const ANGLER = ['#4b3b5c', '#3b4a5c', '#5c4038', '#2f4a3e'];
+// the outline runs from the upper lip over the head, round the tail end, along the belly and up the jutting chin
+function anglerBody(s: number) {
+  ctx.beginPath(); ctx.moveTo(s * .98, s * .02);
+  ctx.bezierCurveTo(s * .98, -s * .62, s * .1, -s * .78, -s * .4, -s * .45);
+  ctx.quadraticCurveTo(-s * .7, -s * .25, -s * .78, 0);
+  ctx.quadraticCurveTo(-s * .7, s * .25, -s * .4, s * .42);
+  ctx.bezierCurveTo(s * .1, s * .7, s * .8, s * .6, s * 1.02, s * .38);
+  ctx.quadraticCurveTo(s * 1.14, s * .22, s * 1.12, -s * .04);
+  ctx.closePath();
+}
+/** The open mouth: from the upper lip back to the drooping corner, and forward along the lower jaw. */
+function anglerMouth(s: number) {
+  ctx.beginPath(); ctx.moveTo(s * .98, s * .02);
+  ctx.quadraticCurveTo(s * .7, s * .1, s * .42, s * .3);
+  ctx.quadraticCurveTo(s * .78, s * .26, s * 1.12, -s * .04);
+  ctx.closePath();
+}
+function anglerTail(s: number) {
+  ctx.beginPath(); ctx.moveTo(-s * .72, 0);
+  ctx.quadraticCurveTo(-s * .95, -s * .3, -s * 1.22, -s * .34);
+  ctx.quadraticCurveTo(-s * 1.1, 0, -s * 1.22, s * .34);
+  ctx.quadraticCurveTo(-s * .95, s * .3, -s * .72, 0);
+  ctx.closePath();
+}
+function drawAngler(f: FishLook, s: number) {
+  const base = ANGLER[f.variant % ANGLER.length], inkC = shade(base, -.7), fin = shade(base, .12);
+  shape(() => anglerTail(s), fin, inkC, s);
+  streaks(shade(base, -.4), s, [[-s * .8, -s * .04, -s * 1.15, -s * .26], [-s * .8, s * .04, -s * 1.15, s * .26]]);
+  shape(() => { ctx.beginPath(); ctx.moveTo(-s * .2, -s * .6); ctx.quadraticCurveTo(-s * .45, -s * .9, -s * .62, -s * .7); ctx.quadraticCurveTo(-s * .5, -s * .55, -s * .48, -s * .4); ctx.closePath(); }, fin, inkC, s);
+  // the lure: a stalk from the forehead, and a glowing bulb
+  tube(() => { ctx.beginPath(); ctx.moveTo(s * .35, -s * .66); ctx.bezierCurveTo(s * .45, -s * 1.1, s * .95, -s * 1.1, s * 1.08, -s * .74); }, s * .035, fin, inkC, s);
+  const glow = ctx.createRadialGradient(s * 1.1, -s * .68, 0, s * 1.1, -s * .68, s * .3);
+  glow.addColorStop(0, 'rgba(220,255,170,.9)'); glow.addColorStop(1, 'rgba(160,255,200,0)');
+  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(s * 1.1, -s * .68, s * .3, 0, TAU); ctx.fill();
+  shape(() => { ctx.beginPath(); ctx.arc(s * 1.1, -s * .68, s * .1, 0, TAU); }, '#f4ffb8', shade('#c8e86a', -.5), s);
+  ctx.fillStyle = bodyFill(shade(base, .3), base, shade(base, -.25), -s * .7, s * .6); anglerBody(s); ctx.fill();
+  ctx.save(); anglerBody(s); ctx.clip();
+  ctx.fillStyle = shade(base, -.3); ctx.globalAlpha = .45;
+  f.spots.forEach(p => { ctx.beginPath(); ctx.arc((p.x * .5 - .05) * s, (p.y * .9 - .1) * s, s * .035, 0, TAU); ctx.fill(); });
+  ctx.globalAlpha = 1;
+  shine(-s * .05, -s * .45, s * .32, s * .07, -.2, [[-s * .4, -s * .25, s * .04]]);
+  ctx.restore();
+  anglerBody(s); ink(inkC, s);
+  // the mouth: a grumpy underbite, sloping down to the back, with crooked fangs over the lip
+  anglerMouth(s); ctx.fillStyle = '#1a0f1e'; ctx.fill();
+  ctx.save(); anglerMouth(s); ctx.clip();
+  ctx.fillStyle = '#f6f3e8';
+  for (const x of [.6, .76, .9]) { // short upper teeth
+    const y = s * (.02 + (.98 - x) * .5);
+    ctx.beginPath(); ctx.moveTo((x - .025) * s, y - s * .02); ctx.lineTo(x * s, y + s * .07); ctx.lineTo((x + .025) * s, y - s * .02); ctx.fill();
+  }
+  ctx.restore();
+  ctx.fillStyle = '#f6f3e8'; ctx.strokeStyle = inkC; ctx.lineWidth = Math.max(.6, s * .015);
+  for (const [x, h] of [[.56, .11], [.72, .15], [.87, .1], [1.02, .14]]) { // lower fangs, sticking up over the lip
+    const y = s * (.3 - (x - .42) * .48);
+    ctx.beginPath(); ctx.moveTo((x - .035) * s, y + s * .02); ctx.lineTo(x * s, y - h * s); ctx.lineTo((x + .03) * s, y + s * .02); ctx.fill(); ctx.stroke();
+  }
+  anglerMouth(s); ink(inkC, s, .95, .9);
+  // a heavy brow over the eye
+  ctx.beginPath(); ctx.moveTo(s * .34, -s * .5); ctx.quadraticCurveTo(s * .5, -s * .52, s * .66, -s * .42); ink(inkC, s, .9, 1.4);
+  eye(s * .5, -s * .32, s * .13, inkC);
+}
+
+// Lionfish ("devil fish"): cream with red-brown stripes, a crest of long spines, big feathery fan fins
+const LION = ['#a3321f', '#8a4a24', '#2f2a2e', '#b8452f'];
+function lionBody(s: number) {
+  ctx.beginPath(); ctx.moveTo(s * .92, s * .04);
+  ctx.bezierCurveTo(s * .85, -s * .42, s * .2, -s * .5, -s * .45, -s * .3);
+  ctx.quadraticCurveTo(-s * .72, -s * .14, -s * .78, 0);
+  ctx.quadraticCurveTo(-s * .72, s * .14, -s * .45, s * .28);
+  ctx.bezierCurveTo(s * .2, s * .48, s * .85, s * .4, s * .92, s * .04);
+  ctx.closePath();
+}
+function lionTail(s: number) {
+  ctx.beginPath(); ctx.moveTo(-s * .72, 0);
+  ctx.quadraticCurveTo(-s * .95, -s * .36, -s * 1.3, -s * .3);
+  ctx.quadraticCurveTo(-s * 1.4, 0, -s * 1.3, s * .3);
+  ctx.quadraticCurveTo(-s * .95, s * .36, -s * .72, 0);
+  ctx.closePath();
+}
+/** The fan fins: a spread of long rays from behind the head, with a web of fin between them. */
+function lionFan(s: number) {
+  ctx.beginPath(); ctx.moveTo(s * .25, s * .1);
+  ctx.bezierCurveTo(s * .1, s * .6, -s * .4, s * .95, -s * .95, s * .85);
+  ctx.quadraticCurveTo(-s * .55, s * .55, -s * .2, s * .22);
+  ctx.closePath();
+}
+function drawLion(f: FishLook, s: number) {
+  const stripe = LION[f.variant % LION.length], cream = '#f6eadb', inkC = shade(stripe, -.6);
+  // the crest: a few long, separate spines fanning up and back, with a low web between their bases
+  const spines = Array.from({ length: 8 }, (_, i) => {
+    const x = .5 - i * .13, a = -1.25 - i * .13, len = .95 - Math.abs(i - 2.5) * .07;
+    return [x, -.34 + i * .01, x + Math.cos(a) * len, -.34 + Math.sin(a) * len] as const;
+  });
+  ctx.beginPath(); ctx.moveTo(s * spines[0][0], s * spines[0][1]);
+  for (const [x0, y0, x1, y1] of spines) ctx.lineTo(s * (x0 + (x1 - x0) * .45), s * (y0 + (y1 - y0) * .45));
+  ctx.lineTo(s * spines[7][0], s * spines[7][1]); ctx.closePath();
+  ctx.fillStyle = shade(stripe, .3); ctx.globalAlpha = .45; ctx.fill(); ctx.globalAlpha = 1;
+  for (const [x0, y0, x1, y1] of spines) {
+    const curve = () => { ctx.beginPath(); ctx.moveTo(x0 * s, y0 * s); ctx.quadraticCurveTo((x0 + x1) / 2 * s + s * .06, (y0 + y1) / 2 * s, x1 * s, y1 * s); };
+    tube(curve, s * .04, cream, inkC, s);
+    ctx.strokeStyle = stripe; ctx.lineWidth = s * .04; ctx.lineCap = 'butt'; ctx.setLineDash([s * .07, s * .07]); // banded spines
+    curve(); ctx.stroke(); ctx.setLineDash([]); ctx.lineCap = 'round';
+  }
+  shape(() => lionTail(s), shade(cream, -.05), inkC, s);
+  ctx.fillStyle = stripe; ctx.globalAlpha = .6; // spotted tail
+  for (let i = 0; i < 7; i++) { ctx.beginPath(); ctx.arc(-s * (.9 + (i % 3) * .14), s * (-.2 + (i / 6) * .4), s * .035, 0, TAU); ctx.fill(); }
+  ctx.globalAlpha = 1;
+  // the fan fins behind the body (the far one peeks out above the near one)
+  ctx.fillStyle = bodyFill('#fff8ee', cream, shade(cream, -.15), -s * .45, s * .45); lionBody(s); ctx.fill();
+  ctx.save(); lionBody(s); ctx.clip();
+  ctx.fillStyle = stripe; // the bold stripes, curving like the real thing
+  for (let i = 0; i < 8; i++) {
+    const x = s * (.72 - i * .19);
+    ctx.beginPath(); ctx.moveTo(x, -s * .6); ctx.quadraticCurveTo(x - s * .1, 0, x + s * .02, s * .6);
+    ctx.lineTo(x - s * .08, s * .6); ctx.quadraticCurveTo(x - s * .18, 0, x - s * .08, -s * .6); ctx.closePath(); ctx.fill();
+  }
+  shine(s * .1, -s * .28, s * .32, s * .06, -.1, [[-s * .35, -s * .18, s * .035]]);
+  ctx.restore();
+  lionBody(s); ink(inkC, s);
+  ctx.fillStyle = shade(stripe, .45); ctx.globalAlpha = .4; lionFan(s); ctx.fill(); ctx.globalAlpha = 1; // a see-through web
+  for (let i = 0; i < 7; i++) { // and long feathery rays, banded like the spines
+    const ex = -(.45 + i * .085), ey = .3 + i * .095;
+    const ray = () => { ctx.beginPath(); ctx.moveTo(s * .22, s * .1); ctx.quadraticCurveTo(-s * .1, s * (.22 + i * .09), ex * s, ey * s); };
+    tube(ray, s * .035, cream, inkC, s);
+    ctx.strokeStyle = stripe; ctx.lineWidth = s * .035; ctx.lineCap = 'butt'; ctx.setLineDash([s * .06, s * .05]); ray(); ctx.stroke(); ctx.setLineDash([]); ctx.lineCap = 'round';
+  }
+  eye(s * .6, -s * .1, s * .15, inkC);
+  tube(() => { ctx.beginPath(); ctx.moveTo(s * .62, -s * .24); ctx.quadraticCurveTo(s * .7, -s * .38, s * .78, -s * .4); }, s * .025, cream, inkC, s); // feeler above the eye
+  pout(s * .92, s * .1, s, inkC);
+}
+
+// Octopus, facing you: a domed head with big eyes and a grin, and eight arms spreading out to both sides and curling
+// up at the tips, with suckers along them. Swimming bends it like the others, which makes the trailing arms ripple.
+const OCTOPUS = ['#c35bd8', '#e8556d', '#ff8a5c', '#5b8de8'];
+function octoHead(s: number) {
+  ctx.beginPath(); ctx.moveTo(-s * .42, s * .08);
+  ctx.bezierCurveTo(-s * .62, -s * .35, -s * .42, -s * .92, 0, -s * .92);
+  ctx.bezierCurveTo(s * .42, -s * .92, s * .62, -s * .35, s * .42, s * .08);
+  ctx.quadraticCurveTo(0, s * .3, -s * .42, s * .08);
+  ctx.closePath();
+}
+/** An arm as points: it leaves the head in direction a0 and turns more and more, rolling up at the tip. */
+function octoArm(s: number, x0: number, y0: number, a0: number, turn: number, len: number): [number, number][] {
+  const pts: [number, number][] = [[x0 * s, y0 * s]];
+  let x = x0, y = y0, a = a0;
+  const n = 30;
+  for (let i = 1; i <= n; i++) {
+    const t = i / n;
+    a += turn * (t < .7 ? .6 : 3.2) / n; // gently along the arm, sharply in the curl
+    const step = len / n * (1 - t * .45);
+    x += Math.cos(a) * step; y += Math.sin(a) * step;
+    pts.push([x * s, y * s]);
+  }
+  return pts;
+}
+function taper(pts: [number, number][], w0: number, w1: number, col: string, extra: number) {
+  ctx.strokeStyle = col; ctx.lineCap = 'round';
+  for (let i = 1; i < pts.length; i++) {
+    ctx.lineWidth = w0 + (w1 - w0) * i / pts.length + extra;
+    ctx.beginPath(); ctx.moveTo(...pts[i - 1]); ctx.lineTo(...pts[i]); ctx.stroke();
+  }
+}
+// right-hand arms as [start x, start y, direction, turn, length]; the left ones mirror them
+const OCTO_ARMS = [[.3, -.04, -.35, -2.4, 1.3], [.36, .08, .2, -2.3, 1.4], [.28, .18, .85, -2.5, 1.25], [.1, .24, 1.4, -2.2, 1.05]];
+function octoArms(s: number) {
+  return OCTO_ARMS.flatMap(([x, y, a, turn, len]) => [
+    { pts: octoArm(s, x, y, a, turn, len), side: Math.sign(turn) },
+    { pts: octoArm(s, -x, y, Math.PI - a, -turn, len), side: -Math.sign(turn) },
+  ]);
+}
+/** The glow around the arms: each arm traced a little wider than itself, in the halo's colour and blur. */
+function octoArmsGlow(s: number) {
+  const col = ctx.strokeStyle as string, w = ctx.lineWidth;
+  for (const { pts } of octoArms(s)) taper(pts, s * .2 + w, s * .04 + w, col, 0);
+  ctx.beginPath(); // paintFish strokes the current path after this; there's nothing left to stroke
+}
+function drawOctopus(f: FishLook, s: number) {
+  const base = OCTOPUS[f.variant % OCTOPUS.length], inkC = shade(base, -.62), sucker = '#ffb978', edge = Math.max(1.1, s * .045) * 2;
+  const arms = octoArms(s), w0 = s * .2, w1 = s * .04;
+  for (const { pts } of arms) taper(pts, w0, w1, inkC, edge); // all ink edges first, so the arms blend where they meet
+  for (const { pts } of arms) taper(pts, w0, w1, shade(base, -.05), 0);
+  for (const { pts, side } of arms) for (let i = 4; i < pts.length - 2; i += 2) { // suckers on the inside of each curl
+    const [x0, y0] = pts[i - 1], [x1, y1] = pts[i + 1], d = Math.hypot(x1 - x0, y1 - y0) || 1;
+    const w = w0 + (w1 - w0) * i / pts.length, nx = -(y1 - y0) / d * side, ny = (x1 - x0) / d * side;
+    ctx.fillStyle = sucker; ctx.beginPath(); ctx.arc(pts[i][0] + nx * w * .5, pts[i][1] + ny * w * .5, w * .24, 0, TAU); ctx.fill();
+    ctx.strokeStyle = shade(sucker, -.35); ctx.lineWidth = Math.max(.5, s * .012); ctx.stroke();
+  }
+  ctx.fillStyle = bodyFill(shade(base, .35), base, shade(base, -.15), -s * .92, s * .2); octoHead(s); ctx.fill();
+  ctx.save(); octoHead(s); ctx.clip();
+  ctx.fillStyle = shade(base, -.22); ctx.globalAlpha = .5; // freckles on the dome
+  f.spots.forEach(p => { ctx.beginPath(); ctx.arc(p.x * .4 * s, (p.y * .6 - .55) * s, s * (.03 + p.ry * .12), 0, TAU); ctx.fill(); });
+  ctx.globalAlpha = 1;
+  shine(-s * .12, -s * .68, s * .2, s * .1, -.5, [[s * .2, -s * .74, s * .04], [-s * .3, -s * .45, s * .03]]);
+  ctx.restore();
+  octoHead(s); ink(inkC, s);
+  // the face, in the same style as the fish: their glossy eyes and a small inked smile
+  eye(-s * .15, -s * .2, s * .14, inkC); eye(s * .15, -s * .2, s * .14, inkC);
+  ctx.beginPath(); ctx.moveTo(-s * .07, s * .0); ctx.quadraticCurveTo(0, s * .06, s * .07, s * .0); ink(inkC, s, .85, .8);
+}
 
 type Painter = (f: FishLook, s: number, w: number, sway: number, ph: number) => void;
-const PAINT: Record<Species, Painter> = { tropical: drawTropical, koi: drawKoi, sturgeon: drawSturgeon, angelfish: drawAngel, puffer: drawPuffer };
+const PAINT: Record<Species, Painter> = {
+  tropical: drawTropical, koi: drawKoi, sturgeon: drawSturgeon, angelfish: drawAngel, puffer: drawPuffer,
+  squid: drawSquid, shrimp: drawShrimp, lobster: drawLobster, angler: drawAngler, lionfish: drawLion, octopus: drawOctopus,
+};
 const OUTLINE: Record<Species, (s: number) => (() => void)[]> = {
   tropical: s => [() => tropicalTail(s, 0), () => tropicalBody(s)],
   koi: s => [() => koiTail(s, 0), () => koiBody(s)],
   sturgeon: s => [() => sturgeonTail(s, 0), () => sturgeonBody(s)],
   angelfish: s => [() => angelTail(s, 0), () => angelFin(s, 0, -1), () => angelFin(s, 0, 1), () => angelBody(s)],
   puffer: s => [() => pufferTail(s, 0), () => pufferBody(s)],
+  squid: s => [() => squidFins(s), () => squidMantle(s), () => squidHead(s)],
+  shrimp: s => [() => shrimpTail(s), () => shrimpBody(s)],
+  lobster: s => [() => lobsterFan(s), () => lobsterShell(s), () => lobsterClaw(s, -1), () => lobsterClaw(s, 1)],
+  angler: s => [() => anglerTail(s), () => anglerBody(s)],
+  lionfish: s => [() => lionTail(s), () => lionFan(s), () => lionBody(s)],
+  octopus: s => [() => octoArmsGlow(s), () => octoHead(s)],
 };
 
 export interface FishTextures {
