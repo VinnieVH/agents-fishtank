@@ -1,7 +1,9 @@
 name: Release
 
 # Builds the desktop app for macOS (.dmg, Apple Silicon and Intel) and Windows (.exe installer, x64 and Arm), smoke-tests
-# the packaged command line on each, and attaches the installers to a GitHub release for tags like v1.2.0.
+# the packaged command line on each, and publishes a GitHub release with the installers for tags like v1.2.0.
+# Installed apps check for that release and offer the update (electron/updates.ts). Nothing is published unless both
+# builds pass. Make a release with: npm version minor -m "chore(release): %s" && git push --follow-tags
 # The apps are unsigned for now (see README): signing only needs certificates added as secrets here later.
 on:
   push:
@@ -20,6 +22,18 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
+      # the app reports package.json's version: a tag that doesn't match would make every app offer this update forever
+      - name: Check the tag matches package.json
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "${GITHUB_REF_NAME#v}" != "$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match package.json version $version. Use npm version to make releases."
+            exit 1
+          fi
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -70,8 +84,10 @@ jobs:
         with:
           pattern: installers-*
           merge-multiple: true
+      # published right away (not a draft or pre-release), so installed apps see it
       - uses: softprops/action-gh-release@v2
         with:
+          generate_release_notes: true
           files: |
             *.dmg
             *.exe
