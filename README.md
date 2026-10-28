@@ -11,12 +11,12 @@ Every session is a glowing fish: it **races around while the agent is working**,
 ## Features
 
 - One fish per Copilot CLI or Claude Code session that was active in the last hour, labelled with its session name
-  (the name you set with `/rename`, or else the start of your first prompt).
+  (the name you gave it, or else the title Claude Code generated for it, or the start of your first prompt).
 - Cartoon-style fish with ink outlines and big glossy eyes, rendered with WebGL ([PixiJS](https://pixijs.com)); their bodies
   bend as they swim and they glow in their session's neon colour. The seabed (seaweed, anemones, coral, rocks, a stone
   arch and a treasure chest) is drawn in the same cartoon style.
 - Each session gets its own species — tropical fish, koi, sturgeon, angelfish or pufferfish. New sessions get the species
-  that's least common in the tank so you get a good mix, and a session keeps its species (even across page reloads).
+  that's least common in the tank so you get a good mix, and a session keeps its species (even when the app restarts).
 - A small fish of the same species and colours for every running subagent, swimming close to its parent.
 - Every few minutes a humpback whale or a great white shark glides by far in the background, never both at once (start the app with `--whale` or `--shark` to summon one right away).
 - When every session is idle (or there are none), a little red crab comes out to stroll along the sand: he looks
@@ -36,11 +36,11 @@ Every session is a glowing fish: it **races around while the agent is working**,
   under 10% left). A plaque on its pipe shows the credits left and the reset date. The gold in the treasure chest
   shrinks as credits run out (empty at 0%), with one diamond, ruby or sapphire for every 20% left. Read from the
   quota snapshot the CLI writes to its session logs, so no extra login or API call.
-- Your Claude Pro/Max plan usage as a diver's two scuba tanks standing in the sand by the rocks: the big yellow one
-  for the 5-hour limit, the slim coral one leaning on it for the weekly limit. A sight glass on each shows the air
-  left (cyan, amber under 25%, red under 10%), and a dive slate in the sand says how much is left and when it refills.
-  An almost empty tank leaks bubbles from its valve. Claude Code only gives this usage to its status line, so the
-  app wraps your status line (see below); it looks exactly as before.
+- Your Claude Pro/Max plan usage as a diver's two scuba tanks standing in the sand by the rocks on the left: the big
+  yellow one for the 5-hour limit, the slim coral one leaning on it for the weekly limit. A sight glass on each shows
+  the air left (cyan, amber under 25%, red under 10%), and an almost empty tank leaks bubbles from its valve. The side panel lists the exact numbers and when each one refills.
+  Claude Code only gives this usage to its status line, so the app wraps your status line (see below); it looks
+  exactly as before.
 - A desktop app for macOS and Windows. It opens by itself when you start a `copilot` or `claude` session (also in the
   Claude desktop app), and quits after the last one closes. Closing its window while sessions run only hides it.
 - It only listens on `127.0.0.1` and never steers your agent: it reads Copilot's local session logs and receives
@@ -92,7 +92,9 @@ Alt to show it).
   Hooks don't fire on everything (not when you press Esc or answer a permission prompt), so the app also reads the
   small file Claude Code keeps per running session (`~/.claude/sessions/<pid>.json`), which says the moment a session
   turns busy, idle or waiting, and the name you gave it. That file isn't documented; if a Claude Code update changes
-  it, the fishtank falls back to the hooks alone.
+  it, the fishtank falls back to the hooks alone. For the session's title (like the one in Claude Code's session list),
+  the app follows the session's transcript, reading only new lines and picking out just the title records; if that
+  internal format changes, the fish is named after your first prompt instead.
 - **Claude plan usage:** connecting sets Claude Code's status line to `fishtank statusline`, which passes the
   `rate_limits` part of its input to the app and then runs your own status line (kept, base64-encoded, at the end of
   the command) with the same input, so you see the same status line as before. Without a status line of your own it
@@ -102,7 +104,8 @@ Alt to show it).
 - The app runs the server (`server/server.ts`): it merges both into one live feed and pushes it to the window over
   Server-Sent Events.
 - Long sessions write big logs. The app reads a Copilot log only from its last 8 MB when it first sees it and then
-  just the new lines, never reads Claude Code's transcripts, and forgets sessions an hour after they went quiet.
+  just the new lines. Claude Code transcripts are read the same way (from their last 4 MB, for the title only). Sessions
+  are forgotten an hour after they went quiet.
 - Every 5 seconds the app checks whether a CLI is still running: Copilot's `inuse.<pid>.lock` files and Claude Code's
   `~/.claude/sessions/<pid>.json` files. Once neither has been running for ~15 seconds it quits. Opened by hand, it
   stays until a session has come and gone.
@@ -125,6 +128,7 @@ Start the app with these to change what the tank shows, e.g. on macOS
 | `FISHTANK_PORT`        | `4321`                     | Port the app listens on (localhost only). The hooks use the port set when connecting, so connect again after changing it. |
 | `CLAUDE_CONFIG_DIR`    | `~/.claude`                | Claude Code's config folder (settings, running sessions) |
 | `COPILOT_HOME`         | `~/.copilot`               | Copilot CLI's folder (hooks, session logs)    |
+| `COPILOT_SESSION_DIR`  | `$COPILOT_HOME/session-state` | Where Copilot CLI stores its session logs, if somewhere else |
 
 ## Development
 
@@ -147,7 +151,8 @@ which `npm run typecheck` enforces through `tsconfig.server.json`.
 | `shared/types.ts`    | The live feed's types, shared by the server and the page               |
 | `server/server.ts`   | HTTP server: `/events` feed, `/hook/claude`, `/statusline/claude`, static page, idle check |
 | `server/copilot.ts`  | Copilot CLI: tails the session logs, quota, process check              |
-| `server/claude.ts`   | Claude Code: hook events and running-session files → session state     |
+| `server/claude.ts`   | Claude Code: hook events, running-session files and transcript titles → session state |
+| `server/logtail.ts`  | Follows a growing log a few new lines at a time                        |
 | `server/index.ts`    | Runs the server on its own, for development                            |
 | `electron/main.ts`   | The desktop app: window, menu, first-run connect dialog, quitting when idle |
 | `electron/connect.ts` | Connects/disconnects Claude Code and Copilot CLI (hooks, status line)  |
