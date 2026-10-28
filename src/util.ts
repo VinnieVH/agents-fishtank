@@ -24,6 +24,12 @@ export function shade(hex: string, amt: number): string {
   return `rgb(${f(r)},${f(g)},${f(b)})`;
 }
 
+/** Tint for things drawn in front of the night overlay, so they darken the same way as the scenery behind them. */
+export function nightTint(night: number): number {
+  const a = .66 * night, mix = (c: number) => Math.round(255 * (1 - a) + c * a);
+  return mix(0x02) << 16 | mix(0x08) << 8 | mix(0x1a);
+}
+
 export function esc(s: unknown): string {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }

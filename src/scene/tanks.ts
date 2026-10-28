@@ -2,7 +2,7 @@ import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { paintTexture } from '../art/canvas';
 import { sandY } from '../art/terrain';
 import type { Air, Tanks } from '../limits';
-import { TAU } from '../util';
+import { nightTint, TAU } from '../util';
 
 // A diver's two scuba tanks standing forward on the sand by the rocks on the left, with Claude's plan usage as the air
 // left in them: the big yellow one for the 5-hour window, the slim coral one leaning on it for the week. An almost
@@ -48,8 +48,9 @@ export class AirTanks extends Container {
     this.paint();
   }
 
-  update(t: number, dt: number) {
+  update(t: number, dt: number, night: number) {
     if (!this.tanks) return;
+    this.tint = nightTint(night); // they stand in front of the night overlay
     // valves of tanks that are almost empty: a bubble every few hundred ms, wobbling up and growing
     const valves = ([[this.tanks.fiveHour, BIG_X, BIG], [this.tanks.week, SLIM_X, SLIM]] as const)
       .filter(([air]) => air?.low).map(([, x, look]) => valve(x, look));

@@ -127,8 +127,8 @@ app.ticker.add(ticker => {
   const calm = [...sessions.values()].every(s => s.state === 'idle'); // also true with no sessions at all
 
   passersby.update(t, dt, W, H);
-  gauge.update(t, dt);
-  tanks.update(t, dt);
+  gauge.update(t, dt, light.night);
+  tanks.update(t, dt, light.night);
   crab.update(t, dt, W, H, calm, light.night);
   food.update(t, dt, sandY(H) + 6);
   water.update(t, dt, busy, light.day, light.night);

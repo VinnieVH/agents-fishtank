@@ -1,5 +1,6 @@
 import { CanvasSource, Sprite, Texture } from 'pixi.js';
 import { CRAB_BOX, paintCrab, type CrabPose } from '../art/crab';
+import { nightTint } from '../util';
 
 type Mode = 'away' | 'walk' | 'pause' | 'leave';
 type Act = 'look' | 'snap' | 'dance';
@@ -67,9 +68,7 @@ export class Crab extends Sprite {
       : this.mode === 'pause' && this.act === 'dance' ? Math.abs(Math.sin(t * .008)) * 3 : 0;
     this.position.set(this.wx, H - 14 - hop);
     this.rotation = this.sway;
-    // he sits in front of the night overlay, so darken him the same way it darkens the scenery behind him
-    const a = .66 * night, mix = (c: number) => Math.round(255 * (1 - a) + c * a);
-    this.tint = mix(0x02) << 16 | mix(0x08) << 8 | mix(0x1a);
+    this.tint = nightTint(night); // he sits in front of the night overlay
   }
 
   private walk(t: number) { this.mode = 'walk'; this.until = t + 3000 + Math.random() * 5000; }

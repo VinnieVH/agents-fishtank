@@ -1,7 +1,7 @@
 import { Container, Sprite, Texture } from 'pixi.js';
 import { paintTexture } from '../art/canvas';
 import type { Credits } from '../credits';
-import { TAU } from '../util';
+import { nightTint, TAU } from '../util';
 
 // A cartoon pressure gauge mounted on a pipe coming up from the bottom of the window (in front of the tank glass), showing the Copilot credits used (0..100%), with a red zone for the last 20%.
 const INK = '#1d2a33', RED = '#c81f33', FONT = '"Segoe UI", system-ui, sans-serif';
@@ -9,7 +9,8 @@ const INK = '#1d2a33', RED = '#c81f33', FONT = '"Segoe UI", system-ui, sans-seri
 const dial = (v: number) => (-210 + 240 * v / 100) * Math.PI / 180;
 
 export class Gauge extends Container {
-  private face = new Sprite();
+  private body = new Sprite(); // bezel, pipe and plaque: darken at night like the scenery
+  private face = new Sprite(); // the dial is lit, so it stays bright
   private glow = new Sprite();
   private needle = new Sprite();
   private glass = new Sprite();
@@ -20,7 +21,7 @@ export class Gauge extends Container {
   constructor(private res: number) {
     super();
     this.glow.blendMode = 'add'; this.glow.alpha = 0;
-    this.addChild(this.face, this.glow, this.needle, this.glass);
+    this.addChild(this.body, this.face, this.glow, this.needle, this.glass);
     this.visible = false;
   }
 
@@ -28,8 +29,9 @@ export class Gauge extends Container {
 
   layout(W: number, H: number) { this.W = W; this.H = H; this.paint(); }
 
-  update(t: number, dt: number) {
+  update(t: number, dt: number, night: number) {
     if (!this.c) return;
+    this.body.tint = nightTint(night); // it stands in front of the night overlay
     const target = this.c.unlimited ? 0 : Math.min(100, Math.max(0, this.c.usedPct)), red = target >= 80;
     // springy needle (sweeps up with a little overshoot on load) plus a pressure quiver, nervier in the red zone
     this.vel += (target - this.v) * .02 * dt; this.vel *= Math.pow(.86, dt); this.v += this.vel * dt;
@@ -55,7 +57,8 @@ export class Gauge extends Container {
     this.key = key; this.r = r;
 
     const size = 2 * C, h = size + stem;
-    swap(this.face, paintTexture(size, h, this.res, g => paintFace(g, C, r, stem, used, reset, c.usedPct >= 80)));
+    swap(this.body, paintTexture(size, h, this.res, g => paintBody(g, C, r, stem, reset)));
+    swap(this.face, paintTexture(size, size, this.res, g => paintFace(g, C, r, used, c.usedPct >= 80)));
     if (geomChanged) {
       swap(this.glow, paintTexture(size, size, this.res, g => paintRedZone(g, C, r, true)));
       swap(this.glass, paintTexture(size, size, this.res, g => paintGlass(g, C, r)));
@@ -92,7 +95,7 @@ function paintRedZone(g: CanvasRenderingContext2D, C: number, r: number, glow = 
   outline(g, z, INK, 1.2);
 }
 
-function paintFace(g: CanvasRenderingContext2D, C: number, r: number, stem: number, used: string, plaque: string, red: boolean) {
+function paintBody(g: CanvasRenderingContext2D, C: number, r: number, stem: number, plaque: string) {
   // brass stem with a hex nut, threads and a little plaque with the credits left and the reset date, running down off the bottom of the page
   if (stem > 0) {
     const pipe = new Path2D(); pipe.rect(C - 7, C + r * .8, 14, stem + r * .2);
@@ -119,6 +122,9 @@ function paintFace(g: CanvasRenderingContext2D, C: number, r: number, stem: numb
     g.strokeStyle = '#ffffff'; g.lineWidth = r * .06; g.lineCap = 'round';
     g.beginPath(); g.arc(C, C, r * .93, Math.PI * 1.08, Math.PI * 1.42); g.stroke();
   });
+}
+
+function paintFace(g: CanvasRenderingContext2D, C: number, r: number, used: string, red: boolean) {
   toon(g, circle(C, C, r * .85), '#fbf7ec', 2.2, () => {
     g.fillStyle = '#e9e2cf'; g.fill(circle(C, C, r * .85));
     g.fillStyle = '#fbf7ec'; g.fill(circle(C - r * .05, C - r * .06, r * .8));
