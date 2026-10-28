@@ -18,7 +18,14 @@ To try the packaged app: `npm run dist:dir`, then `release/mac-arm64/Agent Fisht
 
 The project website is `site/` (plain HTML/CSS/JS, no build). `.github/workflows/pages.yml` publishes it to GitHub
 Pages (https://vinnievh.github.io/agents-fishtank/) with `docs/screenshot*.png` and `build/icon.png` whenever they
-change on `main`. Its download button reads the latest GitHub release, so releases need no website change.
+change on `main`. Its download button links to `releases/latest/download/<installer>`, so releases need no website
+change.
+
+The demo video on the website (`site/demo.mp4`) is recorded from the real tank by `npm run demo:record` (needs Google
+Chrome and ffmpeg; set `CHROME`/`FFMPEG` if they aren't in the usual place). The story (sessions, terminal and
+mouse) is in `scripts/demo/stage.html`. Re-record it when the tank's look changes noticeably; check a few frames first
+with `node scripts/demo/record.mjs --stills 3,8,11,17,22 <dir>`. Keep the video around 3 MB: each new recording adds
+to the repository's size for good.
 
 ## Rules
 

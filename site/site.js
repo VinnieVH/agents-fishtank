@@ -38,6 +38,14 @@
       .catch(() => {});
   }
 
+  // With reduced motion the demo waits for a click on play instead of starting by itself
+  const demo = document.getElementById('demo');
+  if (demo && matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    demo.removeAttribute('autoplay');
+    demo.pause();
+    demo.controls = true;
+  }
+
   // The version number is a nice extra: GitHub's API can be rate-limited, and then it's simply left out
   fetch(`https://api.github.com/repos/${repo}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' } })
     .then(res => res.ok ? res.json() : null)
