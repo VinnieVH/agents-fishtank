@@ -102,7 +102,8 @@ describe('connecting and disconnecting', () => {
     expect(s.hooks.SessionStart).toHaveLength(2);
     expect(s.statusLine.command).toMatch(/^sh ".*fishtank\.sh" statusline 4321 /);
     expect(connected(p).claude).toBe(true);
-    expect(fs.statSync(file).mode & 0o777).toBe(0o600);
+    // keeps its private permissions (Windows has no Unix permissions: Node always reports 0o666 there)
+    if (process.platform !== 'win32') expect(fs.statSync(file).mode & 0o777).toBe(0o600);
 
     disconnect('claude', p);
     expect(JSON.parse(fs.readFileSync(file, 'utf8'))).toEqual(original);
