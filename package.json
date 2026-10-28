@@ -30,6 +30,11 @@
     "vitest": "^5.0.5"
   },
   "author": "Vincent Van Herreweghe",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/VinnieVH/copilot-fishtank.git"
+  },
+  "homepage": "https://github.com/VinnieVH/copilot-fishtank",
   "build": {
     "appId": "com.vinnievh.agent-fishtank",
     "productName": "Agent Fishtank",

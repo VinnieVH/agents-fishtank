@@ -6,6 +6,8 @@ import path from 'node:path';
 import { app, BrowserWindow, dialog, Menu, shell, type MenuItemConstructorOptions } from 'electron';
 import { DEFAULT_PORT, startServer, type Fishtank } from '../server/server.ts';
 import { connect, connected, disconnect, installed, places, type Cli, type Launcher } from './connect.ts';
+import { repoFrom } from './releases.ts';
+import { Updates } from './updates.ts';
 
 const port = Number(process.env.FISHTANK_PORT) || DEFAULT_PORT;
 const fromHook = process.argv.includes('--from-hook');
@@ -17,6 +19,7 @@ const CLIS: Cli[] = ['claude', 'copilot'];
 const PAGE_OPTIONS = ['lat', 'lon', 'time', 'timelapse', 'whale', 'shark', 'crab'];
 
 let tank: Fishtank | null = null;
+let updates: Updates | null = null;
 let win: BrowserWindow | null = null;
 let quitting = false;
 
@@ -51,6 +54,34 @@ async function main() {
   repoint();
   buildMenu();
   await firstRun();
+  startUpdates();
+}
+
+// ---------- remembered between starts (userData/state.json) ----------
+
+interface State { asked?: boolean; skippedVersion?: string }
+const stateFile = () => path.join(app.getPath('userData'), 'state.json');
+
+function loadState(): State {
+  try { return JSON.parse(fs.readFileSync(stateFile(), 'utf8')); } catch { return {}; }
+}
+
+function saveState(change: State) {
+  fs.mkdirSync(path.dirname(stateFile()), { recursive: true });
+  fs.writeFileSync(stateFile(), JSON.stringify({ ...loadState(), ...change }));
+}
+
+// ---------- updates ----------
+
+/** Asks GitHub for new releases, in the installed app only. FISHTANK_NO_UPDATE_CHECK=1 turns it off. */
+function startUpdates() {
+  if (!app.isPackaged || process.env.FISHTANK_NO_UPDATE_CHECK === '1') return;
+  let repo: string | null = null;
+  try { repo = repoFrom(JSON.parse(fs.readFileSync(path.join(app.getAppPath(), 'package.json'), 'utf8')).repository?.url ?? ''); } catch { /* no repository */ }
+  if (!repo) return;
+  updates = new Updates({ repo, skipped: () => loadState().skippedVersion, skip: v => saveState({ skippedVersion: v }) });
+  updates.start();
+  buildMenu();
 }
 
 function createWindow() {
@@ -130,10 +161,11 @@ function buildMenu() {
     label: c[cli] ? `Disconnect from ${NAMES[cli]}` : `Connect to ${NAMES[cli]}`,
     enabled: !!l, click: () => { void toggle(cli); },
   }));
+  const update: MenuItemConstructorOptions = { label: 'Check for Updates…', enabled: !!updates, click: () => { void updates?.check(true); } };
   const template: MenuItemConstructorOptions[] = [
     isMac
-      ? { label: app.name, submenu: [{ role: 'about' }, { type: 'separator' }, ...items, { type: 'separator' }, { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' }, { type: 'separator' }, { role: 'quit' }] }
-      : { label: 'File', submenu: [...items, { type: 'separator' }, { role: 'quit' }] },
+      ? { label: app.name, submenu: [{ role: 'about' }, update, { type: 'separator' }, ...items, { type: 'separator' }, { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' }, { type: 'separator' }, { role: 'quit' }] }
+      : { label: 'File', submenu: [...items, { type: 'separator' }, update, { type: 'separator' }, { role: 'quit' }] },
     { label: 'View', submenu: [{ role: 'reload' }, { role: 'togglefullscreen' }, ...(app.isPackaged ? [] : [{ role: 'toggleDevTools' } as const])] },
     { role: 'windowMenu' },
   ];
@@ -142,9 +174,7 @@ function buildMenu() {
 
 /** On the first start, offer to connect the CLIs found on this computer. */
 async function firstRun() {
-  const stateFile = path.join(app.getPath('userData'), 'state.json');
-  let state: { asked?: boolean } = {};
-  try { state = JSON.parse(fs.readFileSync(stateFile, 'utf8')); } catch { /* first start */ }
+  const state = loadState();
   const has = installed(where), c = connected(where);
   const offer = CLIS.filter(cli => has[cli] && !c[cli]);
   if (state.asked || !launcher() || !offer.length || !win) return;
@@ -160,8 +190,7 @@ async function firstRun() {
   });
   // moving to Applications relaunches the app, which asks again from there
   if (response === 0 && !(await inStablePlace())) return;
-  fs.mkdirSync(path.dirname(stateFile), { recursive: true });
-  fs.writeFileSync(stateFile, JSON.stringify({ ...state, asked: true }));
+  saveState({ asked: true });
   if (response !== 0) return;
   try { for (const cli of offer) connect(cli, where, launcher()!, port); } catch (e) { dialog.showErrorBox('Agent Fishtank', (e as Error).message); }
   buildMenu();
