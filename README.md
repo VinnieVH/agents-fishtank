@@ -25,7 +25,9 @@ which session needs your attention.
 | 📋 The panel on the right | How many sessions there are and how many need you, then every session (those that need you on top) with its state, a Copilot/Claude badge, its subagents and, for Claude, your usage and when it refills |
 
 Each fish is named after its session: the name you gave it, Claude Code's title for it, or the start of your first
-prompt. And just for fun: the water follows the real time of day (with glowing plankton at night), a whale or shark
+prompt. Sessions get different creatures and glow colours, so no two look alike: a tropical fish, koi, sturgeon,
+angelfish, pufferfish, squid, shrimp, lobster, anglerfish, lionfish or octopus
+([meet them all](https://vinnievh.github.io/agents-fishtank/creatures.html)). And just for fun: the water follows the real time of day (with glowing plankton at night), a whale or shark
 drifts by now and then, a crab comes out when everything is quiet, and you can click the water to feed the fish.
 
 ## Install
@@ -239,6 +241,10 @@ npm run dist:dir     # package the app for this computer into release/ (unpacked
 npm run dist         # build the installers into release/
 ```
 
+To work on a creature, run `npm run dev` and open http://localhost:5173/creatures.html?c=octopus: each species large
+in its colour variants, and swimming as a working, waiting and idle session (`&night` for the night tank). Its
+drawing is in `src/art/fishArt.ts`, its size and speed in `src/species.ts`; the page reloads as you change them.
+
 For screenshots and trying out the scenery, these options override the settings. In a browser (`npm start` /
 `npm run dev`) they're URL parameters: `?time=22:30&shark`. The app takes them as arguments:
 `open -a "Agent Fishtank" --args --time=22:30 --shark` on a Mac, `"Agent Fishtank.exe" --time=22:30 --shark` on
@@ -259,7 +265,8 @@ Windows.
 | `src/art/` | Canvas 2D painters for the fish, terrain, whale, shark and crab |
 | `src/panel.ts` | Side panel, Claude usage and the live `/events` connection |
 | `src/settings.ts`, `shared/settings.ts` | The settings dialog; the settings, their defaults and validation |
-| `src/sky.ts`, `src/species.ts`, `src/credits.ts`, `src/limits.ts` | Sun and light, species picker, Copilot credits, Claude usage |
+| `src/sky.ts`, `src/species.ts`, `src/credits.ts`, `src/limits.ts` | Sun and light, species and glow colour picker, Copilot credits, Claude usage |
+| `creatures.html` | Dev page to look at one creature at a time (`npm run dev`) |
 | `shared/types.ts` | The live feed's types, shared by the server and the page |
 | `server/server.ts` | HTTP server: `/events` feed, `/hook/claude`, `/statusline/claude`, `/settings`, the page, idle check |
 | `server/copilot.ts`, `server/claude.ts` | Session state from Copilot's logs and from Claude Code's hooks and files |

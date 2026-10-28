@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Creatures · Agent Fishtank</title>
+<!-- A dev page (npm run dev, then /creatures.html?c=squid) to judge one species at a time: large stills in each colour
+     variant, and live copies swimming as working, waiting and idle sessions. Not part of the app build. -->
+<style>
+  body { margin: 0; padding: 20px 24px 40px; background: #0b3a62; color: #d8ecff; font: 14px 'Segoe UI', system-ui, sans-serif; }
+  nav { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; align-items: center; }
+  nav a { color: #d8ecff; text-decoration: none; padding: 5px 12px; border-radius: 999px; background: rgba(255,255,255,.08); }
+  nav a.on { background: #39d98a; color: #06231a; font-weight: 700; }
+  nav label { margin-left: auto; cursor: pointer; }
+  h1 { margin: 0 0 4px; font-size: 26px; text-transform: capitalize; }
+  .info { opacity: .7; margin: 0 0 16px; font-family: Menlo, Consolas, monospace; font-size: 12.5px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .6px; opacity: .6; margin: 22px 0 8px; }
+  .stills { display: flex; flex-wrap: wrap; gap: 14px; }
+  .stills figure { margin: 0; padding: 10px; border-radius: 12px; background: rgba(1,16,31,.45); }
+  .stills figcaption { font-size: 11.5px; opacity: .6; margin-top: 4px; }
+  #live { width: 100%; height: 420px; border-radius: 14px; overflow: hidden; background: #0d4a78; }
+</style>
+</head>
+<body>
+<nav id="nav"></nav>
+<h1 id="name"></h1>
+<p id="info" class="info"></p>
+<h2>Colour variants</h2>
+<div id="stills" class="stills"></div>
+<h2>Swimming: working · waiting · idle</h2>
+<div id="live"></div>
+<script type="module">
+import { Application, Container } from 'pixi.js';
+import { paintFish } from '/src/art/fishArt.ts';
+import { ALL_SPECIES, NEON, SPECIES } from '/src/species.ts';
+import { Fish } from '/src/scene/fish.ts';
+
+const params = new URLSearchParams(location.search);
+const species = ALL_SPECIES.includes(params.get('c')) ? params.get('c') : ALL_SPECIES[0];
+const night = params.has('night');
+const link = (c, extra = night ? '&night' : '') => `?c=${c}${extra}`;
+document.getElementById('nav').innerHTML = ALL_SPECIES.map(c => `<a href="${link(c)}" class="${c === species ? 'on' : ''}">${c}</a>`).join('')
+  + `<label><input type="checkbox" ${night ? 'checked' : ''} onchange="location.search = '${link(species, '')}' + (this.checked ? '&night' : '')"> Night</label>`;
+document.getElementById('name').textContent = species;
+document.getElementById('info').textContent = JSON.stringify(SPECIES[species]);
+if (night) document.body.style.background = '#031326';
+
+// start Pixi first: textures painted before it starts keep it from starting
+const box = document.getElementById('live');
+const app = new Application();
+await app.init({ width: box.clientWidth, height: box.clientHeight, background: night ? '#03152b' : '#0d4a78', antialias: true, resolution: devicePixelRatio, autoDensity: true });
+box.append(app.canvas);
+
+// stills: each colour variant (the creatures with their own palettes have four), with a different glow each
+const spots = Array.from({ length: 6 }, (_, k) => ({ x: Math.sin(k * 2.1) * .7, y: Math.cos(k * 1.3) * .3, rx: .15, ry: .1, rot: k }));
+const BODY = ['#ff7a3d', '#3dc8ff', '#9b5cff', '#3dffa0'];
+for (let v = 0; v < 4; v++) {
+  const look = { species, small: false, body: BODY[v], neon: NEON[v * 3], pattern: v % 3, variant: v, spots };
+  const t = paintFish(look, 90, 2), w = t.width, h = t.height;
+  const c = document.createElement('canvas'); c.width = w * 2; c.height = h * 2; c.style.width = w + 'px'; c.style.height = h + 'px';
+  const g = c.getContext('2d'); g.drawImage(t.halo.source.resource, 0, 0); g.drawImage(t.body.source.resource, 0, 0);
+  const f = document.createElement('figure'); f.append(c);
+  f.insertAdjacentHTML('beforeend', `<figcaption>variant ${v} · glow ${look.neon}</figcaption>`);
+  document.getElementById('stills').append(f);
+  const small = paintFish({ ...look, small: true }, 18, 3), sc = document.createElement('canvas');
+  sc.width = small.width * 3; sc.height = small.height * 3; sc.style.width = small.width + 'px'; sc.style.height = small.height + 'px';
+  sc.getContext('2d').drawImage(small.halo.source.resource, 0, 0); sc.getContext('2d').drawImage(small.body.source.resource, 0, 0);
+  if (v === 0) { const fs = document.createElement('figure'); fs.append(sc); fs.insertAdjacentHTML('beforeend', '<figcaption>as a subagent</figcaption>'); document.getElementById('stills').append(fs); }
+}
+
+// live: three of them swimming in a small tank, as the real tank animates them
+
+const bodies = new Container({ sortableChildren: true }), marks = new Container();
+app.stage.addChild(bodies, marks);
+const states = ['working', 'waiting', 'idle'];
+const W = () => app.screen.width, bottom = () => app.screen.height - 30;
+const fish = states.map((state, i) => {
+  const f = new Fish('live-' + i, 'live-' + i, false, { species, neon: NEON[i * 5] }, W(), bottom(), devicePixelRatio);
+  f.setLabel(state);
+  bodies.addChild(f.body); marks.addChild(f.marks);
+  return { f, state };
+});
+app.ticker.add(t => {
+  const tank = { t: performance.now(), dt: Math.min(3, t.deltaMS / 16.7), right: W(), bottom: bottom(), night: night ? 1 : 0 };
+  for (const { f, state } of fish) f.update(tank, state, undefined);
+});
+</script>
+</body>
+</html>
