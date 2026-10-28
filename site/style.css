@@ -103,3 +103,12 @@ footer {
 .teaser { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; margin: 0 0 18px; }
 .teaser img { height: 70px; width: auto; }
 .center { text-align: center; }
+
+/* a thank-you at the end of the homepage */
+.coffee { text-align: center; margin-top: -24px; }
+.coffee p { color: var(--muted); margin: 0 0 14px; }
+.coffee-button {
+  display: inline-block; padding: 10px 22px; border-radius: 12px; text-decoration: none; font-weight: 700;
+  color: #2a1a00; background: #ffdd00; box-shadow: 0 4px 0 #c9a800; transition: transform .15s;
+}
+.coffee-button:hover { transform: translateY(-2px); }

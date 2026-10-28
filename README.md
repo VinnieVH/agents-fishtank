@@ -307,6 +307,11 @@ installed app offers the update (or right away when someone restarts it or picks
   needs secrets added to the workflow, and would also allow installing updates automatically.
 </details>
 
+## Support
+
+Agent Fishtank is free and made in my spare time. If it brightens your day, you can
+[buy me a coffee](https://buymeacoffee.com/vinnievh). ☕
+
 ## License
 
 [MIT](LICENSE)
