@@ -1,4 +1,4 @@
-import { Container, MeshRope, Point, Text } from 'pixi.js';
+import { Container, MeshRope, Point, Sprite, Text } from 'pixi.js';
 import { paintFish, type FishLook, type FishTextures } from '../art/fishArt';
 import { SPECIES, type Look } from '../species';
 import { hash, rng, TAU } from '../util';
@@ -32,6 +32,7 @@ export class Fish {
   readonly body = new Container();
   private rope: MeshRope;
   private halo: MeshRope;
+  private fin: Sprite | null = null;
   private points: Point[] = [];
   private tex: FishTextures;
   private headX: number; private tailX: number; private baseY: number;
@@ -64,7 +65,13 @@ export class Fish {
     this.baseY = height / 2 - originY;
     this.halo = new MeshRope({ texture: this.tex.halo, points: this.points });
     this.rope = new MeshRope({ texture: this.tex.body, points: this.points });
-    this.body.addChild(this.halo, this.rope);
+    this.body.addChild(this.halo);
+    if (this.tex.fin) { // a fin it swims with, behind the body
+      const { texture, anchorX, anchorY, x, y } = this.tex.fin;
+      this.fin = new Sprite(texture); this.fin.anchor.set(anchorX, anchorY); this.fin.position.set(x, y);
+      this.body.addChild(this.fin);
+    }
+    this.body.addChild(this.rope);
     this.body.zIndex = this.size;
 
     const font = 'Segoe UI, system-ui, sans-serif';
@@ -138,7 +145,9 @@ export class Fish {
     if (Math.abs(this.face) < .05) this.face = this.dir * .05;
 
     // tail beat: the bend grows towards the tail and travels down the body
-    const s = this.size, amp = s * (.06 + Math.min(this.speed, 5) * .022);
+    // creatures that swim with a fin keep their body straight and flutter the fin instead
+    const s = this.size, amp = sp.stiff ? 0 : s * (.06 + Math.min(this.speed, 5) * .022);
+    if (this.fin) this.fin.scale.x = .45 + .55 * Math.abs(Math.sin(this.phase * 2.5));
     for (const p of this.points) {
       const u = Math.max(0, Math.min(1, (this.headX - p.x) / (this.headX - this.tailX)));
       p.y = this.baseY + amp * u * u * Math.sin(this.phase + (1 - u) * .9);
@@ -172,6 +181,6 @@ export class Fish {
   destroy() {
     this.body.destroy({ children: true });
     this.marks.destroy({ children: true });
-    this.tex.body.destroy(true); this.tex.halo.destroy(true);
+    this.tex.body.destroy(true); this.tex.halo.destroy(true); this.tex.fin?.texture.destroy(true);
   }
 }

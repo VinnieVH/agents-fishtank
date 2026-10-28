@@ -646,10 +646,80 @@ function drawOctopus(f: FishLook, s: number) {
   ctx.beginPath(); ctx.moveTo(-s * .07, s * .0); ctx.quadraticCurveTo(0, s * .06, s * .07, s * .0); ink(inkC, s, .85, .8);
 }
 
+// Seahorse: traced from a reference drawing (mirrored to face right), so its outline has the real proportions: the
+// crowned head flowing into a spiky back, a throat that narrows under the snout, a round chest and a spiral tail. The
+// eye, mouth, shading and glow are the same as the other creatures'. It swims with its back fin (see FIN), not its body.
+const SEAHORSE = ['#ff8a4c', '#ff7aa8', '#ffc94d', '#5fcfc0'];
+/** The traced outline, as x, y pairs in thousandths of a body unit, head to the right. */
+const SEAHORSE_OUTLINE = [
+  117,-1150, 104,-1150, 96,-1133, 122,-1111, 122,-1089, 109,-1072, 87,-1063, 57,-1067, 35,-1085, 13,-1107, -4,-1146, -17,-1150,
+  -13,-1085, -43,-1059, -78,-1063, -126,-1111, -139,-1115, -143,-1107, -130,-1059, -139,-1041, -170,-1015, -226,-1011, -291,-1050, -304,-1050,
+  -309,-1041, -278,-993, -278,-976, -296,-941, -322,-920, -352,-911, -435,-924, -439,-920, -409,-893, -396,-854, -400,-820, -413,-793,
+  -435,-772, -465,-759, -535,-746, -500,-733, -474,-711, -461,-685, -461,-628, -496,-580, -561,-541, -491,-515, -470,-493, -461,-472,
+  -461,-407, -517,-350, -465,-341, -439,-320, -426,-298, -422,-254, -448,-220, -313,-215, -313,172, -287,150, -270,163, -291,241,
+  -300,250, -313,246, -300,293, -313,350, -343,367, -391,376, -361,398, -339,428, -339,467, -348,493, -378,524, -417,541,
+  -365,576, -352,615, -365,672, -387,698, -417,715, -413,724, -391,724, -361,737, -335,780, -335,837, -343,854, -370,876,
+  -370,885, -313,885, -296,893, -252,950, -243,993, -257,1037, -222,1020, -191,1020, -152,1033, -122,1063, -113,1085, -113,1124,
+  -96,1102, -65,1085, -22,1080, 17,1093, 61,1150, 74,1107, 109,1076, 135,1067, 183,1067, 222,1089, 213,1046, 239,993,
+  287,963, 330,972, 309,950, 300,915, 317,859, 339,833, 361,820, 330,807, 300,763, 296,702, 309,680, 274,685,
+  235,667, 213,646, 204,611, 174,637, 130,637, 96,620, 83,602, 78,628, 57,654, 43,663, -9,667, 4,689,
+  0,733, -39,772, -22,780, -4,802, -4,850, 13,850, 57,880, 100,876, 122,885, 130,867, 152,850, 161,828,
+  152,798, 139,785, 113,785, 130,807, 117,833, 91,833, 57,802, 57,759, 104,720, 161,724, 196,754, 209,785,
+  209,846, 183,898, 126,946, 83,959, 30,959, -9,950, -70,920, -96,898, -139,841, -165,780, -174,733, -178,663,
+  -170,585, -135,472, -100,411, -100,398, -61,346, 13,289, 48,280, 109,285, 122,254, 126,202, 148,154, 174,128,
+  226,98, 226,72, 204,20, 204,-59, 235,-150, 174,-224, 165,-263, 165,-333, 148,-350, 117,-354, 65,-389, 43,-420,
+  39,-467, 30,-476, -52,-493, -109,-537, -135,-589, -135,-641, -126,-659, -113,-663, -52,-628, -26,-589, -9,-576, 17,-567,
+  139,-567, 183,-541, 265,-511, 365,-437, 470,-324, 500,-324, 517,-333, 539,-354, 557,-359, 574,-376, 583,-398, 583,-424,
+  574,-437, 522,-437, 478,-454, 417,-502, 370,-559, 357,-585, 361,-611, 335,-637, 326,-676, 339,-733, 326,-772, 343,-807,
+  343,-833, 283,-833, 239,-872, 235,-911, 257,-963, 252,-993, 239,-989, 235,-967, 213,-946, 178,-950, 148,-980, 143,-1028,
+  152,-1046, 152,-1107, 139,-1133,
+];
+/** The traced back fin, relative to where it joins the back. */
+const SEAHORSE_FIN = [
+  22,-274, -139,-274, -139,-265, -70,-270, -52,-257, -35,-222, -35,-183, -48,-170, -191,-248, -226,-248, -230,-200, -261,-170,
+  -252,-143, -252,-109, -270,-87, -248,-39, -261,9, -230,39, -222,57, -226,109, -196,135, -187,152, -187,200, -161,209,
+  -148,222, -130,261, -104,261, -83,243, -22,135, 22,96,
+];
+/** A smooth closed path through traced points (curves between the midpoints, so the corners round off). */
+function tracedPath(pts: number[], s: number) {
+  const n = pts.length / 2, x = (i: number) => pts[(i % n) * 2] / 1000 * s, y = (i: number) => pts[(i % n) * 2 + 1] / 1000 * s;
+  ctx.beginPath(); ctx.moveTo((x(0) + x(1)) / 2, (y(0) + y(1)) / 2);
+  for (let i = 1; i <= n; i++) ctx.quadraticCurveTo(x(i), y(i), (x(i) + x(i + 1)) / 2, (y(i) + y(i + 1)) / 2);
+  ctx.closePath();
+}
+const seahorseShape = (s: number) => tracedPath(SEAHORSE_OUTLINE, s);
+const seahorseFin = (s: number) => tracedPath(SEAHORSE_FIN, s);
+function drawSeahorse(f: FishLook, s: number) {
+  const base = SEAHORSE[f.variant % SEAHORSE.length], inkC = shade(base, -.62), light = shade(base, .5);
+  const fill = ctx.createLinearGradient(s * .45, 0, -s * .55, 0); // lit from the front, darker down the back
+  fill.addColorStop(0, shade(base, .25)); fill.addColorStop(.5, base); fill.addColorStop(1, shade(base, -.2));
+  ctx.fillStyle = fill; seahorseShape(s); ctx.fill();
+  ctx.save(); seahorseShape(s); ctx.clip();
+  ctx.fillStyle = light; ctx.globalAlpha = .45; // a lighter belly down the front
+  ctx.beginPath(); ctx.ellipse(s * .12, s * .02, s * .2, s * .42, -.15, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+  ctx.strokeStyle = light; ctx.lineWidth = Math.max(.8, s * .028); ctx.lineCap = 'round'; ctx.globalAlpha = .75; // the rings
+  for (let y = -.34; y < .6; y += .095) { ctx.beginPath(); ctx.moveTo(-s * .45, (y - .03) * s); ctx.quadraticCurveTo(0, (y + .05) * s, s * .5, (y - .04) * s); ctx.stroke(); }
+  ctx.beginPath(); ctx.moveTo(s * .14, -s * .38); ctx.quadraticCurveTo(s * .16, s * .1, -s * .06, s * .58); ctx.stroke(); // and the line down the front
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = light; ctx.globalAlpha = .7; // freckles on the head
+  for (const [x, y, r] of [[-.02, -.8, .018], [.02, -.76, .014], [-.04, -.74, .012]]) { ctx.beginPath(); ctx.arc(x * s, y * s, r * s, 0, TAU); ctx.fill(); }
+  ctx.globalAlpha = 1;
+  shine(s * .1, -s * .84, s * .1, s * .03, -.4, [[s * .3, -s * .1, s * .025], [s * .26, s * .04, s * .02]]);
+  ctx.restore();
+  seahorseShape(s); ink(inkC, s);
+  eye(s * .22, -s * .7, s * .085, inkC);
+  ctx.beginPath(); ctx.moveTo(s * .55, -s * .45); ctx.quadraticCurveTo(s * .6, -s * .42, s * .57, -s * .38); ink(inkC, s, .85, .8); // its little mouth
+}
+function drawSeahorseFin(f: FishLook, s: number) {
+  const base = SEAHORSE[f.variant % SEAHORSE.length], inkC = shade(base, -.62);
+  shape(() => seahorseFin(s), shade(base, .3), inkC, s);
+  streaks(shade(base, -.3), s, [[0, -s * .18, -s * .22, -s * .2], [0, -s * .08, -s * .26, -s * .08], [0, s * .02, -s * .27, s * .04], [0, s * .12, -s * .24, s * .15], [0, s * .2, -s * .16, s * .24]]);
+}
+
 type Painter = (f: FishLook, s: number, w: number, sway: number, ph: number) => void;
 const PAINT: Record<Species, Painter> = {
   tropical: drawTropical, koi: drawKoi, sturgeon: drawSturgeon, angelfish: drawAngel, puffer: drawPuffer,
-  squid: drawSquid, shrimp: drawShrimp, lobster: drawLobster, angler: drawAngler, lionfish: drawLion, octopus: drawOctopus,
+  squid: drawSquid, shrimp: drawShrimp, lobster: drawLobster, angler: drawAngler, lionfish: drawLion, octopus: drawOctopus, seahorse: drawSeahorse,
 };
 const OUTLINE: Record<Species, (s: number) => (() => void)[]> = {
   tropical: s => [() => tropicalTail(s, 0), () => tropicalBody(s)],
@@ -663,12 +733,23 @@ const OUTLINE: Record<Species, (s: number) => (() => void)[]> = {
   angler: s => [() => anglerTail(s), () => anglerBody(s)],
   lionfish: s => [() => lionTail(s), () => lionFan(s), () => lionBody(s)],
   octopus: s => [() => octoArmsGlow(s), () => octoHead(s)],
+  seahorse: s => [() => seahorseShape(s)],
+};
+
+/**
+ * Fins on a layer of their own, for creatures that swim with a fin instead of bending their body (`stiff` in
+ * SPECIES): where the fin joins the body, the box it's drawn in around that point, and how to paint it.
+ */
+const FIN: Partial<Record<Species, { root: [number, number]; box: [number, number, number, number]; paint: Painter; outline: (s: number) => void }>> = {
+  seahorse: { root: [-.313, .059], box: [-.3, -.3, .05, .3], paint: drawSeahorseFin, outline: seahorseFin },
 };
 
 export interface FishTextures {
   body: Texture;
   /** neon rim in the session colour, drawn behind the body */
   halo: Texture;
+  /** a fin on its own layer (see FIN): its texture, the point it hinges on (0..1), and where that sits on the body */
+  fin?: { texture: Texture; anchorX: number; anchorY: number; x: number; y: number };
   /** position of the fish origin (body centre) inside the textures, in px */
   originX: number;
   originY: number;
@@ -693,5 +774,29 @@ export function paintFish(f: FishLook, s: number, res: number): FishTextures {
   ctx.strokeStyle = f.neon; ctx.lineWidth = s * .1 + 1; ctx.lineJoin = 'round';
   for (const p of OUTLINE[f.species](s)) { p(); ctx.stroke(); }
 
-  return { body: canvasTexture(body.c, res), halo: canvasTexture(halo.c, res), originX, originY, width, height };
+  let fin: FishTextures['fin'];
+  const spec = FIN[f.species];
+  if (spec) {
+    const [fl, ft, fr, fb] = spec.box, fw = Math.ceil((fr - fl) * s + pad * 2), fh = Math.ceil((fb - ft) * s + pad * 2);
+    const ox = pad - fl * s, oy = pad - ft * s, c = makeCanvas(fw, fh, res);
+    ctx = c.g; ctx.translate(ox, oy);
+    ctx.save(); ctx.shadowColor = f.neon; ctx.shadowBlur = blur; ctx.strokeStyle = f.neon; ctx.lineWidth = s * .1 + 1; ctx.lineJoin = 'round';
+    spec.outline(s); ctx.stroke(); ctx.restore();
+    spec.paint(f, s, 0, 0, 0);
+    fin = { texture: canvasTexture(c.c, res), anchorX: ox / fw, anchorY: oy / fh, x: spec.root[0] * s, y: spec.root[1] * s };
+  }
+
+  return { body: canvasTexture(body.c, res), halo: canvasTexture(halo.c, res), fin, originX, originY, width, height };
+}
+
+/** The creature as one still picture (glow, fin and body), for the creature page and the website. */
+export function stillCanvas(t: FishTextures, res: number): HTMLCanvasElement {
+  const c = makeCanvas(t.width, t.height, res), img = (x: Texture) => x.source.resource as CanvasImageSource;
+  c.g.drawImage(img(t.halo), 0, 0, t.width, t.height);
+  if (t.fin) {
+    const w = t.fin.texture.width, h = t.fin.texture.height;
+    c.g.drawImage(img(t.fin.texture), t.originX + t.fin.x - t.fin.anchorX * w, t.originY + t.fin.y - t.fin.anchorY * h, w, h);
+  }
+  c.g.drawImage(img(t.body), 0, 0, t.width, t.height);
+  return c.c;
 }

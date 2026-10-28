@@ -39,14 +39,12 @@ try {
   await sleep(3000);
   // each creature in its first colour variant, with a glow of its own
   const r = await send('Runtime.evaluate', { awaitPromise: true, returnByValue: true, expression: `(async () => {
-    const { paintFish } = await import('/src/art/fishArt.ts');
+    const { paintFish, stillCanvas } = await import('/src/art/fishArt.ts');
     const { ALL_SPECIES, NEON } = await import('/src/species.ts');
     const spots = Array.from({ length: 6 }, (_, k) => ({ x: Math.sin(k * 2.1) * .7, y: Math.cos(k * 1.3) * .3, rx: .15, ry: .1, rot: k }));
     return ALL_SPECIES.map((species, i) => {
       const t = paintFish({ species, small: false, body: ['#ff7a3d', '#3dc8ff', '#9b5cff', '#ffcf3d'][i % 4], neon: NEON[(i * 5) % NEON.length], pattern: 0, variant: 0, spots }, 90, 2);
-      const c = document.createElement('canvas'); c.width = t.width * 2; c.height = t.height * 2;
-      c.getContext('2d').drawImage(t.halo.source.resource, 0, 0); c.getContext('2d').drawImage(t.body.source.resource, 0, 0);
-      return { species, png: c.toDataURL('image/png') };
+      return { species, png: stillCanvas(t, 2).toDataURL('image/png') };
     });
   })()` });
   if (r.result.exceptionDetails) throw new Error(r.result.exceptionDetails.exception?.description);

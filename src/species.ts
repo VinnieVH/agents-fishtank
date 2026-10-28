@@ -1,6 +1,6 @@
 import { hash } from './util';
 
-export type Species = 'tropical' | 'koi' | 'sturgeon' | 'angelfish' | 'puffer' | 'squid' | 'shrimp' | 'lobster' | 'angler' | 'lionfish' | 'octopus';
+export type Species = 'tropical' | 'koi' | 'sturgeon' | 'angelfish' | 'puffer' | 'squid' | 'shrimp' | 'lobster' | 'angler' | 'lionfish' | 'octopus' | 'seahorse';
 
 export interface SpeciesInfo {
   /** half body height incl. fins, in body units */
@@ -14,6 +14,8 @@ export interface SpeciesInfo {
   markY: number;
   /** drawing bounds in body units: [left, top, right, bottom], head points right */
   bounds: [number, number, number, number];
+  /** swims with a fin, keeping its body straight (the fin is a layer of its own, see FIN in fishArt.ts) */
+  stiff?: boolean;
 }
 
 export const SPECIES: Record<Species, SpeciesInfo> = {
@@ -28,6 +30,7 @@ export const SPECIES: Record<Species, SpeciesInfo> = {
   angler:    { half: .7,   size: 1.1,  speed: .7,  labelY: .8,  markY: 1.15, bounds: [-1.26, -1.12, 1.42, .72] },
   lionfish:  { half: .9,   size: .95,  speed: .75, labelY: 1,   markY: 1.2,  bounds: [-1.42, -1.3, 1, 1] },
   octopus:   { half: 1,    size: .85,  speed: .85, labelY: 1.25, markY: 1.05, bounds: [-1.55, -1, 1.55, 1.3] },
+  seahorse:  { half: 1.15, size: 1.05, speed: .6,  labelY: 1.25, markY: 1.3,  bounds: [-.64, -1.18, .62, 1.18], stiff: true },
 };
 export const ALL_SPECIES = Object.keys(SPECIES) as Species[];
 

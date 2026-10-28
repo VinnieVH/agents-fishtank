@@ -30,7 +30,7 @@
 <div id="live"></div>
 <script type="module">
 import { Application, Container } from 'pixi.js';
-import { paintFish } from '/src/art/fishArt.ts';
+import { paintFish, stillCanvas } from '/src/art/fishArt.ts';
 import { ALL_SPECIES, NEON, SPECIES } from '/src/species.ts';
 import { Fish } from '/src/scene/fish.ts';
 
@@ -55,15 +55,13 @@ const spots = Array.from({ length: 6 }, (_, k) => ({ x: Math.sin(k * 2.1) * .7, 
 const BODY = ['#ff7a3d', '#3dc8ff', '#9b5cff', '#3dffa0'];
 for (let v = 0; v < 4; v++) {
   const look = { species, small: false, body: BODY[v], neon: NEON[v * 3], pattern: v % 3, variant: v, spots };
-  const t = paintFish(look, 90, 2), w = t.width, h = t.height;
-  const c = document.createElement('canvas'); c.width = w * 2; c.height = h * 2; c.style.width = w + 'px'; c.style.height = h + 'px';
-  const g = c.getContext('2d'); g.drawImage(t.halo.source.resource, 0, 0); g.drawImage(t.body.source.resource, 0, 0);
+  const t = paintFish(look, 90, 2), c = stillCanvas(t, 2);
+  c.style.width = t.width + 'px'; c.style.height = t.height + 'px';
   const f = document.createElement('figure'); f.append(c);
   f.insertAdjacentHTML('beforeend', `<figcaption>variant ${v} · glow ${look.neon}</figcaption>`);
   document.getElementById('stills').append(f);
-  const small = paintFish({ ...look, small: true }, 18, 3), sc = document.createElement('canvas');
-  sc.width = small.width * 3; sc.height = small.height * 3; sc.style.width = small.width + 'px'; sc.style.height = small.height + 'px';
-  sc.getContext('2d').drawImage(small.halo.source.resource, 0, 0); sc.getContext('2d').drawImage(small.body.source.resource, 0, 0);
+  const small = paintFish({ ...look, small: true }, 18, 3), sc = stillCanvas(small, 3);
+  sc.style.width = small.width + 'px'; sc.style.height = small.height + 'px';
   if (v === 0) { const fs = document.createElement('figure'); fs.append(sc); fs.insertAdjacentHTML('beforeend', '<figcaption>as a subagent</figcaption>'); document.getElementById('stills').append(fs); }
 }
 

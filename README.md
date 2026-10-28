@@ -26,7 +26,7 @@ which session needs your attention.
 
 Each fish is named after its session: the name you gave it, Claude Code's title for it, or the start of your first
 prompt. Sessions get different creatures and glow colours, so no two look alike: a tropical fish, koi, sturgeon,
-angelfish, pufferfish, squid, shrimp, lobster, anglerfish, lionfish or octopus
+angelfish, pufferfish, squid, shrimp, lobster, anglerfish, lionfish, octopus or seahorse
 ([meet them all](https://vinnievh.github.io/agents-fishtank/creatures.html)). And just for fun: the water follows the real time of day (with glowing plankton at night), a whale or shark
 drifts by now and then, a crab comes out when everything is quiet, and you can click the water to feed the fish.
 
