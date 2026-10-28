@@ -16,6 +16,10 @@ npm run build        # page + Electron bundles
 
 To try the packaged app: `npm run dist:dir`, then `release/mac-arm64/Agent Fishtank.app` (macOS).
 
+The project website is `site/` (plain HTML/CSS/JS, no build). `.github/workflows/pages.yml` publishes it to GitHub
+Pages (https://vinnievh.github.io/agents-fishtank/) with `docs/screenshot*.png` and `build/icon.png` whenever they
+change on `main`. Its download button reads the latest GitHub release, so releases need no website change.
+
 ## Rules
 
 - **Commits:** Conventional Commits, title only (no body, no footer, no `Co-Authored-By`), e.g.

@@ -1,6 +1,7 @@
 # 🐠 Agent Fishtank
 
 **A little aquarium on your desktop that shows what your AI coding agents are doing.**
+· [Website](https://vinnievh.github.io/agents-fishtank/) · [Download](https://github.com/VinnieVH/agents-fishtank/releases/latest)
 
 Every [Claude Code](https://code.claude.com/docs) or
 [GitHub Copilot CLI](https://docs.github.com/copilot/how-tos/use-copilot-agents/use-copilot-cli) session becomes a

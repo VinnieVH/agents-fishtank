@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Fishtank: see what your AI coding agents are doing</title>
+<meta name="description" content="A little desktop aquarium for Claude Code and GitHub Copilot CLI. Every session is a fish: racing while it works, waiting with a question mark when it needs you.">
+<meta property="og:title" content="Agent Fishtank">
+<meta property="og:description" content="A desktop aquarium that shows what your Claude Code and Copilot CLI sessions are doing.">
+<meta property="og:image" content="screenshot.png">
+<link rel="icon" href="icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="bubbles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+<header class="hero">
+  <img class="icon" src="icon.png" alt="" width="112" height="112">
+  <h1>Agent Fishtank</h1>
+  <p class="lead">A little aquarium on your desktop that shows what your AI coding agents are doing.
+    Every <strong>Claude Code</strong> or <strong>GitHub Copilot CLI</strong> session is a fish.</p>
+  <div class="download">
+    <a id="primary" class="button" href="https://github.com/VinnieVH/agents-fishtank/releases/latest">Download</a>
+    <p id="version" class="small">Free and open source · macOS and Windows</p>
+    <p id="others" class="small others"></p>
+  </div>
+</header>
+
+<main>
+  <figure class="shot">
+    <img src="screenshot.png" alt="The fishtank by day: fish for each session, a side panel listing the sessions, air tanks for Claude usage and a gauge for Copilot credits" width="1400" height="800">
+  </figure>
+
+  <section>
+    <h2>Glance at the tank, know who needs you</h2>
+    <div class="cards">
+      <article><b class="dot working"></b><h3>Racing fish</h3><p>That session's agent is working.</p></article>
+      <article><b class="dot waiting"></b><h3>A fish with a ?</h3><p>It's waiting for you: a permission prompt or a question.</p></article>
+      <article><b class="dot idle"></b><h3>Dozing fish</h3><p>The session is idle. When they all are, a crab comes out to stroll the sand.</p></article>
+      <article><span class="emblem">🐠</span><h3>Little fish</h3><p>Subagents swim along next to the session that started them.</p></article>
+      <article><span class="emblem">🤿</span><h3>Air tanks</h3><p>How much of your Claude Pro/Max 5-hour and weekly limits you have left.</p></article>
+      <article><span class="emblem">🧭</span><h3>Pressure gauge</h3><p>How much of your Copilot premium requests you've used this month.</p></article>
+    </div>
+    <p class="note">Each fish is named after its session. The water follows the real time of day, with glowing plankton at
+      night, a whale or shark drifts by now and then, and you can click the water to feed the fish.</p>
+  </section>
+
+  <figure class="shot">
+    <img src="screenshot-night.png" alt="The same tank at night, with moonlit water and glowing plankton" width="1400" height="800" loading="lazy">
+  </figure>
+
+  <section>
+    <h2>Up and running in a minute</h2>
+    <ol class="steps">
+      <li><h3>Install</h3><p><b>Mac:</b> open the <code>.dmg</code> and drag Agent Fishtank into Applications.
+        <b>Windows:</b> run the installer. No Node.js or anything else needed.</p></li>
+      <li><h3>Connect</h3><p>On first start it offers to connect to the agents it finds. Click <b>Connect</b>.
+        Your own Claude Code hooks and status line keep working.</p></li>
+      <li><h3>Start a session</h3><p>The fishtank opens by itself when you start a session, and closes after the last
+        one. New versions are offered automatically.</p></li>
+    </ol>
+  </section>
+
+  <section class="faq">
+    <h2>Good to know</h2>
+    <details><summary>macOS says the app can't be opened</summary>
+      <p>The app isn't signed by Apple yet. The first time, go to <b>System Settings → Privacy &amp; Security</b>,
+        scroll down to the message about Agent Fishtank and click <b>Open Anyway</b>.</p></details>
+    <details><summary>Windows shows a SmartScreen warning</summary>
+      <p>The installer isn't signed yet. Click <b>More info → Run anyway</b>.</p></details>
+    <details><summary>The air tanks don't show up</summary>
+      <p>They need a Claude Pro or Max subscription and appear after your first Claude reply in a terminal session.
+        With an <code>ANTHROPIC_API_KEY</code> set, Claude Code uses that instead and has no plan usage to show.</p></details>
+    <details><summary>Does it send my code anywhere?</summary>
+      <p>No. It only reads your agents' local session files and listens on <code>127.0.0.1</code>. It never changes what
+        your agents do. The only internet request is the check for new versions on GitHub.</p></details>
+    <details><summary>How do I uninstall it?</summary>
+      <p><b>Mac:</b> choose <b>Disconnect</b> in the Agent Fishtank menu, then drag the app to the Trash.
+        <b>Windows:</b> uninstall it in Settings → Apps; that disconnects it for you.</p></details>
+  </section>
+</main>
+
+<footer>
+  <a href="https://github.com/VinnieVH/agents-fishtank">Source on GitHub</a> ·
+  <a href="https://github.com/VinnieVH/agents-fishtank/releases">All releases</a> ·
+  <a href="https://github.com/VinnieVH/agents-fishtank#readme">Documentation</a> ·
+  MIT license
+</footer>
+
+<script src="site.js"></script>
+</body>
+</html>
