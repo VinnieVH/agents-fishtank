@@ -77,10 +77,22 @@ async function focusMac(pid: number) {
   return true;
 }
 
+// Windows only lets the foreground app bring another window to the front, otherwise it just flashes in the taskbar.
+// A synthetic Alt key press counts as user input to this process, which lifts that lock.
 async function focusWindows(pid: number) {
-  const script = `$p = ${pid}; for ($i = 0; $i -lt 50 -and $p; $i++) {
+  const script = `Add-Type -Name W -Namespace F -MemberDefinition '
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int c);
+    [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
+    [DllImport("user32.dll")] public static extern void keybd_event(byte k, byte s, uint f, UIntPtr e);'
+  $p = ${pid}; for ($i = 0; $i -lt 50 -and $p; $i++) {
     $proc = Get-Process -Id $p -ErrorAction SilentlyContinue
-    if ($proc -and $proc.MainWindowHandle -ne 0) { if ((New-Object -ComObject WScript.Shell).AppActivate($p)) { exit 0 } }
+    if ($proc -and $proc.MainWindowHandle -ne 0) {
+      $h = $proc.MainWindowHandle
+      if ([F.W]::IsIconic($h)) { [void][F.W]::ShowWindow($h, 9) }
+      [F.W]::keybd_event(0x12, 0, 0, [UIntPtr]::Zero); [F.W]::keybd_event(0x12, 0, 2, [UIntPtr]::Zero)
+      if ([F.W]::SetForegroundWindow($h)) { exit 0 }
+    }
     $p = (Get-CimInstance Win32_Process -Filter "ProcessId=$p").ParentProcessId
   }; exit 1`;
   try { await run('powershell', ['-NoProfile', '-NonInteractive', '-Command', script]); return true; } catch { return false; }
