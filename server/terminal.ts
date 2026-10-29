@@ -126,7 +126,8 @@ export async function resumeInTerminal(args: string[], cwd?: string): Promise<bo
       return true;
     }
     if (process.platform === 'win32') {
-      try { await run('wt.exe', [...(cwd ? ['-d', cwd] : []), ...args]); } catch {
+      // Not hidden: Windows Terminal would apply that to the new window it opens.
+      try { await new Promise<void>((resolve, reject) => execFile('wt.exe', [...(cwd ? ['-d', cwd] : []), ...args], { timeout: 10_000 }, err => err ? reject(err) : resolve())); } catch {
         await new Promise<void>((resolve, reject) => execFile('cmd.exe', ['/c', 'start', ...args], { cwd, windowsHide: true }, err => err ? reject(err) : resolve()));
       }
       return true;
