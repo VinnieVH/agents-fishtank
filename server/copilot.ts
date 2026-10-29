@@ -180,9 +180,22 @@ export class Copilot {
     try { files = fs.readdirSync(path.join(this.root, id)); } catch { return undefined; }
     for (const f of files) {
       const m = /^inuse\.(\d+)\.lock$/.exec(f);
-      if (m && pidAlive(Number(m[1]))) return Number(m[1]);
+      if (m && pidAlive(Number(m[1])) && this.latestLock(Number(m[1])) === id) return Number(m[1]);
     }
     return undefined;
+  }
+
+  // A CLI that /resumes another session keeps the lock of the one it left, so a PID can be locked by several
+  // sessions: it runs the one that locked it last.
+  private latestLock(pid: number) {
+    let best = '', bestTime = -1;
+    for (const name of this.dirs()) {
+      try {
+        const t = fs.statSync(path.join(this.root, name, `inuse.${pid}.lock`)).mtimeMs;
+        if (t > bestTime) { best = name; bestTime = t; }
+      } catch { /* not locked by this PID */ }
+    }
+    return best;
   }
 
   // Each live CLI session holds an inuse.<pid>.lock file; the PID is the copilot process.

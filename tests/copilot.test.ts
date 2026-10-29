@@ -55,6 +55,24 @@ describe('Copilot CLI session logs', () => {
     c.poll();
     expect(c.list(Date.now())).toEqual([]);
   });
+
+  it('gives a CLI process to the session it locked last, not to sessions it resumed away from', () => {
+    const root = sessionState([{ type: 'user.message', data: { content: 'old' } }]);
+    fs.mkdirSync(path.join(root, 'sess-2'));
+    fs.copyFileSync(path.join(root, 'sess-1', 'events.jsonl'), path.join(root, 'sess-2', 'events.jsonl'));
+    const lock = (id: string, ago: number) => {
+      const f = path.join(root, id, `inuse.${process.pid}.lock`);
+      fs.writeFileSync(f, String(process.pid));
+      const t = new Date(Date.now() - ago);
+      fs.utimesSync(f, t, t);
+    };
+    lock('sess-1', 60_000);
+    lock('sess-2', 1_000);
+    const c = new Copilot(root);
+    c.poll();
+    expect(c.pidOf('sess-1')).toBeUndefined();
+    expect(c.pidOf('sess-2')).toBe(process.pid);
+  });
 });
 
 describe('Copilot CLI long logs', () => {
