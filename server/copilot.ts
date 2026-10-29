@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
-import type { Quota, Session } from '../shared/types.ts';
+import type { Quota, Session, State } from '../shared/types.ts';
 import { LogTail } from './logtail.ts';
 import { canFocusTerminals } from './terminal.ts';
 import { RECENT_MS, forgetOldSubagents, newTracked, pidAlive, stopSubagents, titleFrom, toSession, type Tracked } from './session.ts';
@@ -11,7 +11,11 @@ import { RECENT_MS, forgetOldSubagents, newTracked, pidAlive, stopSubagents, tit
 // and long sessions write logs of hundreds of MB.
 const FIRST_READ_BYTES = 8 * 1024 * 1024;
 
-interface CopilotSession extends Tracked { log: LogTail; nameMtime: number; mtime: number }
+// base: the state from the conversation's own events; compacting overrides it with 'working' while it lasts.
+// talked: the log holds conversation events, not just the bookkeeping of a CLI that opened and was left (or resumed another).
+interface CopilotSession extends Tracked {
+  log: LogTail; nameMtime: number; mtime: number; base: State; compacting: boolean; talked: boolean;
+}
 
 interface PremiumQuota {
   entitlementRequests: number; usedRequests: number; remainingPercentage: number;
@@ -28,8 +32,7 @@ interface CopilotEvent { type: string; id?: string; timestamp?: string; data?: C
 const WORKING = new Set([
   'user.message', 'assistant.turn_start', 'assistant.message', 'model.turn_started',
   'model.model_call_started', 'model.response', 'tool.execution_complete',
-  'permission.completed', 'human_response.recorded', 'session.compaction_start',
-  'skill.invoked', 'subagent.started',
+  'permission.completed', 'human_response.recorded', 'skill.invoked', 'subagent.started',
 ]);
 const IDLE = new Set(['assistant.turn_end', 'abort', 'session.shutdown', 'session.task_complete']);
 
@@ -80,14 +83,22 @@ export class Copilot {
     s.lastEvent = Math.max(s.lastEvent, ts);
     if (d.quotaSnapshots) this.noteQuota(d, ts);
     if (t === 'tool.execution_start') {
-      s.state = d.toolName === 'ask_user' ? 'waiting' : 'working';
+      s.base = d.toolName === 'ask_user' ? 'waiting' : 'working';
     } else if (t === 'permission.requested') {
-      s.state = 'waiting';
+      s.base = 'waiting';
     } else if (WORKING.has(t)) {
-      s.state = 'working';
+      s.base = 'working';
     } else if (IDLE.has(t)) {
-      s.state = 'idle';
+      s.base = 'idle';
+    } else if (t === 'session.compaction_start') {
+      s.compacting = true;
+    } else if (t === 'session.compaction_complete') {
+      s.compacting = false;
     }
+    if (t === 'tool.execution_start' || t === 'permission.requested' || WORKING.has(t) || t === 'assistant.turn_end' || t === 'session.compaction_start') s.talked = true;
+    if (t === 'session.shutdown') s.compacting = false;
+    // A compaction runs on its own (e.g. /compact) or during a turn; afterwards the turn's own state applies again.
+    s.state = s.compacting && s.base !== 'waiting' ? 'working' : s.base;
 
     const id = d.toolCallId || d.agentId || ev.id || '';
     if (t === 'subagent.started') {
@@ -122,7 +133,7 @@ export class Copilot {
     let s = this.sessions.get(id);
     if (!s) {
       if (Date.now() - st.mtimeMs > RECENT_MS) return;
-      s = { ...newTracked(), log: new LogTail(file, FIRST_READ_BYTES), nameMtime: 0, mtime: 0 };
+      s = { ...newTracked(), log: new LogTail(file, FIRST_READ_BYTES), nameMtime: 0, mtime: 0, base: 'idle', compacting: false, talked: false };
       this.sessions.set(id, s);
     }
     s.mtime = st.mtimeMs;
@@ -144,6 +155,7 @@ export class Copilot {
       else forgetOldSubagents(s, now);
     }
     return [...this.sessions].flatMap(([id, s]) => {
+      if (!s.talked) return [];
       const session = toSession(id, 'copilot', s, now);
       if (!session) return [];
       return canFocusTerminals ? { ...session, terminal: true } : session; // its terminal, or resumed in a new one

@@ -39,6 +39,22 @@ describe('Copilot CLI session logs', () => {
     c.poll();
     expect(c.list(Date.now())[0]).toMatchObject({ state: 'idle', name: 'Add a crab' });
   });
+
+  it('works while compacting and goes back to the turn state when compaction completes', () => {
+    const events = [{ type: 'user.message', data: { content: 'hi' } }, { type: 'assistant.turn_end' }, { type: 'session.compaction_start' }];
+    const c = new Copilot(sessionState(events));
+    c.poll();
+    expect(c.list(Date.now())[0].state).toBe('working');
+    const d = new Copilot(sessionState([...events, { type: 'session.compaction_complete' }]));
+    d.poll();
+    expect(d.list(Date.now())[0].state).toBe('idle');
+  });
+
+  it('hides a session that was opened but never used', () => {
+    const c = new Copilot(sessionState([{ type: 'session.start' }, { type: 'session.model_change' }]));
+    c.poll();
+    expect(c.list(Date.now())).toEqual([]);
+  });
 });
 
 describe('Copilot CLI long logs', () => {
