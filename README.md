@@ -29,7 +29,8 @@ prompt. Sessions get different creatures and glow colours, so no two look alike:
 angelfish, pufferfish, squid, shrimp, lobster, anglerfish, lionfish, octopus or seahorse
 ([meet them all](https://vinnievh.github.io/agents-fishtank/creatures.html)). Click a fish to jump to its session: the
 Claude desktop app opens it, iTerm or Terminal switches to its tab (other terminals and editors come to the front),
-and a Copilot session that has ended is resumed in a new terminal window. On a Mac, the first click asks to let Agent Fishtank
+and a Copilot session that has ended is resumed in a new terminal window. If you switched a Copilot CLI to another
+session with `/resume`, clicking the old session's fish brings that CLI to the front, so you can switch back there. On a Mac, the first click asks to let Agent Fishtank
 control iTerm or Terminal; allow it (or later in **System Settings → Privacy & Security → Automation**). And just for fun: the water follows the real time of day (with glowing plankton at night), a whale or shark
 drifts by now and then, a crab comes out when everything is quiet, and you can click the water to feed the fish.
 

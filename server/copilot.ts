@@ -173,16 +173,22 @@ export class Copilot {
     } catch { return undefined; }
   }
 
-  /** The CLI process of a running session (it holds an inuse.<pid>.lock file), to bring its terminal to the front. */
+  /**
+   * The CLI process to bring to the front for a session: the one running it, else one that left it for another
+   * session (the user can /resume it there), so clicks don't open a new terminal each time.
+   */
   pidOf(id: string) {
     if (!this.sessions.has(id)) return undefined;
     let files: string[] = [];
     try { files = fs.readdirSync(path.join(this.root, id)); } catch { return undefined; }
+    let left: number | undefined;
     for (const f of files) {
       const m = /^inuse\.(\d+)\.lock$/.exec(f);
-      if (m && pidAlive(Number(m[1])) && this.latestLock(Number(m[1])) === id) return Number(m[1]);
+      if (!m || !pidAlive(Number(m[1]))) continue;
+      if (this.latestLock(Number(m[1])) === id) return Number(m[1]);
+      left ??= Number(m[1]);
     }
-    return undefined;
+    return left;
   }
 
   // A CLI that /resumes another session keeps the lock of the one it left, so a PID can be locked by several

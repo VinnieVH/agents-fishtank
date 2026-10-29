@@ -56,22 +56,26 @@ describe('Copilot CLI session logs', () => {
     expect(c.list(Date.now())).toEqual([]);
   });
 
-  it('gives a CLI process to the session it locked last, not to sessions it resumed away from', () => {
+  it('prefers the CLI process running a session over one that resumed away from it', () => {
     const root = sessionState([{ type: 'user.message', data: { content: 'old' } }]);
     fs.mkdirSync(path.join(root, 'sess-2'));
     fs.copyFileSync(path.join(root, 'sess-1', 'events.jsonl'), path.join(root, 'sess-2', 'events.jsonl'));
-    const lock = (id: string, ago: number) => {
-      const f = path.join(root, id, `inuse.${process.pid}.lock`);
-      fs.writeFileSync(f, String(process.pid));
+    const lock = (id: string, pid: number, ago: number) => {
+      const f = path.join(root, id, `inuse.${pid}.lock`);
+      fs.writeFileSync(f, String(pid));
       const t = new Date(Date.now() - ago);
       fs.utimesSync(f, t, t);
     };
-    lock('sess-1', 60_000);
-    lock('sess-2', 1_000);
+    // process.pid ran sess-1, then resumed sess-2; process.ppid resumed sess-1 after that
+    lock('sess-1', process.pid, 60_000);
+    lock('sess-2', process.pid, 1_000);
+    lock('sess-1', process.ppid, 30_000);
     const c = new Copilot(root);
     c.poll();
-    expect(c.pidOf('sess-1')).toBeUndefined();
+    expect(c.pidOf('sess-1')).toBe(process.ppid);
     expect(c.pidOf('sess-2')).toBe(process.pid);
+    fs.rmSync(path.join(root, 'sess-1', `inuse.${process.ppid}.lock`));
+    expect(c.pidOf('sess-1')).toBe(process.pid); // only the CLI it was left in: focus that one
   });
 });
 
