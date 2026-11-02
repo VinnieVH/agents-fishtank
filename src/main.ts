@@ -22,8 +22,9 @@ const params = new URLSearchParams(location.search);
 const res = Math.min(2, devicePixelRatio || 1);
 
 const app = new Application();
-await app.init({ resizeTo: window, background: '#01101f', antialias: true, resolution: res, autoDensity: true });
-document.body.prepend(app.canvas);
+const tankEl = document.getElementById('tank')!; // the whole window, or its right side next to the terminals
+await app.init({ resizeTo: tankEl, background: '#01101f', antialias: true, resolution: res, autoDensity: true });
+tankEl.append(app.canvas);
 
 // layers, back to front
 const terrain = new Sprite();
@@ -187,3 +188,6 @@ app.ticker.add(ticker => {
   const tank = { t, dt: dt * swim, right: W, bottom: sandY(H) - 40, night: light.night };
   for (const f of fish.values()) f.update(tank, sessions.get(f.sessionId)?.state ?? 'idle', f.small ? fish.get(f.sessionId) : undefined);
 });
+
+// ---------- the built-in terminals, on the left (desktop app only) ----------
+if (window.fishtankTerminals) void import('./terminals').then(m => m.startTerminals(window.fishtankTerminals!));

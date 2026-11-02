@@ -34,6 +34,13 @@ session with `/resume`, clicking the old session's fish brings that CLI to the f
 control iTerm or Terminal; allow it (or later in **System Settings → Privacy & Security → Automation**). And just for fun: the water follows the real time of day (with glowing plankton at night), a whale, an orca, a
 shark, a pod of dolphins, a manta ray or a school of jellyfish drifts by now and then (and once in a while something rarer), a crab comes out when everything is quiet, and you can click the water to feed the fish.
 
+The app also has terminals of its own: click the terminal button in the panel (or press `Ctrl+\``, `⌘\`` on a Mac)
+and they open on the left, with the tank on the right. The **+** starts Claude Code, Copilot CLI or a plain shell
+(PowerShell on Windows, your login shell on a Mac) in a tab, in the folder shown under it; drag the edge between them
+to share the window. A CLI that ends leaves you in the shell. Copy with `Ctrl+C` while text is selected (`⌘C`), paste
+with `Ctrl+V` (`⌘V`) or a right click, and switch tabs with `Ctrl+Tab`. The app asks before quitting while terminals
+are open, and doesn't quit by itself while they are.
+
 ## Install
 
 You need **Claude Code** and/or **GitHub Copilot CLI**. Nothing else; not even Node.js.
@@ -221,6 +228,10 @@ sends over the internet is the update check to GitHub.
 - **Settings:** the server keeps them in `settings.json` in the app's data folder (`npm start` uses a temp file) and
   sends them to the page with every update; the page's dialog posts changes to `/settings` (JSON from a localhost page
   only). The app itself acts on the notification and launch settings (`electron/main.ts`).
+- **Terminals:** the shells run in the app (`electron/terminals.ts`, with [node-pty](https://github.com/microsoft/node-pty),
+  whose prebuilt binaries ship inside the app) and the page draws them with [xterm.js](https://xtermjs.org)
+  (`src/terminals.ts`). They talk over Electron's IPC through `electron/preload.ts`, never through the local server:
+  any web page can send requests to localhost. The app only answers its own page. The browser version has none.
 - **Updates:** the app asks GitHub for the latest published release (`electron/updates.ts`). It can't install updates
   by itself yet: on macOS that needs a signed app.
 </details>
@@ -279,6 +290,7 @@ Windows.
 | `server/logtail.ts` | Follows a growing log a few new lines at a time |
 | `server/index.ts` | Runs the server on its own, for development |
 | `electron/main.ts` | The app: window, menu, connect dialog, notifications, start at login, quitting when idle |
+| `electron/terminals.ts`, `electron/preload.ts`, `src/terminals.ts`, `shared/terminals.ts` | The built-in terminals: the shells, the bridge to the page, the tabs |
 | `electron/connect.ts` | Connects/disconnects Claude Code and Copilot CLI |
 | `electron/updates.ts`, `electron/releases.ts` | Update check and prompt |
 | `electron/cli.ts`, `electron/bin/` | The app's command line (`start`, `statusline`, `disconnect`) and its launchers |

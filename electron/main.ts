@@ -10,6 +10,7 @@ import type { Settings } from '../shared/settings.ts';
 import { DEFAULT_PORT, startServer, type Fishtank } from '../server/server.ts';
 import { connect, connected, disconnect, installed, places, type Cli, type Launcher } from './connect.ts';
 import { repoFrom } from './releases.ts';
+import { Terminals, type Remembered } from './terminals.ts';
 import { Updates } from './updates.ts';
 
 const port = Number(process.env.FISHTANK_PORT) || DEFAULT_PORT;
@@ -26,13 +27,18 @@ const PAGE_OPTIONS = ['lat', 'lon', 'time', 'timelapse', 'whale', 'shark', 'orca
 let tank: Fishtank | null = null;
 let updates: Updates | null = null;
 let win: BrowserWindow | null = null;
+let pageUrl = '';
+let terminals: Terminals | null = null;
 let quitting = false;
 
 if (!app.requestSingleInstanceLock()) app.quit(); // the running one shows its window (second-instance)
 else {
   app.on('second-instance', show);
   app.on('activate', show); // Dock icon clicked
-  app.on('before-quit', () => { quitting = true; tank?.stop(); });
+  app.on('before-quit', e => {
+    if (!closeTerminals()) { e.preventDefault(); return; }
+    quitting = true; terminals?.killAll(); tank?.stop();
+  });
   app.on('window-all-closed', () => { /* closing is handled per window */ });
   if (process.platform === 'win32') app.setAppUserModelId('com.vinnievh.agent-fishtank'); // or notifications don't show
   app.whenReady().then(main);
@@ -47,7 +53,7 @@ async function main() {
       claudeConfigDir: where.claudeDir,
       onIdle: () => app.quit(),
       waitForCli: !fromHook, // opened by hand: stay until a session has come and gone
-      keepRunning: () => atLogin,
+      keepRunning: () => atLogin || !!terminals?.count, // a tab's shell isn't closed under you
       settingsFile: path.join(app.getPath('userData'), 'settings.json'),
       desktop: true,
       onSettings: applySettings,
@@ -61,6 +67,7 @@ async function main() {
     app.exit(1);
     return;
   }
+  terminals = new Terminals({ win: () => win, origin: () => pageUrl, remembered: loadState, remember: saveState });
   createWindow();
   repoint();
   buildMenu();
@@ -116,7 +123,7 @@ function notify(title: string, body: string) {
 
 // ---------- remembered between starts (userData/state.json) ----------
 
-interface State { asked?: boolean; skippedVersion?: string }
+interface State extends Remembered { asked?: boolean; skippedVersion?: string }
 const stateFile = () => path.join(app.getPath('userData'), 'state.json');
 
 function loadState(): State {
@@ -145,13 +152,14 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1280, height: 800, minWidth: 480, minHeight: 360, title: 'Agent Fishtank', backgroundColor: '#01101f',
     autoHideMenuBar: true, show: false,
-    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
+    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false, preload: path.join(app.getAppPath(), 'dist-electron', 'preload.cjs') },
   });
   // in the background when started with the computer, or by a session while "open when a session starts" is off
   const hidden = atLogin || (fromHook && !tank!.settings().openOnSession);
-  win.once('ready-to-show', () => { if (!hidden) win?.show(); });
+  win.once('ready-to-show', () => { if (!hidden) reveal(); });
   win.on('close', e => {
     if (!quitting && (tank?.cliRunning() || staying())) { e.preventDefault(); win?.hide(); }
+    else if (!closeTerminals()) e.preventDefault();
   });
   win.on('closed', () => { win = null; if (!quitting) app.quit(); });
   win.webContents.setWindowOpenHandler(({ url }) => { void shell.openExternal(url); return { action: 'deny' }; });
@@ -166,7 +174,22 @@ function createWindow() {
     const m = /^--([a-z]+)(?:=(.*))?$/.exec(arg);
     if (m && PAGE_OPTIONS.includes(m[1])) url.searchParams.set(m[1], m[2] ?? '');
   }
-  void win.loadURL(url.toString());
+  pageUrl = url.toString();
+  void win.loadURL(pageUrl);
+}
+
+let terminalsClosed = false;
+/** Asks before closing the terminal tabs that are open; true to go ahead. */
+function closeTerminals() {
+  const n = terminals?.count ?? 0;
+  if (!n || terminalsClosed) return true;
+  const options = {
+    type: 'question' as const, buttons: ['Close', 'Cancel'], defaultId: 1, cancelId: 1,
+    message: n === 1 ? 'Close the open terminal?' : `Close the ${n} open terminals?`,
+    detail: 'Whatever runs in them is stopped.',
+  };
+  terminalsClosed = (win ? dialog.showMessageBoxSync(win, options) : dialog.showMessageBoxSync(options)) === 0;
+  return terminalsClosed;
 }
 
 function openSettings() {
@@ -177,8 +200,16 @@ function openSettings() {
 function show() {
   if (!win) return;
   if (win.isMinimized()) win.restore();
-  win.show();
+  reveal();
   win.focus();
+}
+
+let revealed = false;
+/** Shows the window, filling the screen the first time: there's room for the terminals next to the tank. */
+function reveal() {
+  if (!win) return;
+  if (!revealed) { revealed = true; win.maximize(); }
+  win.show();
 }
 
 // ---------- connecting the CLIs ----------
@@ -237,7 +268,7 @@ function buildMenu() {
     isMac
       ? { label: app.name, submenu: [{ role: 'about' }, update, { type: 'separator' }, settings, { type: 'separator' }, ...items, { type: 'separator' }, { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' }, { type: 'separator' }, { role: 'quit' }] }
       : { label: 'File', submenu: [settings, { type: 'separator' }, ...items, { type: 'separator' }, update, { type: 'separator' }, { role: 'quit' }] },
-    { label: 'View', submenu: [{ role: 'reload' }, { role: 'togglefullscreen' }, ...(app.isPackaged ? [] : [{ role: 'toggleDevTools' } as const])] },
+    { label: 'View', submenu: [{ label: 'Terminal', accelerator: 'CmdOrCtrl+`', click: () => { show(); terminals?.toggle(); } }, { type: 'separator' }, { role: 'reload' }, { role: 'togglefullscreen' }, ...(app.isPackaged ? [] : [{ role: 'toggleDevTools' } as const])] },
     { role: 'windowMenu' },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
