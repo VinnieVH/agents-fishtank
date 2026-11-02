@@ -119,7 +119,9 @@ body.still .dot { animation: none !important; }
 /* the built-in terminals, on the left in the desktop app (src/terminals.ts) */
 #term { position: fixed; top: 0; bottom: 0; left: 0; width: var(--tank-left); display: flex; flex-direction: column;
         color: #d8ecff; background: #020c18; border-right: 1px solid rgba(120,220,255,.14); }
-#term[hidden], #split[hidden], #term .view[hidden] { display: none; }
+#term[hidden], #split[hidden] { display: none; }
+/* tabs in the background stay laid out, so xterm can measure the characters they print meanwhile */
+#term .view[hidden] { display: block; visibility: hidden; }
 #term .tabs { display: flex; flex: none; height: 36px; background: #01070e; border-bottom: 1px solid rgba(120,220,255,.12); }
 #term .list { display: flex; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 #term .tab { display: flex; align-items: center; gap: 7px; flex: none; max-width: 220px; padding: 0 4px 0 12px; font-size: 12.5px;
