@@ -16,7 +16,7 @@ interface Kind {
   paint: Painter;
   glow?: Painter; // what shines at night, shown above the night overlay
   weight: number; // how often it comes compared with the others
-  alpha: number;
+  alpha: number; // solid, except the jellyfish, which are see-through anyway: the haze (HAZE) puts them far off
   length: (W: number) => number;
   box: { w: number; h: number; ox: number; oy: number }; // canvas size and body origin, as fractions of L
   speed: number; beat: number; bob: number; bobPeriod: number; tilt: number;
@@ -24,25 +24,29 @@ interface Kind {
 }
 
 const KINDS: Kind[] = [
-  { name: 'whale', paint: paintWhale, weight: 3, alpha: .45, length: W => Math.max(260, Math.min(460, W * .3)),
+  { name: 'whale', paint: paintWhale, weight: 3, alpha: 1, length: W => Math.max(260, Math.min(460, W * .3)),
     box: { w: 1.2, h: .56, ox: .62, oy: .2 }, speed: .5, beat: .022, bob: 18, bobPeriod: 6000, tilt: .05, depth: [.14, .3] },
-  { name: 'shark', paint: paintShark, weight: 3, alpha: .45, length: W => Math.max(200, Math.min(360, W * .22)),
+  { name: 'shark', paint: paintShark, weight: 3, alpha: 1, length: W => Math.max(200, Math.min(360, W * .22)),
     box: { w: 1.1, h: .5, ox: .54, oy: .27 }, speed: .8, beat: .06, bob: 8, bobPeriod: 4000, tilt: .025, depth: [.18, .36] },
-  { name: 'orca', paint: paintOrca, weight: 2, alpha: .45, length: W => Math.max(240, Math.min(420, W * .27)),
+  { name: 'orca', paint: paintOrca, weight: 2, alpha: 1, length: W => Math.max(240, Math.min(420, W * .27)),
     box: { w: 1.13, h: .6, ox: .61, oy: .4 }, speed: .7, beat: .05, bob: 10, bobPeriod: 5500, tilt: .03, depth: [.2, .36] },
-  { name: 'manta', paint: paintManta, weight: 2.5, alpha: .45, length: W => Math.max(280, Math.min(500, W * .34)),
+  { name: 'manta', paint: paintManta, weight: 2.5, alpha: 1, length: W => Math.max(280, Math.min(500, W * .34)),
     box: { w: .92, h: .76, ox: .6, oy: .38 }, speed: .42, beat: .03, bob: 14, bobPeriod: 8000, tilt: .04, depth: [.22, .32] },
-  { name: 'dolphins', paint: paintDolphins, weight: 2.5, alpha: .45, length: W => Math.max(280, Math.min(480, W * .34)),
+  { name: 'dolphins', paint: paintDolphins, weight: 2.5, alpha: 1, length: W => Math.max(280, Math.min(480, W * .34)),
     box: { w: 1.02, h: .5, ox: .51, oy: .3 }, speed: .95, beat: .08, bob: 6, bobPeriod: 5000, tilt: .02, depth: [.16, .3] },
-  { name: 'jellyfish', paint: paintJellyfish, glow: paintJellyGlow, weight: 3, alpha: .6, length: W => Math.max(190, Math.min(320, W * .2)),
+  { name: 'jellyfish', paint: paintJellyfish, glow: paintJellyGlow, weight: 3, alpha: .75, length: W => Math.max(190, Math.min(320, W * .2)),
     box: { w: 1, h: .92, ox: .5, oy: .47 }, speed: .28, beat: .045, bob: 10, bobPeriod: 7000, tilt: .02, depth: [.16, .3] },
   // the rare one
-  { name: 'submarine', paint: paintSubmarine, glow: paintSubmarineGlow, weight: .6, alpha: .45, length: W => Math.max(300, Math.min(540, W * .36)),
+  { name: 'submarine', paint: paintSubmarine, glow: paintSubmarineGlow, weight: .6, alpha: 1, length: W => Math.max(300, Math.min(540, W * .36)),
     box: { w: 1.16, h: .38, ox: .62, oy: .28 }, speed: .32, beat: .05, bob: 5, bobPeriod: 9000, tilt: .012, depth: [.2, .34] },
   // and the legend: about one visitor in 170, so you may wait days to see it
-  { name: 'kraken', paint: paintKraken, glow: paintKrakenGlow, weight: .1, alpha: .5, length: W => Math.max(380, Math.min(640, W * .5)),
+  { name: 'kraken', paint: paintKraken, glow: paintKrakenGlow, weight: .1, alpha: 1, length: W => Math.max(380, Math.min(640, W * .5)),
     box: { w: 1.48, h: .74, ox: .96, oy: .41 }, speed: .3, beat: .03, bob: 10, bobPeriod: 10000, tilt: .03, depth: [.3, .38] },
 ];
+
+// Far off in the water things take on its colour and lose their contrast rather than turning see-through: the
+// visitors are washed with the water's deep blue, so the scenery behind them doesn't show through.
+const HAZE = 'rgba(8,60,100,.58)';
 
 /** A sprite showing a canvas that is repainted every frame. */
 class Painted extends Sprite {
@@ -114,7 +118,7 @@ class Passerby {
     const k = (t - this.t0) / kind.bobPeriod;
 
     const cw = L * box.w, ch = L * box.h, ox = L * box.ox, oy = L * box.oy;
-    body.draw(cw, ch, ox, oy, g => kind.paint(g, L, this.ph), 'rgba(25,75,120,.35)');
+    body.draw(cw, ch, ox, oy, g => kind.paint(g, L, this.ph), HAZE);
     const shown = [body];
     if (glow && night > .05) {
       glow.draw(cw, ch, ox, oy, g => kind.glow!(g, L, this.ph));
