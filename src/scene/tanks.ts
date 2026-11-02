@@ -80,6 +80,7 @@ export class AirTanks extends Container {
       g.scale(K, K);
       paintTank(g, SLIM_X, BASE, SLIM, t.week); // behind, leaning on the big one
       paintTank(g, BIG_X, BASE, BIG, t.fiveHour);
+      sunk(g);
     });
     if (old && old !== Texture.EMPTY) old.destroy(true);
   }
@@ -104,11 +105,23 @@ function toon(g: CanvasRenderingContext2D, p: Path2D, fill: string, w: number, i
 function rect(x: number, y: number, w: number, h: number, r: number | number[]) { const p = new Path2D(); p.roundRect(x, y, w, h, r); return p; }
 function circle(x: number, y: number, r: number) { const p = new Path2D(); p.arc(x, y, r, 0, TAU); return p; }
 
+/** Sunk into the sand like the chest: a drift over the feet of both tanks, heaped up a little against each. */
+function sunk(g: CanvasRenderingContext2D) {
+  const top = new Path2D(), b = BASE, big = BIG_X + BIG.w / 2, slim = SLIM_X + SLIM.w / 2 + 2;
+  top.moveTo(2, b + 7); top.quadraticCurveTo(8, b - 2, 16, b - 4); top.quadraticCurveTo(BIG_X, b - 8, big, b - 5);
+  top.quadraticCurveTo(big + 4, b - 3, big + 7, b - 5); top.quadraticCurveTo(SLIM_X, b - 8, slim, b - 4);
+  top.quadraticCurveTo(slim + 8, b - 1, CW - 2, b + 7);
+  const drift = new Path2D(top); drift.closePath();
+  g.fillStyle = '#e8cd96'; g.fill(drift);
+  g.strokeStyle = '#7a5726'; g.lineWidth = 2; g.lineJoin = 'round'; g.lineCap = 'round'; g.stroke(top);
+  g.fillStyle = '#c9a66a';
+  for (const [x, y] of [[12, b + 2], [30, b - 1], [52, b + 1], [72, b - 1], [92, b + 1], [106, b + 3]]) { g.beginPath(); g.ellipse(x, y, 1.3, 1, 0, 0, TAU); g.fill(); }
+}
+
 /** A scuba tank standing on (cx, base), drawn upright and then tilted around its foot. */
 function paintTank(g: CanvasRenderingContext2D, cx: number, base: number, look: Look, air: Air | null) {
   const { w, h } = look, L = -w / 2, top = -h;
   g.save();
-  g.globalAlpha = .28; g.fillStyle = '#000'; g.beginPath(); g.ellipse(cx + 4, base + 2, w * .7, 5, 0, 0, TAU); g.fill(); g.globalAlpha = 1;
   g.translate(cx, base); g.rotate(look.tilt);
 
   // valve: chrome neck and block, black handwheel on the right, outlet on the left
