@@ -37,6 +37,8 @@ export interface ClaudeSession extends Tracked {
   transcript?: LogTail;
   /** Agent tool calls waiting for their SubagentStart, to give the subagent its description and model. */
   launching: { type: string; description: string; model: string }[];
+  /** The shown session this one carries on in the same process (after /clear or /resume), and what it was called. */
+  was?: { id: string; name: string };
 }
 
 export const newClaudeSession = (): ClaudeSession => ({ ...newTracked(), ended: false, hooked: false, launching: [], titles: { ai: '', custom: '' } });
@@ -44,8 +46,9 @@ export const newClaudeSession = (): ClaudeSession => ({ ...newTracked(), ended: 
 /**
  * Whether the session gets a fish: once it has been used (a hook, a title, a name). A session that's only been
  * opened (e.g. "+ New" in the desktop app) runs under a temporary id until the first message, so it would show up twice.
+ * One that carries on a shown session (after a /clear) keeps that one's fish right away.
  */
-export const isShown = (s: ClaudeSession) => s.hooked || !!(s.titles.ai || s.titles.custom || s.live?.name);
+export const isShown = (s: ClaudeSession) => s.hooked || !!(s.was || s.titles.ai || s.titles.custom || s.live?.name);
 
 // Claude Code repeats its title records through the transcript, so the end of a long one has them too.
 const TRANSCRIPT_FIRST_READ = 4 * 1024 * 1024;
@@ -65,9 +68,12 @@ export function noteTitles(s: ClaudeSession, lines: string[]) {
   }
 }
 
-/** What the fish is called: a name the user gave it, Claude Code's title, else the start of the first prompt. */
+/**
+ * What the fish is called: a name the user gave it, Claude Code's title, else the start of the first prompt; until
+ * it has any of those, the name of the session it carries on.
+ */
 export function nameOf(s: ClaudeSession) {
-  return s.live?.name || s.titles.custom || s.titles.ai || s.name || s.title;
+  return s.live?.name || s.titles.custom || s.titles.ai || s.name || s.title || s.was?.name || '';
 }
 
 // Tools that stop and wait for the user's answer, like Copilot's ask_user.
@@ -177,6 +183,8 @@ export class Claude {
   private sessions = new Map<string, ClaudeSession>();
   /** PIDs of the running sessions, from the last poll. */
   private pids: number[] = [];
+  /** The session each of those processes was running at the last poll: a /clear or /resume moves it to another id. */
+  private inProcess = new Map<number, string>();
   /** When we last looked for a session's transcript, for sessions no hook has told us about yet. */
   private searched = new Map<string, number>();
 
@@ -198,19 +206,22 @@ export class Claude {
     let files: string[] = [];
     try { files = fs.readdirSync(dir).filter(f => /^\d+\.json$/.test(f)); } catch { /* none running, or an older Claude Code */ }
     this.pids = [];
-    const live = new Set<string>();
+    const live = new Set<string>(), inProcess = new Map<number, string>();
     for (const pid of files.map(f => Number(f.slice(0, -5))).filter(pidAlive)) {
       let r: RunningSession;
       try { r = JSON.parse(fs.readFileSync(path.join(dir, pid + '.json'), 'utf8')); } catch { continue; }
       if (!r || !isRealSession(r)) continue;
       this.pids.push(pid);
       if (typeof r.sessionId !== 'string' || !r.sessionId) continue;
-      const s = this.session(r.sessionId);
+      const s = this.session(r.sessionId), was = this.inProcess.get(pid);
+      if (was && was !== r.sessionId) this.carryOn(was, s);
+      inProcess.set(pid, r.sessionId);
       s.live = liveFrom(r);
       s.pid = pid;
       if (typeof r.statusUpdatedAt === 'number') s.lastEvent = Math.max(s.lastEvent, r.statusUpdatedAt);
       live.add(r.sessionId);
     }
+    this.inProcess = inProcess;
     for (const [id, s] of this.sessions) {
       if (!live.has(id)) { s.live = undefined; s.pid = undefined; }
       // an opened session that's gone again without ever being used, e.g. its temporary id before the first message
@@ -219,6 +230,17 @@ export class Claude {
       const update = s.transcript?.read();
       if (update) noteTitles(s, update.lines);
     }
+  }
+
+  /**
+   * A process moved on from session `id` to `s`: a /clear starts a new session in it, a /resume switches to another.
+   * It's still the same Claude Code the user is working in, so the old session's fish carries on as s (Session.was).
+   */
+  private carryOn(id: string, s: ClaudeSession) {
+    const old = this.sessions.get(id);
+    if (!old || !isShown(old)) return; // e.g. the temporary id a session runs under until its first message
+    s.was = { id, name: nameOf(old) };
+    this.sessions.delete(id); this.searched.delete(id);
   }
 
   /** <config>/projects/<project>/<session id>.jsonl; looked up at most every 10 s until found. */
@@ -242,6 +264,7 @@ export class Claude {
       const shown = { ...s, state: s.live?.state ?? s.state, name: nameOf(s) };
       const session = toSession(id, 'claude', shown, now);
       if (!session) continue;
+      if (s.was) session.was = s.was.id;
       const link = this.desktop.link(id, now);
       out.push(link ? { ...session, link } : s.pid && canFocusTerminals ? { ...session, terminal: true } : session);
     }

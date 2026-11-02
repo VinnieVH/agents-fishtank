@@ -75,6 +75,10 @@ export class SpeciesStore {
     const neon = typeof known === 'object' && NEON.includes(known.neon) ? known.neon : pickNeon(sessionId, species, inTank);
     return this.map[sessionId] = { species, neon };
   }
+  /** A session carries on under a new id, and keeps its look. */
+  move(from: string, to: string) {
+    if (from in this.map) { this.map[to] = this.map[from]; delete this.map[from]; }
+  }
   /** Forget sessions that are gone and persist. */
   prune(live: Set<string>) {
     for (const id of Object.keys(this.map)) if (!live.has(id)) delete this.map[id];

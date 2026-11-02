@@ -217,4 +217,23 @@ describe('opened but unused sessions', () => {
       expect(c.list(Date.now())).toMatchObject([{ id: 'real-id', name: 'Add a crab', state: 'working' }]);
     } finally { r.done(); }
   });
+
+  it('carries a session on under its new id after a /clear, keeping its fish and name until it gets a new one', () => {
+    const r = registry();
+    try {
+      const c = new Claude(r.dir);
+      c.handle({ hook_event_name: 'UserPromptSubmit', session_id: 'before', prompt: 'Feature ideas' });
+      r.write({ sessionId: 'before', status: 'idle', kind: 'interactive' });
+      c.poll();
+      // /clear: the old session ends and the same process starts a new one, which hasn't been used yet
+      c.handle({ hook_event_name: 'SessionEnd', session_id: 'before' });
+      c.handle({ hook_event_name: 'SessionStart', session_id: 'after' });
+      r.write({ sessionId: 'after', status: 'idle', kind: 'interactive' });
+      c.poll();
+      expect(c.list(Date.now())).toMatchObject([{ id: 'after', was: 'before', name: 'Feature ideas' }]);
+      r.write({ sessionId: 'after', status: 'idle', kind: 'interactive', name: 'Test 123', nameSource: 'user' }); // /rename
+      c.poll();
+      expect(c.list(Date.now())).toMatchObject([{ id: 'after', was: 'before', name: 'Test 123' }]);
+    } finally { r.done(); }
+  });
 });

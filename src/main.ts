@@ -109,6 +109,12 @@ function sync(data: Snapshot) {
     crab.scare();
     return f;
   };
+  for (const s of data.sessions) { // a session carrying on another one (after a /clear) takes over its fish
+    const f = s.was ? fish.get(s.was) : undefined;
+    if (!f || fish.has(s.id)) continue;
+    fish.delete(f.key); species.move(f.key, s.id);
+    f.key = f.sessionId = s.id; fish.set(s.id, f);
+  }
   for (const s of data.sessions) {
     wanted.add(s.id);
     const parent = fish.get(s.id) ?? add(s.id, s.id, false);

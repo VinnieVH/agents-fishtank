@@ -42,7 +42,8 @@ export class Fish {
   private question: Text;
   private zs: Text[];
 
-  constructor(readonly key: string, readonly sessionId: string, readonly small: boolean, { species, neon }: Look,
+  // key and sessionId change when the session carries on under a new id (see Session.was)
+  constructor(public key: string, public sessionId: string, readonly small: boolean, { species, neon }: Look,
     W: number, bottom: number, res: number, near?: Fish) {
     const h = hash(key), hs = hash(sessionId);
     this.look = {

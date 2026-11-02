@@ -48,6 +48,13 @@ describe('SpeciesStore', () => {
     expect(NEON).toContain(look.neon);
   });
 
+  it('keeps a session\'s look when it carries on under a new id', () => {
+    const store = new SpeciesStore(null);
+    const look = store.get('before', []);
+    store.move('before', 'after');
+    expect(store.get('after', [])).toEqual(look);
+  });
+
   it('survives corrupt storage', () => {
     const store = new SpeciesStore({ getItem: () => '{nope', setItem: () => {} });
     expect(ALL_SPECIES).toContain(store.get('x', []).species);

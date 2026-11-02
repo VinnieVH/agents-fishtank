@@ -15,6 +15,8 @@ export interface Session {
   link?: string;
   /** Clicking its fish brings the terminal it runs in to the front, or resumes it in a new one (POST /open). */
   terminal?: boolean;
+  /** The session this one carries on in the same process, e.g. the one before a /clear: its fish becomes this one's. */
+  was?: string;
 }
 
 /** Copilot premium credit snapshot (from the CLI's quotaSnapshots.premium_interactions). Claude Code has plan limits instead (ClaudeLimits). */
