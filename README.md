@@ -277,7 +277,7 @@ Windows.
 | --- | --- |
 | `src/main.ts` | Sets up the Pixi app, the layers, the session → fish sync and the loop |
 | `src/scene/` | Fish, water, sky, visitors (whale, shark, orca, manta, dolphins, jellyfish, submarine, kraken), crab, fish food, credits gauge, air tanks |
-| `src/art/` | Canvas 2D painters for the fish, terrain, visitors and crab |
+| `src/art/` | Canvas 2D painters for the fish, terrain, coral reef (`reef.ts`), visitors and crab |
 | `src/panel.ts` | Side panel, Claude usage and the live `/events` connection |
 | `src/settings.ts`, `shared/settings.ts` | The settings dialog; the settings, their defaults and validation |
 | `src/sky.ts`, `src/species.ts`, `src/credits.ts`, `src/limits.ts` | Sun and light, species and glow colour picker, Copilot credits, Claude usage |

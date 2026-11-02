@@ -1,6 +1,6 @@
 import { Application, Container, Sprite, Texture } from 'pixi.js';
 import './style.css';
-import { paintTerrain, sandY } from './art/terrain';
+import { FLOOR_REACH, paintFloor, paintTerrain, paintWater, sandY } from './art/terrain';
 import { connect, renderPanel, renderUsage, setSky, type Session, type Snapshot } from './panel';
 import { credits } from './credits';
 import { airTanks } from './limits';
@@ -27,7 +27,9 @@ await app.init({ resizeTo: tankEl, background: '#01101f', antialias: true, resol
 tankEl.append(app.canvas);
 
 // layers, back to front
+const sea = new Sprite(); // the open water and the canyon far off, behind the current; the hills and the wreck are in front of it
 const terrain = new Sprite();
+const floor = new Sprite(); // the reef and the chest: in front of the soft corals
 const passersby = new Passersby(performance.now(), params, res);
 const water = new Water();
 const sky = new SkyOverlay();
@@ -37,19 +39,30 @@ const gauge = new Gauge(res);
 const crab = new Crab(res);
 const food = new Food(res);
 const tanks = new AirTanks(res);
-app.stage.addChild(terrain, passersby, water.rays, water.shimmer, water.backWeeds, water.anemones, water.bubbles, food,
-  sky, passersby.glows, water.anemoneTips, water.plankton, fishLayer, marksLayer, water.frontWeeds, tanks, crab, gauge);
+app.stage.addChild(sea, water.current, terrain, passersby, water.rays, water.shimmer, water.softCorals, floor, water.anemones, water.bubbles, food,
+  sky, passersby.glows, water.anemoneTips, water.plankton, fishLayer, marksLayer, tanks, crab, gauge);
 
 let W = 0, H = 0, gold = 1, gems = 5;
 function paintBackdrop() {
+  const oldSea = sea.texture;
+  sea.texture = paintTexture(W, H, res, g => paintWater(g, W, H));
+  if (oldSea !== Texture.EMPTY) oldSea.destroy(true);
   const old = terrain.texture;
-  terrain.texture = paintTexture(W, H, res, g => paintTerrain(g, W, H, gold, gems));
+  terrain.texture = paintTexture(W, H, res, g => paintTerrain(g, W, H));
+  if (old !== Texture.EMPTY) old.destroy(true);
+  paintFloorLayer();
+}
+/** The floor's things: on resize, and when the chest's gold changes. */
+function paintFloorLayer() {
+  const old = floor.texture, top = sandY(H) - FLOOR_REACH;
+  floor.texture = paintTexture(W, H - top, res, g => paintFloor(g, W, H, gold, gems));
+  floor.y = top;
   if (old !== Texture.EMPTY) old.destroy(true);
 }
 function resize() {
   W = app.screen.width; H = app.screen.height;
   paintBackdrop();
-  water.build(W, H);
+  water.build(W, H, app.renderer);
   sky.resize(W, H);
   gauge.layout(W, H);
   tanks.layout(W, H);
@@ -94,7 +107,7 @@ function sync(data: Snapshot) {
   const c = credits(data.quota);
   gauge.set(c);
   const g = c ? c.gold : 1, s = c ? c.gems : 5;
-  if (g !== gold || s !== gems) { gold = g; gems = s; paintBackdrop(); }
+  if (g !== gold || s !== gems) { gold = g; gems = s; paintFloorLayer(); }
 
   // Claude plan usage: the diver's air tanks, and the numbers in the panel
   const air = airTanks(data.limits, data.time);
