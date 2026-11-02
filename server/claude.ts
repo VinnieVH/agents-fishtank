@@ -26,7 +26,7 @@ export interface HookEvent {
 
 export interface ClaudeSession extends Tracked {
   ended: boolean;
-  /** Has sent a hook event, i.e. has really been used (not just opened). */
+  /** Has sent a hook event other than opening or closing, i.e. has really been used. */
   hooked: boolean;
   /** The Claude Code process, while it runs. */
   pid?: number;
@@ -74,10 +74,13 @@ export function nameOf(s: ClaudeSession) {
 const ASKS_USER = new Set(['AskUserQuestion', 'ExitPlanMode']);
 const AGENT_TOOLS = new Set(['Agent', 'Task']);
 const NEEDS_USER = new Set(['permission_prompt', 'elicitation_dialog', 'agent_needs_input']);
+// Fired by a session that's only been opened and closed again too: quitting right away, or the id it had before
+// /clear, /login or the first message. They don't make it a session anyone used.
+const OPEN_CLOSE = new Set(['SessionStart', 'SessionEnd']);
 
 export function applyHook(s: ClaudeSession, ev: HookEvent, ts: number) {
   s.lastEvent = Math.max(s.lastEvent, ts);
-  s.hooked = true;
+  if (!OPEN_CLOSE.has(ev.hook_event_name)) s.hooked = true;
   if (ev.transcript_path && !ev.agent_id && s.transcript?.file !== ev.transcript_path) s.transcript = new LogTail(ev.transcript_path, TRANSCRIPT_FIRST_READ);
   // Tool calls inside a subagent shouldn't change what the main session is doing.
   const main = !ev.agent_id;

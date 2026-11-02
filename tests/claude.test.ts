@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { applyHook, Claude, limitsFrom, liveFrom, nameOf, newClaudeSession, noteTitles, parseHook, type HookEvent } from '../server/claude.ts';
+import { applyHook, Claude, isShown, limitsFrom, liveFrom, nameOf, newClaudeSession, noteTitles, parseHook, type HookEvent } from '../server/claude.ts';
 import { toSession } from '../server/session.ts';
 
 const T = 1_000_000;
@@ -28,6 +28,13 @@ describe('Claude Code hooks', () => {
     expect(play('UserPromptSubmit', ['Notification', { notification_type: 'permission_prompt' }]).state).toBe('waiting');
     expect(play('UserPromptSubmit', ['PreToolUse', { tool_name: 'AskUserQuestion' }]).state).toBe('waiting');
     expect(play('UserPromptSubmit', ['PreToolUse', { tool_name: 'AskUserQuestion' }], 'PostToolUse').state).toBe('working');
+  });
+
+  it('shows a session once it is used, not when it was only opened and closed', () => {
+    expect(isShown(play('SessionStart'))).toBe(false);
+    expect(isShown(play('SessionStart', 'SessionEnd'))).toBe(false);
+    expect(isShown(play('SessionStart', 'UserPromptSubmit'))).toBe(true);
+    expect(isShown(play(['SessionStart', { session_title: 'auth-refactor' }]))).toBe(false);
   });
 
   it('names the session after its title, else the first prompt', () => {
