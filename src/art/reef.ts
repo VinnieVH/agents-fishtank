@@ -1,5 +1,5 @@
 // The coral reef on the floor: a low ridge of live rock along the back, with outcrops of it in three rows (back,
-// middle, front). Their hard corals stay put (painted here, into the floor layer), rooted in the rock; the reefs at the
+// middle, front), broken by open stretches of sand that look through to the distance. Their hard corals stay put (painted here, into the floor layer), rooted in the rock; the reefs at the
 // back also grow soft corals that sway (drawn by scene/water.ts, behind the rock). Cartoon style like the fish: flat
 // fills, ink outlines, a light rim and shine. Both layers use the same layout (reefLayout).
 import { rng, shade, TAU } from '../util';
@@ -14,8 +14,23 @@ export interface Reef {
   hard: Coral<HardKind>[]; soft: Coral<SoftKind>[];
 }
 
-const SPACING = 120; // px of width per reef, on average
+const SPACING = 145; // px of width per reef's spot, on average
 const GOLDEN = .6180339887;
+const GAP_SHARE = .33; // of the spots, after the first 3, left as open sand
+
+/** Spot i of the reefs' endless sequence, at frac(.23 + i * golden) of the width: where it is, and if it's open sand, how wide. */
+const spot = (i: number, W: number) => {
+  const R = rng(4409 + i * 613), open = i >= 3 && R() < GAP_SHARE;
+  return { x: (.23 + i * GOLDEN) % 1 * W, gap: open ? 55 + R() * 45 : 0 };
+};
+const spots = (W: number) => Math.max(3, Math.round(W / SPACING));
+
+/** The open stretches of sand between the reefs in a tank W wide, as [from, to], left to right. */
+export function sandGaps(W: number): [number, number][] {
+  const gaps: [number, number][] = [];
+  for (let i = 0, n = spots(W); i < n; i++) { const { x, gap } = spot(i, W); if (gap) gaps.push([x - gap, x + gap]); }
+  return gaps.sort((a, b) => a[0] - b[0]);
+}
 /** A hex colour darkened by `k` (0..1), still as hex, so the painters can shade it further. */
 const dim = (hex: string, k: number) => '#' + [1, 3, 5].map(i => Math.round(parseInt(hex.slice(i, i + 2), 16) * (1 - k)).toString(16).padStart(2, '0')).join('');
 const pick = <T>(R: () => number, items: [T, number][]) => {
@@ -42,23 +57,28 @@ export function rockTop(r: Reef, dx: number) {
 }
 
 /**
- * The reefs in a tank W x H. Reef i of an endless sequence stands at frac(.23 + i * golden) of the width (any first n
- * are spread evenly); a tank gets its first W / SPACING. Each one always looks the same, so a wider tank keeps its
- * reefs and adds new ones between them. None stands in front of `clear` (the chest): those grow behind it.
+ * The reefs in a tank W x H. Reef i of an endless sequence stands at spot i (any first n are spread evenly); a tank
+ * gets its first W / SPACING spots. Each one always looks the same, so a wider tank keeps its reefs and adds new ones
+ * between them. Some spots are open sand (sandGaps): the reefs next to one move out of it, bunching up beside it.
+ * None stands in front of `clear` (the chest): those grow behind it.
  */
 export function reefLayout(W: number, H: number, clear: [number, number][]): Reef[] {
-  const sy = H - 70, water = sy - 40, reefs: Reef[] = [];
-  for (let i = 0, n = Math.max(3, Math.round(W / SPACING)); i < n; i++) {
-    const R = rng(5003 + i * 977), x = (.23 + i * GOLDEN) % 1 * W;
+  const sy = H - 70, water = sy - 40, reefs: Reef[] = [], gaps = sandGaps(W);
+  for (let i = 0, n = spots(W); i < n; i++) {
+    const at0 = spot(i, W);
+    if (at0.gap) continue;
+    const R = rng(5003 + i * 977);
     const roll = R(), size = R(), tall = R(), dy = (R() - .5) * 6;
     const make = (row: Reef['row']): Reef => {
       const [lo, hi] = [[170, 260], [130, 200], [90, 150]][row], w = lo + size * (hi - lo);
+      let x = at0.x;
+      for (const [a, b] of gaps) if (x + w / 2 > a && x - w / 2 < b) x = x < (a + b) / 2 ? a - w / 2 : b + w / 2;
       return { i, x, y: [sy - 26, sy - 8, sy + 10][row] + dy, w, h: w * (.28 + tall * .14), row, hard: [], soft: [] };
     };
     let reef = make((roll < .38 ? 0 : roll < .7 ? 1 : 2) as Reef['row']);
     // one that would stand in front of the chest grows behind it instead
-    if (reef.row > 0 && clear.some(([a, b]) => x + reef.w / 2 > a && x - reef.w / 2 < b)) reef = make(0);
-    const { w, row } = reef;
+    if (reef.row > 0 && clear.some(([a, b]) => reef.x + reef.w / 2 > a && reef.x - reef.w / 2 < b)) reef = make(0);
+    const { x, w, row } = reef;
     const at = (u: number, sunk: number) => ({ x: x + u * w, y: rockTop(reef, u * w) + sunk });
     const theme = THEMES[Math.floor(R() * THEMES.length)];
     const count = [3, 3, 2][row] + Math.floor(R() * 3);
@@ -203,33 +223,48 @@ function rootIn(c: Coral<HardKind>, row: number, R: () => number) {
 }
 
 /**
- * A low, continuous ridge of live rock along the back of the floor, so the reefs grow out of one reef instead of
- * standing alone. Shaped by x itself (not the width), so it stays put on a resize; `ground` is where the sand is.
+ * A low ridge of live rock along the back of the floor, so the reefs beside each other grow out of one reef instead of
+ * standing alone; it's broken by the open stretches of sand (`gaps`, from sandGaps). Shaped by x itself (not the
+ * width), so it stays put on a resize; `ground` is where the sand is.
  */
-export function paintRidge(ctx: CanvasRenderingContext2D, W: number, sy: number, ground: Ground) {
+export function paintRidge(ctx: CanvasRenderingContext2D, W: number, sy: number, ground: Ground, gaps: [number, number][]) {
   g = ctx;
-  const top = (x: number) => sy - 14 - 30 * (.5 + .5 * Math.sin(x / 170 + 1.3)) * (.6 + .4 * Math.sin(x / 61 + .4)) - 6 * Math.sin(x / 23);
-  const outline = new Path2D(); outline.moveTo(-10, top(-10));
-  for (let x = -10; x <= W + 10; x += 8) outline.lineTo(x, top(x));
-  const p = new Path2D(outline);
-  for (let x = W + 10; x >= -10; x -= 16) p.lineTo(x, ground(x) + 10);
-  p.closePath();
+  // it sinks into the sand towards the open stretches (gaps) and leaves them open
+  const TAPER = 70;
+  const left = (x: number) => Math.min(1, ...gaps.map(([a, b]) => x < a ? (a - x) / TAPER : x > b ? (x - b) / TAPER : 0));
+  const top = (x: number) => {
+    const k = left(x), e = k * k * (3 - 2 * k), base = sy + 4;
+    return base - (base - (sy - 14 - 30 * (.5 + .5 * Math.sin(x / 170 + 1.3)) * (.6 + .4 * Math.sin(x / 61 + .4)) - 6 * Math.sin(x / 23))) * e;
+  };
   const [body, dark, lit] = ROCK[0];
-  g.fillStyle = body; g.fill(p);
-  g.save(); g.clip(p);
-  g.fillStyle = dark; g.fillRect(-10, sy - 22, W + 20, 40);                  // in shade low down
-  for (let k = 0; k * 70 < W + 70; k++) {                                     // crusts and holes, every 70 px
-    const R = rng(9100 + k), x = k * 70 + R() * 50;
-    ellipse(x, top(x) + 6, 16 + R() * 14, 5, 0, lit, .7);
-    crusts(x, sy - 6, 70, 34, lit, R);
+  // the stretches of it between the gaps
+  const ends = [-10, ...gaps.flat(), W + 10];
+  for (let s = 0; s < ends.length; s += 2) {
+    const a = Math.max(-10, ends[s]), b = Math.min(W + 10, ends[s + 1]);
+    if (b - a < 20) continue;
+    const outline = new Path2D(); outline.moveTo(a, top(a));
+    for (let x = a; x <= b; x += 8) outline.lineTo(x, top(x));
+    outline.lineTo(b, top(b));
+    const p = new Path2D(outline);
+    for (let x = b; x >= a; x -= 16) p.lineTo(x, ground(x) + 10);
+    p.lineTo(a, ground(a) + 10);
+    p.closePath();
+    g.fillStyle = body; g.fill(p);
+    g.save(); g.clip(p);
+    g.fillStyle = dark; g.fillRect(a, sy - 22, b - a, 40);                    // in shade low down
+    for (let k = Math.floor(a / 70); k * 70 < b; k++) {                        // crusts and holes, every 70 px
+      const R = rng(9100 + k), x = k * 70 + R() * 50;
+      ellipse(x, top(x) + 6, 16 + R() * 14, 5, 0, lit, .7);
+      crusts(x, sy - 6, 70, 34, lit, R);
+    }
+    g.restore();
+    ink(outline, '#221a2a', 2.4);
+    sandOver(a, b, () => sy - 60, ground); // it stands behind the front sand's edge all along
   }
-  g.restore();
-  ink(outline, '#221a2a', 2.4);
-  sandOver(-10, W + 10, () => sy - 60, ground); // it stands behind the front sand's edge all along
   for (let k = 0; k * 110 < W + 110; k++) { // small polyps and zoanthids crusting its top
     const R = rng(9300 + k), x = k * 110 + R() * 80;
     const c: Coral<HardKind> = { kind: R() < .5 ? 'zoas' : 'polyps', x, y: top(x) + 4, s: 12 + R() * 10, col: R() < .5 ? '#68c95a' : THEMES[k % 4][Math.floor(R() * 4)], seed: 9500 + k };
-    HARD[c.kind](c, rng(c.seed));
+    if (left(x) > .6) HARD[c.kind](c, rng(c.seed));
   }
 }
 

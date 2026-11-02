@@ -1,5 +1,5 @@
 import { rng, shade, TAU } from '../util';
-import { paintReefs, paintRidge, reefLayout } from './reef';
+import { paintReefs, paintRidge, reefLayout, sandGaps } from './reef';
 
 export const sandY = (H: number) => H - 70;
 /** The canyon far away that the ocean current flows into: where its mouth is. */
@@ -444,7 +444,7 @@ export function paintFloor(ctx: CanvasRenderingContext2D, W: number, H: number, 
   const sy = sandY(H), marks = landmarks(W), all = reefs(W, H);
   g.save(); g.translate(0, FLOOR_REACH - sy);
   const ground = (x: number) => sandTop(x, sy);
-  paintRidge(g, W, sy, ground);
+  paintRidge(g, W, sy, ground, sandGaps(W));
   paintReefs(g, all, ground);
   chest(marks.chest, sy + 30, gold, gems); // well forward on the sand, in front of the reef
   g.restore();
