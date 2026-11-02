@@ -31,8 +31,8 @@ angelfish, pufferfish, squid, shrimp, lobster, anglerfish, lionfish, octopus or 
 Claude desktop app opens it, iTerm or Terminal switches to its tab (other terminals and editors come to the front),
 and a Copilot session that has ended is resumed in a new terminal window. If you switched a Copilot CLI to another
 session with `/resume`, clicking the old session's fish brings that CLI to the front, so you can switch back there. On a Mac, the first click asks to let Agent Fishtank
-control iTerm or Terminal; allow it (or later in **System Settings → Privacy & Security → Automation**). And just for fun: the water follows the real time of day (with glowing plankton at night), a whale or shark
-drifts by now and then, a crab comes out when everything is quiet, and you can click the water to feed the fish.
+control iTerm or Terminal; allow it (or later in **System Settings → Privacy & Security → Automation**). And just for fun: the water follows the real time of day (with glowing plankton at night), a whale, an orca, a
+shark, a pod of dolphins, a manta ray or a school of jellyfish drifts by now and then (and once in a while something rarer), a crab comes out when everything is quiet, and you can click the water to feed the fish.
 
 ## Install
 
@@ -155,7 +155,7 @@ are remembered.
 | --- | --- | --- |
 | **Daylight** | Follow the real sun, or keep the tank always day or always night | Follows the sun |
 | **Use my exact location** | Latitude and longitude for sunrise and sunset, instead of a guess from your timezone | Off |
-| **Whale or shark** | Lets the occasional whale or shark swim by | On |
+| **Visitors** | Lets the occasional whale, orca, shark, pod of dolphins, manta ray or school of jellyfish swim by, and now and then something rarer | On |
 | **Keep the crab out** | The crab stays on the sand, not only when every session is idle | Off |
 | **Animation** | **Lively**, **Calm** (the water, light and fish move slower) or **Minimal** (barely moving, no visitors). **Automatic** is Lively, or Calm when your system is set to reduce motion | Automatic |
 | **Notify when a session needs you** | A notification when a fish gets its `?`: a permission prompt or a question | On |
@@ -259,14 +259,14 @@ Windows.
 | `time=22:30` | Show the tank at a fixed time of day |
 | `timelapse` | Run a whole day in about a minute |
 | `lat=51.05`, `lon=3.72` | A location for the sun |
-| `whale` / `shark` | Summon the whale or the shark right away |
+| `whale` / `shark` / `orca` / `manta` / `dolphins` / `jellyfish` / `submarine` / `kraken` | Summon that visitor right away |
 | `crab` | Keep the crab out on the sand |
 
 | Path | What |
 | --- | --- |
 | `src/main.ts` | Sets up the Pixi app, the layers, the session → fish sync and the loop |
-| `src/scene/` | Fish, water, sky, whale and shark, crab, fish food, credits gauge, air tanks |
-| `src/art/` | Canvas 2D painters for the fish, terrain, whale, shark and crab |
+| `src/scene/` | Fish, water, sky, visitors (whale, shark, orca, manta, dolphins, jellyfish, submarine, kraken), crab, fish food, credits gauge, air tanks |
+| `src/art/` | Canvas 2D painters for the fish, terrain, visitors and crab |
 | `src/panel.ts` | Side panel, Claude usage and the live `/events` connection |
 | `src/settings.ts`, `shared/settings.ts` | The settings dialog; the settings, their defaults and validation |
 | `src/sky.ts`, `src/species.ts`, `src/credits.ts`, `src/limits.ts` | Sun and light, species and glow colour picker, Copilot credits, Claude usage |

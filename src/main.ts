@@ -37,7 +37,7 @@ const crab = new Crab(res);
 const food = new Food(res);
 const tanks = new AirTanks(res);
 app.stage.addChild(terrain, passersby, water.rays, water.shimmer, water.backWeeds, water.anemones, water.bubbles, food,
-  sky, water.anemoneTips, water.plankton, fishLayer, marksLayer, water.frontWeeds, tanks, crab, gauge);
+  sky, passersby.glows, water.anemoneTips, water.plankton, fishLayer, marksLayer, water.frontWeeds, tanks, crab, gauge);
 
 let W = 0, H = 0, gold = 1, gems = 5;
 function paintBackdrop() {
@@ -178,7 +178,7 @@ app.ticker.add(ticker => {
   const busy = [...sessions.values()].some(s => s.state === 'working');
   const calm = [...sessions.values()].every(s => s.state === 'idle'); // also true with no sessions at all
 
-  passersby.update(t, dt * swim, W, H);
+  passersby.update(t, dt * swim, W, H, light.night);
   gauge.update(t, dt, light.night);
   tanks.update(t, dt, light.night);
   crab.update(t, dt * swim, W, H, calm, light.night);

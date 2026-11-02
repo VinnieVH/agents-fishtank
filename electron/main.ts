@@ -21,7 +21,7 @@ const isMac = process.platform === 'darwin';
 const NAMES: Record<Cli, string> = { claude: 'Claude Code', copilot: 'GitHub Copilot CLI' };
 const CLIS: Cli[] = ['claude', 'copilot'];
 // The page's options, given to the app as --whale, --time=22:30, --lat=51.05 ... (see README)
-const PAGE_OPTIONS = ['lat', 'lon', 'time', 'timelapse', 'whale', 'shark', 'crab'];
+const PAGE_OPTIONS = ['lat', 'lon', 'time', 'timelapse', 'whale', 'shark', 'orca', 'manta', 'dolphins', 'jellyfish', 'submarine', 'kraken', 'crab'];
 
 let tank: Fishtank | null = null;
 let updates: Updates | null = null;

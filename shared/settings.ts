@@ -9,7 +9,7 @@ export interface Settings {
   daylight: Daylight;
   /** Where the sun is computed for; null guesses it from the timezone. */
   location: { lat: number; lon: number } | null;
-  /** A whale or a shark swims past now and then. */
+  /** A visitor swims past now and then: a whale, a shark, an orca, a manta ray, dolphins, jellyfish, the submarine or the kraken. */
   visitors: boolean;
   /** The crab stays out on the sand, not only when every session is idle. */
   crabAlways: boolean;
