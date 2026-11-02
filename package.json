@@ -54,6 +54,9 @@
         "to": "cli/cli.mjs"
       }
     ],
+    "electronLanguages": [
+      "en-US"
+    ],
     "mac": {
       "target": [
         {
@@ -82,8 +85,7 @@
         {
           "target": "nsis",
           "arch": [
-            "x64",
-            "arm64"
+            "x64"
           ]
         }
       ],

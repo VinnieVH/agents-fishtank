@@ -1,7 +1,8 @@
 name: Release
 
-# Builds the desktop app for macOS (.dmg, Apple Silicon and Intel) and Windows (.exe installer, x64 and Arm), smoke-tests
-# the packaged command line on each, and publishes a GitHub release with the installers for tags like v1.2.0.
+# Builds the desktop app for macOS (.dmg, Apple Silicon and Intel) and Windows (.exe installer, x64 only: Arm PCs run it
+# under emulation, and an installer holding both builds is twice the download), smoke-tests the packaged command line on
+# each, and publishes a GitHub release with the installers for tags like v1.2.0.
 # Installed apps check for that release and offer the update (electron/updates.ts). Nothing is published unless both
 # builds pass. Make a release with: npm version minor -m "chore(release): %s" && git push --follow-tags
 # The apps are unsigned for now (see README): signing only needs certificates added as secrets here later.
