@@ -11,7 +11,8 @@ declare global {
   interface Window { fishtankTerminals?: TerminalsApi }
 }
 
-const MIN_SIDE = 320, MIN_TANK = 360; // px
+const MIN_SIDE = 320, MIN_TANK = 360; // px; the tank also keeps at least TANK_SHARE of the window
+const TANK_SHARE = .3;
 const isMac = /Mac/.test(navigator.platform);
 const THEME = {
   background: '#020c18', foreground: '#d8ecff', cursor: '#6fe3ff', cursorAccent: '#020c18', selectionBackground: 'rgba(111,227,255,.3)',
@@ -45,7 +46,7 @@ export async function startTerminals(api: TerminalsApi) {
   document.body.append(side, split, menu);
 
   // ---------- the layout: the terminals take `width` on the left, the tank the rest ----------
-  const clamp = (w: number) => Math.round(Math.max(MIN_SIDE, Math.min(innerWidth - MIN_TANK, w)));
+  const clamp = (w: number) => Math.round(Math.max(MIN_SIDE, Math.min(innerWidth - Math.max(MIN_TANK, innerWidth * TANK_SHARE), w)));
   function layout() {
     const w = open ? clamp(width || innerWidth * .5) : 0;
     document.documentElement.style.setProperty('--tank-left', w + 'px');
