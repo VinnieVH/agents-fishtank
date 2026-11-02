@@ -17,9 +17,10 @@ export function hash(s: string): number {
   return h >>> 0;
 }
 
-/** Lighten (amt > 0) or darken (amt < 0) a #rrggbb colour. */
+/** Lighten (amt > 0) or darken (amt < 0) a #rrggbb colour, or an rgb(...) one it returned before. */
 export function shade(hex: string, amt: number): string {
-  const n = parseInt(hex.slice(1), 16), r = n >> 16, g = n >> 8 & 255, b = n & 255;
+  const m = /^rgb\((\d+),(\d+),(\d+)\)$/.exec(hex), n = parseInt(hex.slice(1), 16);
+  const [r, g, b] = m ? [+m[1], +m[2], +m[3]] : [n >> 16, n >> 8 & 255, n & 255];
   const f = (v: number) => Math.round(amt < 0 ? v * (1 + amt) : v + (255 - v) * amt);
   return `rgb(${f(r)},${f(g)},${f(b)})`;
 }
