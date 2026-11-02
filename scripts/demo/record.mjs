@@ -2,9 +2,11 @@
 //
 //   npm run build && node scripts/demo/record.mjs                 # writes site/demo.mp4
 //   node scripts/demo/record.mjs --stills 3,8,11,17,22 out-dir    # a few PNGs to check the composition
+//   node scripts/demo/record.mjs --serve                          # only serves the stage, to step through it in a browser
 //
 // Needs Google Chrome and ffmpeg (set CHROME / FFMPEG if they aren't in the usual place or on PATH).
-// stage.html holds the story: the sessions, terminal and mouse over time.
+// stage.html holds the story: the sessions, terminals, captions and mouse over time. It's 1440×810 and filmed at 4/3
+// scale, so the video is 1920×1080. QUERY=night=1 (or any stage.html option) is passed on to the stage.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -13,8 +15,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url)), root = path.resolve(here, '../..'), dist = path.join(root, 'dist');
-const FPS = 30, W = 1600, H = 900, PORT = 4388, DEBUG_PORT = 9288;
-const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const FPS = 30, W = 1440, H = 810, SCALE = 4 / 3, PORT = Number(process.env.PORT) || 4388, DEBUG_PORT = PORT + 4900;
+const CHROME = process.env.CHROME || (process.platform === 'win32'
+  ? [process.env.PROGRAMFILES, process.env['PROGRAMFILES(X86)'], process.env.LOCALAPPDATA].map(d => path.join(d || '', 'Google/Chrome/Application/chrome.exe')).find(f => fs.existsSync(f))
+  : '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome');
 const FFMPEG = process.env.FFMPEG || 'ffmpeg';
 
 const args = process.argv.slice(2);
@@ -22,14 +26,16 @@ const stills = args[0] === '--stills' ? args[1].split(',').map(Number) : null;
 const out = path.resolve(stills ? args[2] || '.' : args[0] || path.join(root, 'site/demo.mp4'));
 if (!fs.existsSync(path.join(dist, 'index.html'))) throw new Error('Run `npm run build` first: the demo films dist/.');
 
-// ---- the pages: the stage, and the built tank with clock.js loaded before its own code ----
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml' };
+// ---- the pages: the stage, and the built tank with clock.js and terminals.js loaded before its own code ----
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.woff2': 'font/woff2' };
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x').pathname;
-  let file = url === '/' ? path.join(here, 'stage.html') : url === '/clock.js' ? path.join(here, 'clock.js') : path.join(dist, url);
-  if (!file.startsWith(here) && !file.startsWith(dist)) { res.writeHead(403).end(); return; }
+  const own = { '/': 'stage.html', '/clock.js': 'clock.js', '/terminals.js': 'terminals.js', '/icon.png': '../../build/icon.png' }[url];
+  const file = own ? path.join(here, own) : path.join(dist, url);
+  if (!own && !file.startsWith(dist)) { res.writeHead(403).end(); return; }
   if (url === '/tank.html') {
-    const page = fs.readFileSync(path.join(dist, 'index.html'), 'utf8').replace('<head>', '<head><script src="/clock.js"></script>');
+    const page = fs.readFileSync(path.join(dist, 'index.html'), 'utf8')
+      .replace('<head>', '<head><script src="/clock.js"></script><script src="/terminals.js"></script>');
     res.writeHead(200, { 'content-type': 'text/html' }).end(page);
     return;
   }
@@ -39,11 +45,15 @@ const server = http.createServer((req, res) => {
   });
 });
 await new Promise(r => server.listen(PORT, '127.0.0.1', r));
+if (args[0] === '--serve') {
+  console.log(`http://127.0.0.1:${PORT}/ (run __warm(), then __frame(t) for each t)`);
+  await new Promise(() => {});
+}
 
 // ---- Chrome, with a fresh profile so nothing (like the fish species) carries over from an earlier run ----
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'fishtank-demo-'));
 const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${DEBUG_PORT}`, '--use-angle=swiftshader',
-  '--enable-unsafe-swiftshader', '--hide-scrollbars', '--force-device-scale-factor=1', `--window-size=${W},${H}`,
+  '--enable-unsafe-swiftshader', '--hide-scrollbars', `--force-device-scale-factor=${SCALE}`, `--window-size=${W},${H}`,
   `--user-data-dir=${profile}`, 'about:blank'], { stdio: 'ignore' });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let target;
@@ -71,13 +81,14 @@ const shot = async () => Buffer.from((await send('Page.captureScreenshot', { for
 async function finish(code) {
   ws.close(); server.close();
   await new Promise(r => { chrome.once('exit', r); chrome.kill(); });
-  fs.rmSync(profile, { recursive: true, force: true, maxRetries: 5 });
+  try { fs.rmSync(profile, { recursive: true, force: true, maxRetries: 5 }); } catch { /* Windows: Chrome may still hold it for a moment */ }
   process.exit(code);
 }
 
 try {
-  await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
-  await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/${process.env.SEED ? '?seed=' + process.env.SEED : ''}` }); // SEED=3 to try another
+  await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: SCALE, mobile: false });
+  const query = [process.env.SEED && 'seed=' + process.env.SEED, process.env.QUERY].filter(Boolean).join('&'); // SEED=3 to try another
+  await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/${query ? '?' + query : ''}` });
   for (let i = 0; !(await run('!!window.__ready && window.__ready()').catch(() => false)); i++) {
     if (i > 120) throw new Error('The tank never loaded');
     await sleep(250);
@@ -96,7 +107,7 @@ try {
   } else {
     // H.264 in yuv420p with the index up front: plays everywhere, including Safari, and starts before it's all loaded
     const ff = spawn(FFMPEG, ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-i', '-',
-      '-c:v', 'libx264', '-preset', 'slow', '-crf', '31', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out],
+      '-c:v', 'libx264', '-preset', 'slow', '-crf', process.env.CRF || '31', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out],
       { stdio: ['pipe', 'inherit', 'inherit'] });
     const done = new Promise((resolve, reject) => ff.on('close', c => c ? reject(new Error(`ffmpeg exited with ${c}`)) : resolve()));
     const frames = Math.round(length * FPS);

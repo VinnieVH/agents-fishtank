@@ -1,6 +1,7 @@
 // Loaded before the tank's own code in the demo recording (see record.mjs). It replaces everything that makes the
 // tank depend on the real world, so every recording is the same frame for frame:
-// - time stands still until the stage calls __advance(ms), which also runs the queued animation frames;
+// - time stands still until the stage calls __advance(ms), which also runs the timers that are due and the queued
+//   animation frames, and moves the CSS animations and transitions on;
 // - Math.random is seeded;
 // - the /events stream is fake: the stage pushes snapshots with __feed(snapshot).
 (() => {
@@ -25,12 +26,38 @@
   let queue = [], nextId = 1;
   window.requestAnimationFrame = cb => { queue.push({ id: nextId, cb }); return nextId++; };
   window.cancelAnimationFrame = id => { queue = queue.filter(q => q.id !== id); };
+
+  // timers on the same clock (the resize cover waits for a resize to settle, the terminals blink their cursor)
+  let timers = [];
+  const later = (fn, ms, args, every) => {
+    const id = nextId++;
+    timers.push({ id, due: now + Math.max(0, Number(ms) || 0), fn, args, every });
+    return id;
+  };
+  window.setTimeout = (fn, ms, ...args) => later(fn, ms, args, 0);
+  window.setInterval = (fn, ms, ...args) => later(fn, ms, args, Math.max(1, Number(ms) || 0));
+  window.clearTimeout = window.clearInterval = id => { timers = timers.filter(q => q.id !== id); };
+  const runTimers = () => {
+    for (let n = 0; n < 1000; n++) { // also the ones they set that are due already, but never forever
+      const due = timers.filter(q => q.due <= now).sort((a, b) => a.due - b.due || a.id - b.id)[0];
+      if (!due) return;
+      if (due.every) due.due += due.every; else timers = timers.filter(q => q !== due);
+      if (typeof due.fn === 'function') due.fn(...due.args);
+    }
+  };
+
+  // CSS animations and transitions would run on real time, which passes much faster per frame: each is moved on
+  // from when it was first seen instead
+  const born = new WeakMap();
   window.__advance = ms => {
     now = ms;
+    runTimers();
     const run = queue; queue = []; // frames requested while these run wait for the next step
     for (const q of run) q.cb(now);
-    // CSS animations (the panel's pulsing dots) would run on real time, which passes much faster per frame
-    for (const a of document.getAnimations()) { a.pause(); a.currentTime = now; }
+    for (const a of document.getAnimations()) {
+      if (!born.has(a)) born.set(a, now);
+      a.pause(); a.currentTime = now - born.get(a);
+    }
   };
 
   // the screenshot is taken after __advance returns, so WebGL must keep the frame it drew

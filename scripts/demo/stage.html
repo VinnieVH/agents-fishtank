@@ -3,171 +3,263 @@
 <head>
 <meta charset="utf-8">
 <title>Agent Fishtank demo stage</title>
-<!-- The scene record.mjs films: the real tank (tank.html, driven by clock.js) with a terminal and a mouse pointer on
-     top. Everything is a function of the time t passed to __frame(t), so frames can be rendered one by one. -->
+<!-- The scene record.mjs films: the real tank (tank.html, driven by clock.js, its terminals by terminals.js) with
+     captions, a mouse pointer and the closing card on top. Everything is a function of the time t passed to
+     __frame(t), so frames can be rendered one by one. ?bare=1 leaves out all that's on top (for screenshots), ?clean=1 the terminals too,
+     ?night=1 films the tank at night and ?visitor=whale sends another visitor by. -->
 <style>
   * { box-sizing: border-box; }
-  html, body { margin: 0; width: 1600px; height: 900px; overflow: hidden; background: #01101f; }
+  html, body { margin: 0; width: 1440px; height: 810px; overflow: hidden; background: #01101f; }
   body { font: 16px 'Segoe UI', system-ui, -apple-system, sans-serif; color: #d8ecff; }
-  iframe { position: absolute; inset: 0; width: 1600px; height: 900px; border: 0; }
+  iframe { position: absolute; inset: 0; width: 1440px; height: 810px; border: 0; }
 
-
-  .term {
-    position: absolute; left: 70px; top: 150px; width: 760px; border-radius: 14px; overflow: hidden;
-    background: #14161c; border: 1px solid #3a3f4b; box-shadow: 0 30px 80px rgba(0, 0, 0, .6);
-    font: 19px/1.5 Menlo, Consolas, monospace; color: #e6e6e6;
+  .caption {
+    position: absolute; left: 50%; bottom: 34px; padding: 14px 30px 16px; border-radius: 18px; white-space: nowrap;
+    font: 600 33px/1.2 'Segoe UI', system-ui, sans-serif; letter-spacing: -.2px; color: #fff;
+    background: rgba(2, 16, 32, .78); border: 1px solid rgba(120, 220, 255, .22); box-shadow: 0 14px 40px rgba(0, 0, 0, .45);
+    backdrop-filter: blur(10px);
   }
-  .bar { height: 40px; background: #24272f; display: flex; align-items: center; padding: 0 16px; gap: 8px;
-    font: 600 15px 'Segoe UI', system-ui, sans-serif; color: #9aa3b2; }
-  .bar i { width: 13px; height: 13px; border-radius: 50%; background: #ff5f57; }
-  .bar i:nth-child(2) { background: #febc2e; } .bar i:nth-child(3) { background: #28c840; }
-  .bar span { flex: 1; text-align: center; margin-right: 60px; }
-  .body { padding: 18px 24px 22px; white-space: pre; }
-  .dim { color: #8a93a3; } .you { color: #c8c8c8; } .ok { color: #39d98a; } .warm { color: #f0a868; }
-  .box { border: 1px solid #c8794a; border-radius: 10px; padding: 10px 16px; margin-top: 10px; }
-  .sel { color: #8ab4ff; }
-
+  .caption b { color: #6fe3ff; font-weight: 700; }
   .key {
-    position: absolute; padding: 10px 18px; border-radius: 10px; font: 700 22px 'Segoe UI', system-ui, sans-serif;
+    position: absolute; padding: 9px 16px; border-radius: 10px; font: 700 20px 'Segoe UI', system-ui, sans-serif;
     color: #14161c; background: #f2f4f8; box-shadow: 0 4px 0 #9aa3b2, 0 12px 30px rgba(0, 0, 0, .4);
   }
-  .cursor { position: absolute; left: 0; top: 0; width: 34px; height: 34px; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .5)); }
-  .ripple { position: absolute; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%;
+  .cursor { position: absolute; left: 0; top: 0; width: 30px; height: 30px; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .5)); }
+  .ripple { position: absolute; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%;
     border: 3px solid rgba(255, 255, 255, .9); }
   .fade { position: absolute; inset: 0; background: #01101f; pointer-events: none; }
+
+  .outro { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; text-align: center;
+    background: radial-gradient(ellipse at 50% 35%, #0b4a77 0, #06345a 45%, #01101f 100%); }
+  .outro .card { display: grid; justify-items: center; }
+  .outro img { width: 150px; height: 150px; filter: drop-shadow(0 12px 28px rgba(0, 0, 0, .45)); }
+  .outro h1 { margin: 14px 0 4px; font-size: 76px; letter-spacing: -1px; color: #fff; }
+  .outro p { margin: 6px 0; font-size: 26px; color: #b9d6ee; }
+  .outro .url { margin-top: 18px; font-size: 25px; font-weight: 600; color: #6fe3ff; }
+  [data-bare] .caption, [data-bare] .key, [data-bare] .cursor, [data-bare] .ripple, [data-bare] .outro, [data-bare] .fade { display: none; }
 </style>
 </head>
 <body>
 <iframe id="tank"></iframe>
-<div id="term" class="term">
-  <div class="bar"><i></i><i></i><i></i><span>~/shop — claude</span></div>
-  <div class="body"><span class="you">&gt; fix the redirect loop after signing in</span>
-
-<span class="ok">⏺</span> Read(src/auth/redirect.ts)
-<span class="dim">  ⎿  Read 48 lines</span>
-
-<span class="ok">⏺</span> The callback runs before the session cookie is set,
-  so /login keeps bouncing back. Moving the check.
-<div id="ask" class="box"><b>Edit file</b> <span class="dim">src/auth/redirect.ts</span>
-
-Do you want to make this edit to redirect.ts?
-<span class="sel">❯ 1. Yes</span>
-  2. Yes, allow all edits during this session
-  3. No, and tell Claude what to do differently</div><div id="done">
-<span class="ok">⏺</span> Update(src/auth/redirect.ts)
-<span class="dim">  ⎿  Updated with 4 additions and 2 removals</span>
-
-<span class="warm">✻ Running the auth tests…</span></div></div>
-</div>
+<div id="caption" class="caption"></div>
 <div id="key" class="key">⏎ Enter</div>
 <div id="ripple" class="ripple"></div>
 <svg id="cursor" class="cursor" viewBox="0 0 24 24"><path d="M4 2 L4 20 L9 15.5 L12.5 22.5 L15.5 21 L12 14 L19 14 Z" fill="#fff" stroke="#111" stroke-width="1.4" stroke-linejoin="round"/></svg>
+<div id="outro" class="outro"><div id="card" class="card">
+  <img src="icon.png" alt="">
+  <h1>Agent Fishtank</h1>
+  <p>Your AI coding agents as fish, and their terminals right beside them.</p>
+  <p>Free and open source · macOS and Windows</p>
+  <div class="url">vinnievh.github.io/agents-fishtank</div>
+</div></div>
 <div id="fade" class="fade"></div>
 
 <script>
-const LENGTH = 25; // seconds; the video loops
+const LENGTH = 22.5; // seconds: 9 bars at 96 BPM; every cut falls on a bar or half bar
+const params = new URLSearchParams(location.search), clean = params.has('clean');
+if (clean || params.has('bare')) document.body.dataset.bare = '';
 const $ = id => document.getElementById(id);
 const tank = $('tank');
 const clamp = x => Math.min(1, Math.max(0, x));
 const ease = x => x < .5 ? 2 * x * x : 1 - (-2 * x + 2) ** 2 / 2;
 const ramp = (t, a, b) => clamp((t - a) / (b - a)); // 0 before a, 1 after b
+const win = () => tank.contentWindow, doc = () => tank.contentDocument;
 
-// ---- the sessions: the star is "Fix login redirect" (the octopus); one of every other creature swims around it ----
+// ---- the sessions: some running elsewhere already, then one per tab started in the tank ----
 // [id, name, source, creature, glow, state]; the creatures and glows are set before the tank loads (its look memory)
 const CAST = [
-  ['demo-star', 'Fix login redirect', 'claude', 'octopus', '#ff00e6'],
   ['demo-docs', 'Write API docs', 'claude', 'tropical', '#39ff14', 'working'],
   ['demo-pay', 'Refactor payment service', 'copilot', 'koi', '#00f0ff', 'working'],
   ['demo-deps', 'Upgrade dependencies', 'claude', 'sturgeon', '#fff200', 'idle'],
-  ['demo-dark', 'Add dark mode', 'claude', 'angelfish', '#ff6a00', 'working'],
   ['demo-e2e', 'Fix flaky e2e tests', 'copilot', 'puffer', '#b026ff', 'working'],
-  ['demo-pg', 'Migrate to Postgres 17', 'claude', 'squid', '#00ffb3', 'working'],
-  ['demo-ci', 'Speed up CI', 'copilot', 'shrimp', '#ff2e63', 'working'],
-  ['demo-pdf', 'Invoice PDF export', 'claude', 'lobster', '#3d8bff', 'idle'],
-  ['demo-rate', 'Rate limiter', 'claude', 'angler', '#b6ff00', 'working'],
-  ['demo-search', 'Search autocomplete', 'copilot', 'lionfish', '#ff9ad5', 'working'],
-  ['demo-a11y', 'Accessibility audit', 'claude', 'seahorse', '#ffb000', 'working'],
+  // the tabs' sessions: their looks are forgotten until they start (the tank prunes them), so the tank picks their
+  // creatures itself; these ids get the octopus and the seahorse
+  ['demo-tab-1', 'Add dark mode', 'claude', 'octopus', '#ff00e6'],   // the Claude Code tab
+  ['demo-tab-7', 'Speed up CI', 'copilot', 'seahorse', '#ffb000'],   // the Copilot CLI tab
 ];
-const SEED = 6; // where the fish swim; chosen so the octopus is in clear view when it needs you
+const SEED = Number(params.get('seed')) || 6; // where the fish swim; chosen so the octopus waits in open water
 localStorage.setItem('fishtank.species', JSON.stringify(Object.fromEntries(CAST.map(([id, , , species, neon]) => [id, { species, neon }]))));
-tank.src = 'tank.html?time=14:20&seed=' + (new URLSearchParams(location.search).get('seed') || SEED);
-const STAR = { needs: 7, answered: 12, finished: 20.5 };
-function sessions(t) {
-  const now = clock(t);
-  const ms = s => clock(s);
-  const star = t < STAR.needs ? 'working' : t < STAR.answered ? 'waiting' : t < STAR.finished ? 'working' : 'idle';
-  const starEvent = star === 'working' ? now - (t % 2) * 1000 : ms(t < STAR.answered ? STAR.needs : STAR.finished);
-  const explore = t >= 2 ? [{ id: 'a-explore', name: 'Explore', type: 'Explore', status: t < STAR.needs - .5 ? 'running' : 'done',
-    start: ms(2), end: t < STAR.needs - .5 ? undefined : ms(STAR.needs - .5) }] : [];
-  return CAST.map(([id, name, source, , , state], i) => id === 'demo-star'
-    ? { id, source, name, state: star, lastEvent: starEvent, subagents: explore }
-    : { id, source, name, state, lastEvent: state === 'idle' ? ms(-60 - i * 20) : now - ((t + i) % 4) * 1000,
-        subagents: id === 'demo-pay' ? [{ id: 'p-tests', name: 'run tests', type: 'task', status: 'running', start: ms(-40) }] : [] });
-}
+localStorage.setItem('demo.terminals', JSON.stringify({
+  kinds: [{ kind: 'claude', name: 'Claude Code' }, { kind: 'copilot', name: 'Copilot CLI' }, { kind: 'shell', name: 'zsh' }],
+  folder: '~/code/shop', open: false, width: 600, tabs: [],
+}));
+const visitor = params.get('visitor') ?? (clean ? '' : 'dolphins'); // only common ones: the rare ones stay a surprise
+tank.src = `tank.html?time=${params.has('night') ? '23:10' : '14:20'}&seed=${SEED}${visitor ? '&' + visitor : ''}`;
+
+const T = { open: 2.5, claude: 3.75, plus: 6.9, copilot: 7.5, asks: 10, back: 11.25, enter: 12.5, drag: [15.3, 16.6], outro: 18.75 };
 const clock = t => new Date(2026, 9, 28, 14, 20).getTime() + (t + WARM) * 1000;
-const WARM = 4; // seconds the tank runs before the first frame, so the fish are already swimming
+const WARM = 12; // seconds the tank runs before the first frame, so the fish (and the dolphins) are already swimming
+function sessions(t) {
+  const now = clock(t), ms = s => clock(s);
+  const out = [];
+  CAST.forEach(([id, name, source, , , state], i) => {
+    if (id === 'demo-tab-1') {
+      if (t < T.claude + .9) return; // once its first prompt is sent
+      const s = t < T.asks ? 'working' : t < T.enter ? 'waiting' : 'working';
+      out.push({ id, source, name, state: s, lastEvent: s === 'waiting' ? ms(T.asks) : now - (t % 2) * 1000,
+        subagents: t > 5 && t < 9 ? [{ id: 'a-explore', name: 'Explore', type: 'Explore', status: 'running', start: ms(5) }] : [] });
+    } else if (id === 'demo-tab-7') {
+      if (t < T.copilot + 1.1) return;
+      out.push({ id, source, name, state: 'working', lastEvent: now - (t % 3) * 1000, subagents: [] });
+    } else {
+      out.push({ id, source, name, state, lastEvent: state === 'idle' ? ms(-80 - i * 20) : now - ((t + i) % 4) * 1000,
+        subagents: id === 'demo-pay' ? [{ id: 'p-tests', name: 'run tests', type: 'task', status: 'running', start: ms(-40) }] : [] });
+    }
+  });
+  return out;
+}
 function snapshot(t) {
   const now = clock(t), hour = 3600e3;
   return {
     time: now, sessions: sessions(t),
-    limits: { fiveHour: { usedPct: 42, resetsAt: now + 2.6 * hour }, sevenDay: { usedPct: 27, resetsAt: now + 4.4 * 24 * hour }, at: now },
+    limits: { fiveHour: { usedPct: 38, resetsAt: now + 2.6 * hour }, sevenDay: { usedPct: 24, resetsAt: now + 4.4 * 24 * hour }, at: now },
     quota: { entitlement: 1500, used: 540, remainingPct: 64, unlimited: false, overage: 0, resetDate: '2026-11-01T00:00:00Z', at: now },
   };
 }
 
-// ---- the mouse: [time, x, y] waypoints; clicks: [time, x, y, into the tank?] ----
-const PATH = [[0, 1500, 980], [14.6, 1500, 980], [15.8, 640, 330], [16.4, 640, 330], [17.6, 980, 250], [20.8, 980, 250],
-  [22.5, 1500, 980]];
-const CLICKS = [[16.1, 640, 330, true], [18.2, 980, 250, true]];
-const KEY = [11.4, 12]; // Enter shown on screen
-
-function cursorAt(t) {
-  for (let i = 1; i < PATH.length; i++) {
-    const [t1, x1, y1] = PATH[i], [t0, x0, y0] = PATH[i - 1];
-    if (t <= t1) { const k = ease(ramp(t, t0, t1)); return [x0 + (x1 - x0) * k, y0 + (y1 - y0) * k]; }
+// ---- what the shells print: [time, text]; a line with ⟨typed⟩ text is typed out over `type` seconds ----
+const ESC = '\x1b[', dim = s => `${ESC}2m${s}${ESC}0m`, bold = s => `${ESC}1m${s}${ESC}0m`;
+const rgb = (hex, s) => `${ESC}38;2;${parseInt(hex.slice(1, 3), 16)};${parseInt(hex.slice(3, 5), 16)};${parseInt(hex.slice(5, 7), 16)}m${s}${ESC}0m`;
+const ok = s => rgb('#39ff88', s), orange = s => rgb('#ffb38a', s), violet = s => rgb('#c9a6ff', s);
+const BOX = [ // Claude Code asking before it runs a command
+  orange(' Bash command'),
+  '    npm test -- settings',
+  '',
+  ' Do you want to proceed?',
+  rgb('#6fe3ff', ' › 1. Yes'),
+  '   2. No, and tell Claude what to do',
+];
+const SCRIPT = {
+  claude: [
+    [0, `${orange(bold('✻ Claude Code'))}  ${dim('~/code/shop')}\r\n\r\n`],
+    [.2, { typed: 'add a dark mode toggle to the settings page', type: .75, prompt: '> ' }],
+    [1.3, `\r\n\r\n${ok('⏺')} Read(src/settings/SettingsPage.tsx)\r\n${dim('  ⎿  Read 112 lines')}\r\n`],
+    [1.9, `\r\n${ok('⏺')} Read(src/theme/tokens.css)\r\n${dim('  ⎿  Read 48 lines')}\r\n`],
+    [2.6, `\r\n${ok('⏺')} A switch that follows the system theme by default,\r\n  with a light and a dark override.\r\n`],
+    [3.2, `\r\n${ok('⏺')} Update(src/settings/SettingsPage.tsx)\r\n${dim('  ⎿  Updated with 18 additions and 2 removals')}\r\n`],
+    [4.4, `\r\n${ok('⏺')} Update(src/theme/tokens.css)\r\n${dim('  ⎿  Updated with 24 additions')}\r\n`],
+    [T.asks - T.claude, '\r\n' + BOX.join('\r\n') + '\r\n'],
+    [T.enter - T.claude + .1, `${ESC}${BOX.length}A${ESC}J${ok('⏺')} Bash(npm test -- settings)\r\n${dim('  ⎿  ✓ 14 passed')}\r\n`],
+    [T.enter - T.claude + .9, `\r\n${ok('⏺')} Dark mode is in: Settings → Appearance.\r\n`],
+    [T.enter - T.claude + 1.4, `\r\n${rgb('#ffc94d', '✻ Checking the contrast of the dark colours…')}\r\n`],
+  ],
+  copilot: [
+    [0, `${violet(bold('● Copilot CLI'))}  ${dim('~/code/shop')}\r\n\r\n`],
+    [.25, { typed: 'speed up the CI by caching the dependencies', type: .75, prompt: '> ' }],
+    [1.4, `\r\n\r\n${violet('●')} Read .github/workflows/ci.yml\r\n`],
+    [2.0, `\r\n${violet('●')} The install step downloads everything on every run.\r\n  Caching ~/.npm keyed on package-lock.json.\r\n`],
+    [2.8, `\r\n${violet('●')} Edit .github/workflows/ci.yml ${ok('+6')} ${rgb('#ff5a6b', '-1')}\r\n`],
+    [3.4, `\r\n${violet('●')} Run npm ci && npm test\r\n`],
+  ],
+};
+const tabs = {}; // kind -> { id, start }
+const printed = new Map(); // `${kind}:${i}` -> characters of it printed
+function print(t) {
+  for (const [kind, lines] of Object.entries(SCRIPT)) {
+    const tab = tabs[kind];
+    if (!tab) continue;
+    lines.forEach(([at, what], i) => {
+      const key = kind + ':' + i, since = t - tab.start - at;
+      if (since < 0) return;
+      if (typeof what === 'string') { if (!printed.has(key)) { win().__term(tab.id, what); printed.set(key, 1); } return; }
+      const n = Math.round(what.typed.length * clamp(since / what.type)), done = printed.get(key) ?? -1;
+      if (done < 0) win().__term(tab.id, what.prompt);
+      if (n > Math.max(0, done)) win().__term(tab.id, what.typed.slice(Math.max(0, done), n));
+      printed.set(key, Math.max(0, n));
+    });
   }
-  return PATH.at(-1).slice(1);
 }
 
-let lastFeed = NaN, clicked = new Set();
-window.__frame = t => {
-  // the tank gets a snapshot every half second; every change in the story above falls on a half second
-  const tick = Math.floor(t * 2);
-  if (tick !== lastFeed) { tank.contentWindow.__feed(snapshot(tick / 2)); lastFeed = tick; }
-  for (const [ct, x, y, inTank] of CLICKS) {
-    if (inTank && t >= ct && !clicked.has(ct)) {
-      clicked.add(ct);
-      const c = tank.contentDocument.querySelector('canvas');
-      c.dispatchEvent(new PointerEvent('pointerdown', { clientX: x, clientY: y, bubbles: true }));
+// ---- the mouse: [time, where] waypoints, where is [x, y] or a selector in the tank; clicks: [time, selector] ----
+// a selector's spot is kept from the first time it's on screen, so the pointer doesn't jump when it goes away
+const spots = new Map();
+const centre = sel => {
+  const r = doc().querySelector(sel)?.getBoundingClientRect();
+  if (r?.width && !spots.has(sel)) spots.set(sel, [r.left + r.width / 2, r.top + r.height / 2]);
+  return spots.get(sel) ?? null;
+};
+const dragX = t => 600 + (340 - 600) * ease(ramp(t, ...T.drag));
+const PATH = [
+  [2.9, [1000, 560]], [3.55, '#term .start .kinds button'], [4.2, '#term .start .kinds button'], [6.6, [470, 330]],
+  [6.85, '#term .add'], [7.05, '#term .add'], [7.4, '.term-menu button:nth-child(2)'], [7.7, '.term-menu button:nth-child(2)'],
+  [9.6, [520, 390]], [11.05, '#term .tab'], [12.1, '#term .tab'], [13.2, [430, 520]], [15.05, () => [600, 470]],
+  [15.3, () => [600, 470]], [16.6, () => [340, 470]], [17.4, [520, 620]],
+];
+const CLICKS = [[T.claude, '#term .start .kinds button'], [T.plus, '#term .add'], [T.copilot, '.term-menu button:nth-child(2)'], [T.back, '#term .tab']];
+const where = w => typeof w === 'function' ? w() : typeof w === 'string' ? centre(w) : w;
+let last = [1000, 560];
+function cursorAt(t) {
+  if (t >= T.drag[0] && t <= T.drag[1]) return [dragX(t), 470];
+  for (let i = 1; i < PATH.length; i++) {
+    const [t1, w1] = PATH[i], [t0, w0] = PATH[i - 1];
+    if (t <= t1) {
+      const a = where(w0) ?? last, b = where(w1) ?? a, k = ease(ramp(t, t0, t1));
+      return last = [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
     }
   }
-  tank.contentWindow.__advance((t + WARM) * 1000);
+  return where(PATH.at(-1)[1]);
+}
+const CAPTIONS = [
+  [.3, 2.3, 'Every AI agent session is a <b>fish</b>.'],
+  [2.75, 4.85, 'Now with the <b>terminals</b> built in.'],
+  [5.25, 9.85, '<b>Claude Code</b>, <b>Copilot CLI</b> or a shell. Each tab is a fish.'],
+  [10.25, 14.85, 'See who <b>needs you</b>. Answer right beside the tank.'],
+  [15.25, 18.5, 'A brand-new <b>reef</b> to swim in.'],
+];
 
-  const open = Math.min(ramp(t, 9.8, 10.15), 1 - ramp(t, 14.4, 14.8));
-  $('term').style.opacity = open;
-  $('term').style.transform = `translateY(${(1 - ease(open)) * 30}px) scale(${.97 + .03 * ease(open)})`;
-  const answered = t >= KEY[1];
-  $('ask').style.display = answered ? 'none' : '';
-  $('done').style.display = answered ? '' : 'none';
-  $('key').style.opacity = Math.min(ramp(t, KEY[0], KEY[0] + .15), 1 - ramp(t, KEY[1] + .3, KEY[1] + .5));
-  $('key').style.left = '860px'; $('key').style.top = '540px';
-  $('key').style.transform = `translateY(${t > KEY[0] + .3 && t < KEY[1] ? 3 : 0}px)`;
+let lastFeed = NaN, clicked = new Set(), opened = false;
+let now = -WARM;
+window.__frame = t => {
+  now = t;
+  win().__created ??= tab => { tabs[tab.kind] = { id: tab.id, start: now + .1 }; }; // printed once its tab is there
+  // the tank gets a snapshot every half second
+  const tick = Math.floor(t * 2);
+  if (tick !== lastFeed) { win().__feed(snapshot(tick / 2)); lastFeed = tick; }
 
-  const [x, y] = cursorAt(t);
-  $('cursor').style.transform = `translate(${x - 6}px, ${y - 3}px)`;
-  const click = CLICKS.find(([ct]) => t >= ct && t < ct + .45);
-  $('ripple').style.opacity = click ? 1 - ramp(t, click[0], click[0] + .45) : 0;
-  if (click) {
-    const k = ramp(t, click[0], click[0] + .45);
-    $('ripple').style.left = click[1] + 'px'; $('ripple').style.top = click[2] + 'px';
-    $('ripple').style.transform = `scale(${.4 + k})`;
+  if (!clean) {
+    for (const [ct, sel] of CLICKS) if (t >= ct && !clicked.has(ct)) { clicked.add(ct); doc().querySelector(sel)?.click(); }
+    const root = doc().documentElement, split = doc().getElementById('split');
+    // the terminal side slides in: shown at once by the app, then widened here as if dragged open
+    if (t >= T.open && !opened) { opened = true; win().__toggleTerminals(); }
+    const sliding = t >= T.open && t < T.open + .7, dragging = t >= T.drag[0] && t <= T.drag[1];
+    if (sliding || dragging) {
+      root.style.setProperty('--tank-left', (sliding ? 600 * ease(ramp(t, T.open, T.open + .6)) : dragX(t)) + 'px');
+      win().dispatchEvent(new Event('resize'));
+    }
+    split?.classList.toggle('drag', dragging);
+    print(t);
+  }
+  win().__advance((t + WARM) * 1000);
+  if (clean) return;
+
+  const cap = CAPTIONS.find(([a, b]) => t >= a - .3 && t <= b + .3);
+  $('caption').style.opacity = cap ? Math.min(ramp(t, cap[0] - .3, cap[0]), 1 - ramp(t, cap[1], cap[1] + .3)) : 0;
+  if (cap) {
+    if ($('caption').innerHTML !== cap[2]) $('caption').innerHTML = cap[2];
+    $('caption').style.transform = `translateX(-50%) translateY(${(1 - ease(ramp(t, cap[0] - .3, cap[0]))) * 14}px)`;
   }
 
-  $('fade').style.opacity = Math.max(1 - ramp(t, 0, .5), ramp(t, LENGTH - .6, LENGTH));
+  $('key').style.opacity = Math.min(ramp(t, T.enter - .6, T.enter - .45), 1 - ramp(t, T.enter + .3, T.enter + .5));
+  const box = doc().querySelector('#term .views')?.getBoundingClientRect();
+  if (box) { $('key').style.left = (box.left + box.width / 2 - 50) + 'px'; $('key').style.top = (box.top + 560) + 'px'; }
+  $('key').style.transform = `translateY(${t > T.enter - .15 && t < T.enter + .1 ? 3 : 0}px)`;
+
+  const [x, y] = cursorAt(t);
+  $('cursor').style.opacity = Math.min(ramp(t, 2.9, 3.1), 1 - ramp(t, 17.2, 17.5));
+  $('cursor').style.transform = `translate(${x - 5}px, ${y - 3}px)`;
+  const click = CLICKS.find(([ct]) => t >= ct && t < ct + .45);
+  $('ripple').style.opacity = click ? 1 - ramp(t, click[0], click[0] + .45) : 0;
+  if (click) { $('ripple').style.left = x + 'px'; $('ripple').style.top = y + 'px'; $('ripple').style.transform = `scale(${.4 + ramp(t, click[0], click[0] + .45)})`; }
+
+  // the closing card: the tank dips into the deep blue first, then the card comes in
+  $('outro').style.opacity = ramp(t, T.outro, T.outro + .35);
+  $('card').style.opacity = ramp(t, T.outro + .3, T.outro + .7);
+  $('card').style.transform = `translateY(${(1 - ease(ramp(t, T.outro + .3, T.outro + .9))) * 18}px)`;
+  $('fade').style.opacity = 1 - ramp(t, 0, .35);
 };
 window.__warm = () => { for (let t = -WARM; t < 0; t += 1 / 30) window.__frame(t); };
 window.__length = LENGTH;
-window.__ready = () => !!tank.contentWindow.__feed && !!tank.contentDocument?.querySelector('canvas');
+window.__ready = () => !!win().__feed && !!doc()?.querySelector('canvas') && (clean || !!win().__toggleTerminals);
 </script>
 </body>
 </html>
