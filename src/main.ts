@@ -67,7 +67,27 @@ function resize() {
   gauge.layout(W, H);
   tanks.layout(W, H);
 }
-app.renderer.on('resize', resize);
+// repainting all of that takes a moment, too long to do for every step of a resize: the tank is covered while it's
+// being resized (and while the divider is held) and painted once, when it stops
+const cover = document.getElementById('resizing')!;
+for (let i = 0, n = 36; i < n; i++) { // its bubbles, already on their way up when it shows
+  const b = document.createElement('i'), t = 3 + Math.random() * 4;
+  b.style.cssText = `--x:${(i + Math.random()) / n * 100}%;--s:${5 + Math.random() ** 2 * 28}px;--t:${t}s;--d:${-Math.random() * t}s;--w:${(Math.random() - .5) * 28}px`;
+  cover.append(b);
+}
+let settle = 0;
+function resized() {
+  cover.style.setProperty('--night', String(light.night));
+  cover.classList.add('on');
+  clearTimeout(settle);
+  settle = window.setTimeout(function done() {
+    if (document.querySelector('#split.drag')) { settle = window.setTimeout(done, 150); return; }
+    resize();
+    // uncovered once the new backdrop has been drawn (and sent to the GPU) a frame later
+    requestAnimationFrame(() => requestAnimationFrame(() => cover.classList.remove('on')));
+  }, 200);
+}
+app.renderer.on('resize', resized);
 resize();
 
 // ---------- sessions -> fish ----------

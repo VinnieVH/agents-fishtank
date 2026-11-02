@@ -2,6 +2,21 @@
 html, body { margin: 0; height: 100%; overflow: hidden; background: #01101f; font-family: 'Segoe UI', system-ui, sans-serif; }
 #tank { position: fixed; top: 0; bottom: 0; right: 0; left: var(--tank-left, 0px); overflow: hidden; }
 #tank canvas { display: block; position: absolute; top: 0; left: 0; }
+/* covers the tank while it's being resized (src/main.ts): its open water, darkened at night like the tank */
+#resizing { position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none;
+            background: linear-gradient(#0b6a9e, #06406a 45%, #021a30); opacity: 0; visibility: hidden; transition: opacity .35s, visibility 0s .35s; }
+#resizing::before { content: ''; position: absolute; inset: 0; z-index: 1; background: #02081a; opacity: calc(.66 * var(--night, 0)); }
+#resizing.on { opacity: 1; visibility: visible; transition: opacity .12s; }
+/* bubbles rising through it, wobbling as they go; each with its own size, spot, speed and sway */
+#resizing i { position: absolute; bottom: -40px; left: var(--x); width: var(--s); height: var(--s); border-radius: 50%;
+              border: 1.5px solid rgba(200, 240, 255, .55); box-sizing: border-box;
+              background: radial-gradient(circle at 32% 30%, rgba(255,255,255,.7) 0 14%, rgba(170,225,255,.14) 34%, transparent 70%);
+              animation: rise var(--t) linear var(--d) infinite paused; }
+#resizing.on i { animation-play-state: running; }
+@keyframes rise {
+  25% { transform: translate(var(--w), -27vh); } 50% { transform: translate(0, -54vh); }
+  75% { transform: translate(calc(-1 * var(--w)), -81vh); } 100% { transform: translate(0, calc(-100vh - 60px)); }
+}
 
 #panel { position: fixed; top: 16px; right: 16px; max-height: 50vh; width: var(--panel-w); display: flex; flex-direction: column;
          color: #d8ecff; background: rgba(4, 22, 42, .62); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
