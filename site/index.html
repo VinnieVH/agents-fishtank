@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Agent Fishtank: see what your AI coding agents are doing</title>
-<meta name="description" content="A little desktop aquarium for Claude Code and GitHub Copilot CLI. Every session is a fish: racing while it works, waiting with a question mark when it needs you.">
+<meta name="description" content="A little desktop aquarium for Claude Code and GitHub Copilot CLI, with their terminals built in. Every session is a fish: racing while it works, waiting with a question mark when it needs you.">
 <meta property="og:title" content="Agent Fishtank">
-<meta property="og:description" content="A desktop aquarium that shows what your Claude Code and Copilot CLI sessions are doing.">
-<meta property="og:image" content="screenshot.png">
+<meta property="og:description" content="A desktop aquarium that shows what your Claude Code and Copilot CLI sessions are doing, with their terminals right beside it.">
+<meta property="og:image" content="poster.jpg">
 <link rel="icon" href="icon.png">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -18,7 +18,8 @@
   <img class="icon" src="icon.png" alt="" width="112" height="112">
   <h1>Agent Fishtank</h1>
   <p class="lead">A little aquarium on your desktop that shows what your AI coding agents are doing.
-    Every <strong>Claude Code</strong> or <strong>GitHub Copilot CLI</strong> session is a fish.</p>
+    Every <strong>Claude Code</strong> or <strong>GitHub Copilot CLI</strong> session is a fish, and their
+    terminals live right beside the tank.</p>
   <div class="download">
     <a id="primary" class="button" href="https://github.com/VinnieVH/agents-fishtank/releases/latest">Download</a>
     <p id="version" class="small">Free and open source · macOS and Windows</p>
@@ -28,11 +29,30 @@
 
 <main>
   <figure class="shot">
-    <video id="demo" src="demo.mp4" poster="screenshot.png" width="1600" height="900" autoplay muted loop playsinline
-      aria-label="Demo: twelve sessions swim as twelve different creatures; the octopus races while its agent works, gets a question mark and jumps to the top of the panel when it needs you, gets back to work once you answer in your terminal, and dozes off when done; clicking the water feeds them">
-      <img src="screenshot.png" alt="The fishtank by day: fish for each session and a side panel listing the sessions" width="1400" height="800">
+    <video id="demo" src="demo.mp4" poster="poster.jpg" width="1920" height="1080" autoplay muted loop playsinline
+      aria-label="Demo: sessions swim as fish over a coral reef while dolphins pass by. The terminals open beside the tank: a Claude Code tab and a Copilot CLI tab each bring a new fish. When Claude Code asks permission its octopus gets a question mark and jumps to the top of the panel, and it gets back to work once you answer in its tab. Dragging the edge makes room for the tank, which shows the reef, a canyon and a shipwreck far off.">
+      <img src="screenshot.png" alt="The fishtank by day: fish for each session over a coral reef, and a side panel listing the sessions" width="1600" height="900">
     </video>
+    <button id="sound" class="sound" type="button" aria-pressed="false" aria-label="Turn the sound on" title="Turn the sound on" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path class="speaker" d="M4 9.5v5h3.5l4.5 4v-13l-4.5 4z"/>
+        <path class="waves" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/><path class="cross" d="M15.5 9.5l5 5m0-5l-5 5"/></svg>
+    </button>
   </figure>
+
+  <section>
+    <h2>Your agents' terminals, right beside the tank</h2>
+    <figure class="shot tight">
+      <img src="terminals.jpg" alt="Claude Code and Copilot CLI in tabs on the left; on the right the tank, where Claude Code's octopus waits with a question mark while its tab asks for permission" width="1920" height="1080" loading="lazy">
+    </figure>
+    <div class="cards">
+      <article><span class="emblem">⌨️</span><h3>A tab for every agent</h3><p>Click the terminal button in the panel and start
+        Claude Code, Copilot CLI or your own shell in a tab, in the folder you pick.</p></article>
+      <article><span class="emblem">🐙</span><h3>Every tab swims</h3><p>The session in a tab is a fish in the tank. When it
+        needs you, its tab is right there to answer in.</p></article>
+      <article><span class="emblem">↔️</span><h3>Make room</h3><p>Drag the edge to share the window. <code>Ctrl+`</code>
+        (<code>⌘`</code> on a Mac) hides the terminals again, and <code>Ctrl+Tab</code> switches tabs.</p></article>
+    </div>
+  </section>
 
   <section>
     <h2>Glance at the tank, know who needs you</h2>
@@ -44,9 +64,11 @@
       <article><span class="emblem">🤿</span><h3>Air tanks</h3><p>How much of your Claude Pro/Max 5-hour and weekly limits you have left.</p></article>
       <article><span class="emblem">🧭</span><h3>Pressure gauge</h3><p>How much of your Copilot premium requests you've used this month.</p></article>
     </div>
-    <p class="note">Each fish is named after its session; click one to jump to its session, in the Claude desktop app or
-      in its terminal tab. The water follows the real time of day, with glowing plankton at
-      night, a whale, an orca, a shark, a pod of dolphins, a manta ray or a school of jellyfish drifts by now and then, and you can click the water to feed the fish.</p>
+    <p class="note">Each fish is named after its session, and keeps its look when you <code>/clear</code>; click one to
+      jump to its session, in the Claude desktop app or in its terminal tab. The fish swim over a coral reef, with a
+      canyon, an ocean current and an old shipwreck far off. The water follows the real time of day, with glowing
+      plankton at night, a whale, an orca, a shark, a pod of dolphins, a manta ray or a school of jellyfish drifts by now
+      and then, and you can click the water to feed the fish.</p>
   </section>
 
   <section>
@@ -60,7 +82,7 @@
   </section>
 
   <figure class="shot">
-    <img src="screenshot-night.png" alt="The same tank at night, with moonlit water and glowing plankton" width="1400" height="800" loading="lazy">
+    <img src="screenshot-night.png" alt="The tank at night, with moonlit water over the reef, glowing plankton and a school of jellyfish" width="1600" height="900" loading="lazy">
   </figure>
 
   <section>
@@ -70,8 +92,9 @@
         <b>Windows:</b> run the installer. No Node.js or anything else needed.</p></li>
       <li><h3>Connect</h3><p>On first start it offers to connect to the agents it finds. Click <b>Connect</b>.
         Your own Claude Code hooks and status line keep working.</p></li>
-      <li><h3>Start a session</h3><p>The fishtank opens by itself when you start a session, and closes after the last
-        one. Prefer it differently? The gear in the panel has the settings. New versions are offered automatically.</p></li>
+      <li><h3>Start a session</h3><p>Start one in a terminal tab right in the app, or anywhere else: the fishtank opens
+        by itself when a session starts, and closes after the last one. Prefer it differently? The gear in the panel has
+        the settings. New versions are offered automatically.</p></li>
     </ol>
   </section>
 
@@ -87,6 +110,10 @@
         has waited a while, so not for the session you're working in), keep the tank always day or night, make the
         animation <b>calmer</b>, turn off the visitors, keep the fishtank running after your sessions, or start
         it in the background when you log in.</p></details>
+    <details><summary>Do I have to use the built-in terminals?</summary>
+      <p>No. Sessions in your own terminal, editor or the Claude desktop app swim in the tank just the same, and clicking
+        their fish brings you to them. The tabs are there for when you'd like your agents and the tank in one window.
+        The app asks before quitting while terminals are open.</p></details>
     <details><summary>The air tanks don't show up</summary>
       <p>They need a Claude Pro or Max subscription and appear after your first Claude reply in a terminal session.
         With an <code>ANTHROPIC_API_KEY</code> set, Claude Code uses that instead and has no plan usage to show.</p></details>

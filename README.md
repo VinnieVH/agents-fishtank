@@ -9,8 +9,7 @@ glowing fish. It races around while the agent works, waits with a `?` when it ne
 it's done. Helpers the agent starts (subagents) swim along as little fish next to it. Glance at the tank and you know
 which session needs your attention.
 
-![Agent Fishtank by day](docs/screenshot.png)
-![Agent Fishtank at night](docs/screenshot-night.png)
+[![Agent Fishtank: sessions swim as fish over a coral reef, with Claude Code and Copilot CLI in terminal tabs beside the tank](docs/demo.webp)](https://vinnievh.github.io/agents-fishtank/)
 
 ## What you see
 
@@ -31,7 +30,7 @@ angelfish, pufferfish, squid, shrimp, lobster, anglerfish, lionfish, octopus or 
 Claude desktop app opens it, iTerm or Terminal switches to its tab (other terminals and editors come to the front),
 and a Copilot session that has ended is resumed in a new terminal window. If you switched a Copilot CLI to another
 session with `/resume`, clicking the old session's fish brings that CLI to the front, so you can switch back there. On a Mac, the first click asks to let Agent Fishtank
-control iTerm or Terminal; allow it (or later in **System Settings → Privacy & Security → Automation**). And just for fun: the water follows the real time of day (with glowing plankton at night), a whale, an orca, a
+control iTerm or Terminal; allow it (or later in **System Settings → Privacy & Security → Automation**). And just for fun: the fish swim over a coral reef, with a canyon, an ocean current and an old shipwreck far off, the water follows the real time of day (with glowing plankton at night), a whale, an orca, a
 shark, a pod of dolphins, a manta ray or a school of jellyfish drifts by now and then (and once in a while something rarer), a crab comes out when everything is quiet, and you can click the water to feed the fish.
 
 The app also has terminals of its own: click the terminal button in the panel (or press `Ctrl+\``, `⌘\`` on a Mac)

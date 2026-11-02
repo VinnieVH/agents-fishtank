@@ -46,6 +46,23 @@
     demo.controls = true;
   }
 
+  // The demo has music: it plays muted (browsers only start it that way, and nobody likes a page that starts
+  // playing sound), and the button turns the sound on and off. With the controls showing, those do it instead.
+  const sound = document.getElementById('sound');
+  if (demo && sound && !demo.controls) {
+    const set = on => {
+      demo.muted = !on;
+      sound.setAttribute('aria-pressed', String(on));
+      sound.title = on ? 'Turn the sound off' : 'Turn the sound on';
+      sound.setAttribute('aria-label', sound.title);
+    };
+    sound.hidden = false;
+    sound.addEventListener('click', () => {
+      set(demo.muted);
+      if (!demo.muted && demo.paused) demo.play().catch(() => {});
+    });
+  }
+
   // The version number is a nice extra: GitHub's API can be rate-limited, and then it's simply left out
   fetch(`https://api.github.com/repos/${repo}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' } })
     .then(res => res.ok ? res.json() : null)
