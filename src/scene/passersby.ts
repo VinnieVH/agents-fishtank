@@ -1,4 +1,5 @@
-import { BlurFilter, CanvasSource, Container, Sprite, Texture } from 'pixi.js';
+import { BlurFilter, type CanvasSource, Container, Sprite, Texture } from 'pixi.js';
+import { canvasSource } from '../art/canvas';
 import { paintDolphins } from '../art/dolphins';
 import { paintJellyfish, paintJellyGlow } from '../art/jellyfish';
 import { paintKraken, paintKrakenGlow } from '../art/kraken';
@@ -65,7 +66,7 @@ class Painted extends Sprite {
     if (canvas.width !== Math.ceil(cw * res)) {
       canvas.width = Math.ceil(cw * res); canvas.height = Math.ceil(ch * res);
       this.source?.destroy();
-      this.source = new CanvasSource({ resource: canvas, resolution: res });
+      this.source = canvasSource(canvas, res);
       this.texture = new Texture({ source: this.source });
     }
     g.setTransform(res, 0, 0, res, 0, 0); g.clearRect(0, 0, cw, ch);

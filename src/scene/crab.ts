@@ -1,4 +1,5 @@
-import { CanvasSource, Sprite, Texture } from 'pixi.js';
+import { type CanvasSource, Sprite, Texture } from 'pixi.js';
+import { canvasSource } from '../art/canvas';
 import { CRAB_BOX, paintCrab, type CrabPose } from '../art/crab';
 import { nightTint } from '../util';
 
@@ -96,7 +97,7 @@ export class Crab extends Sprite {
     if (canvas.width !== Math.ceil(cw * res)) {
       canvas.width = Math.ceil(cw * res); canvas.height = Math.ceil(ch * res);
       this.source?.destroy();
-      this.source = new CanvasSource({ resource: canvas, resolution: res });
+      this.source = canvasSource(canvas, res);
       this.texture = new Texture({ source: this.source });
       this.anchor.set(CRAB_BOX.ox / CRAB_BOX.w, CRAB_BOX.oy / CRAB_BOX.h);
     }
