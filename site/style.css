@@ -34,7 +34,6 @@ main { max-width: 1040px; margin: 0 auto; }
   border: 1px solid var(--line); box-shadow: 0 24px 60px rgba(0, 0, 0, .5);
 }
 section { margin: 0 0 72px; }
-.shot.tight { margin: 0 0 20px; }
 /* turns the demo's music on and off; it starts muted */
 .shot { position: relative; }
 .sound {
