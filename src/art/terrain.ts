@@ -248,9 +248,11 @@ export function paintTerrain(ctx: CanvasRenderingContext2D, W: number, H: number
   g.fillStyle = '#e8cd96'; g.fill(sand.fill);
   g.save(); g.translate(0, 6); ink(sand.top, '#f7e5b8', 6); g.restore();
   ink(sand.top, '#7a5726', 2.4);
-  for (let i = 0; i < W * .3; i++) { // speckles
-    const r = .8 + R() * 1.3;
-    ellipse(R() * W, sy + 10 + R() * (H - sy), r, r * .8, 0, R() < .55 ? '#c9a66a' : '#fbecc8');
+  // speckles, as many as the width allows: with their own RNG, so the rest of the floor stays put as the width changes
+  const SR = rng(2024);
+  for (let i = 0; i < W * .3; i++) {
+    const r = .8 + SR() * 1.3;
+    ellipse(SR() * W, sy + 10 + SR() * (H - sy), r, r * .8, 0, SR() < .55 ? '#c9a66a' : '#fbecc8');
   }
   g.strokeStyle = '#c29d5f'; g.lineWidth = 2; g.lineCap = 'round'; // ripples
   for (let i = 0; i < 22; i++) {

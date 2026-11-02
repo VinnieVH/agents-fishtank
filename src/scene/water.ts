@@ -41,6 +41,7 @@ export class Water {
   }
 
   build(W: number, H: number) {
+    const sx = W / (this.W || W), sy0 = H / (this.H || H);
     this.W = W; this.H = H;
     const R = rng(99), sy = sandY(H);
     this.weeds = [];
@@ -50,20 +51,26 @@ export class Water {
         col: ['#1f9a52', '#2bb565', '#17803f', '#3ccf74'][Math.floor(R() * 4)], ph: R() * TAU });
     }
     this.anemoneList = [W * .12, W * .52, W * .83].map((x, i) => ({ x, y: sy + 10, n: 16, len: 26 + i * 4, col: ['#ff5edb', '#5ef2ff', '#ffe95e'][i] }));
-    this.planktonList = Array.from({ length: 70 }, () => ({ x: R() * W, y: R() * H, r: .6 + R() * 1.4, vx: (R() - .5) * .15, vy: (R() - .5) * .1, ph: R() * TAU }));
-    this.bubbleList = Array.from({ length: 30 }, () => ({ x: 0, y: H + R() * H, r: 1.5 + R() * 3.5, v: .4 + R() * .9, ph: R() * TAU, src: R() }));
-    for (const b of this.bubbleList) b.x = this.bubbleSource(b.src);
+    // plankton and bubbles keep drifting where they are when the tank is resized
+    if (this.planktonList.length) for (const p of this.planktonList) { p.x *= sx; p.y *= sy0; }
+    else this.planktonList = Array.from({ length: 70 }, () => ({ x: R() * W, y: R() * H, r: .6 + R() * 1.4, vx: (R() - .5) * .15, vy: (R() - .5) * .1, ph: R() * TAU }));
+    if (this.bubbleList.length) for (const b of this.bubbleList) { b.x *= sx; b.y *= sy0; }
+    else {
+      this.bubbleList = Array.from({ length: 30 }, () => ({ x: 0, y: H + R() * H, r: 1.5 + R() * 3.5, v: .4 + R() * .9, ph: R() * TAU, src: R() }));
+      for (const b of this.bubbleList) b.x = this.bubbleSource(b.src);
+    }
 
-    // one light-ray texture (a slanted trapezoid fading downwards), reused by six sprites
-    const rh = H * .85;
-    this.rayTexture?.destroy(true);
+    // one light-ray texture (a slanted trapezoid fading downwards), reused by six sprites. The sprites stay: new ones
+    // would show at full brightness until the next frame, and the tank is drawn right after a resize
+    const rh = H * .85, old = this.rayTexture;
     this.rayTexture = paintTexture(260, rh, 1, g => {
       const lg = g.createLinearGradient(0, 0, 0, rh);
       lg.addColorStop(0, 'rgb(180,235,255)'); lg.addColorStop(1, 'rgba(180,235,255,0)');
       g.fillStyle = lg; g.beginPath(); g.moveTo(0, 0); g.lineTo(70, 0); g.lineTo(260, rh); g.lineTo(120, rh); g.fill();
     });
-    this.rays.removeChildren().forEach(c => c.destroy());
-    for (let i = 0; i < 6; i++) this.rays.addChild(new Sprite(this.rayTexture));
+    if (!this.rays.children.length) for (let i = 0; i < 6; i++) this.rays.addChild(new Sprite({ texture: this.rayTexture, alpha: 0 }));
+    for (const r of this.rays.children as Sprite[]) r.texture = this.rayTexture;
+    old?.destroy(true);
   }
 
   update(t: number, dt: number, busy: boolean, day: number, night: number) {
