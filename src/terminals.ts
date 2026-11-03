@@ -5,7 +5,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
-import { osc52Text, type Tab, type TerminalKind, type TerminalsApi } from '../shared/terminals';
+import { osc52Text, type Tab, type TerminalKind, type TerminalsApi, type TerminalSetup } from '../shared/terminals';
 
 declare global {
   interface Window { fishtankTerminals?: TerminalsApi }
@@ -22,196 +22,249 @@ const THEME = {
 };
 
 const make = <K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}, ...children: (Node | string)[]) => {
-  const e = Object.assign(document.createElement(tag), props);
-  e.append(...children);
-  return e;
+  const element = Object.assign(document.createElement(tag), props);
+  element.append(...children);
+  return element;
 };
 const base = (folder: string) => folder.split(/[\\/]/).filter(Boolean).pop() ?? folder;
 
-interface View { tab: Tab; term: Terminal; fit: FitAddon; el: HTMLElement; button: HTMLElement }
+interface View { tab: Tab; terminal: Terminal; fit: FitAddon; element: HTMLElement; button: HTMLElement }
 
-export async function startTerminals(api: TerminalsApi) {
-  const setup = await api.setup();
-  const names = new Map(setup.kinds.map(k => [k.kind, k.name]));
-  let folder = setup.folder, open = false, width = setup.width;
-  const views = new Map<number, View>();
-  let active: View | null = null;
+interface TerminalsUi {
+  api: TerminalsApi;
+  kinds: TerminalSetup['kinds'];
+  names: Map<TerminalKind, string>;
+  folder: string;
+  isOpen: boolean;
+  width: number;
+  views: Map<number, View>;
+  active: View | null;
+  list: HTMLElement;
+  add: HTMLButtonElement;
+  area: HTMLElement;
+  side: HTMLElement;
+  split: HTMLElement;
+  menu: HTMLElement;
+  start: HTMLElement;
+}
 
+const buildUi = (api: TerminalsApi, setup: TerminalSetup): TerminalsUi => {
   const list = make('div', { className: 'list', role: 'tablist' });
   const add = make('button', { className: 'add', type: 'button', title: 'New terminal', ariaLabel: 'New terminal', ariaHasPopup: 'menu' }, '+');
   const area = make('div', { className: 'views' });
-  const side = make('section', { id: 'term', hidden: true, ariaLabel: 'Terminals' }, make('nav', { className: 'tabs' }, list, add), area);
-  const split = make('div', { id: 'split', hidden: true, title: 'Drag to resize' });
-  const menu = make('div', { className: 'term-menu', role: 'menu', hidden: true });
-  document.body.append(side, split, menu);
+  return {
+    api, kinds: setup.kinds, names: new Map(setup.kinds.map(({ kind, name }) => [kind, name])),
+    folder: setup.folder, isOpen: false, width: setup.width, views: new Map(), active: null,
+    list, add, area,
+    side: make('section', { id: 'term', hidden: true, ariaLabel: 'Terminals' }, make('nav', { className: 'tabs' }, list, add), area),
+    split: make('div', { id: 'split', hidden: true, title: 'Drag to resize' }),
+    menu: make('div', { className: 'term-menu', role: 'menu', hidden: true }),
+    start: make('div', { className: 'start' }),
+  };
+};
 
-  // ---------- the layout: the terminals take `width` on the left, the tank the rest ----------
-  const clamp = (w: number) => Math.round(Math.max(MIN_SIDE, Math.min(innerWidth - Math.max(MIN_TANK, innerWidth * TANK_SHARE), w)));
-  function layout() {
-    const w = open ? clamp(width || innerWidth * .5) : 0;
-    document.documentElement.style.setProperty('--tank-left', w + 'px');
-    side.hidden = split.hidden = !open;
-    dispatchEvent(new Event('resize')); // the tank sizes itself to what's left on a window resize
+const clampWidth = (width: number) => Math.round(Math.max(MIN_SIDE, Math.min(innerWidth - Math.max(MIN_TANK, innerWidth * TANK_SHARE), width)));
+
+/** The terminals take `width` on the left, the tank the rest. */
+const layout = (ui: TerminalsUi) => {
+  const width = ui.isOpen ? clampWidth(ui.width || innerWidth * .5) : 0;
+  document.documentElement.style.setProperty('--tank-left', width + 'px');
+  ui.side.hidden = ui.split.hidden = !ui.isOpen;
+  dispatchEvent(new Event('resize')); // the tank sizes itself to what's left on a window resize
+};
+
+const fitActive = (ui: TerminalsUi) => {
+  if (!ui.active || !ui.isOpen) return;
+  try { ui.active.fit.fit(); } catch { /* not laid out yet */ }
+};
+
+const show = (ui: TerminalsUi, isOpen: boolean) => {
+  ui.isOpen = isOpen; layout(ui);
+  ui.api.layout(ui.isOpen, ui.width);
+  if (!ui.isOpen) return;
+  if (ui.active) { fitActive(ui); ui.active.terminal.focus(); } else ui.start.querySelector('button')?.focus();
+};
+
+const select = (ui: TerminalsUi, selected: View | null) => {
+  ui.active = selected;
+  for (const view of ui.views.values()) {
+    view.element.hidden = view !== selected;
+    view.button.classList.toggle('active', view === selected);
+    view.button.ariaSelected = String(view === selected);
   }
-  function show(on: boolean) {
-    open = on; layout();
-    api.layout(open, width);
-    if (!open) return;
-    if (active) { fitActive(); active.term.focus(); } else start.querySelector('button')?.focus();
-  }
+  ui.start.hidden = !!selected;
+  if (selected) { fitActive(ui); selected.terminal.focus(); selected.button.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+};
+
+const wireToggle = (ui: TerminalsUi) => {
   const button = document.getElementById('term-btn');
-  if (button) { button.hidden = false; button.title = `Terminal (${isMac ? '⌘' : 'Ctrl+'}\`)`; button.addEventListener('click', () => show(!open)); }
-  api.onToggle(() => show(!open));
-  addEventListener('resize', e => { if (e.isTrusted && open) { layout(); } });
+  if (button) { button.hidden = false; button.title = `Terminal (${isMac ? '⌘' : 'Ctrl+'}\`)`; button.addEventListener('click', () => show(ui, !ui.isOpen)); }
+  ui.api.onToggle(() => show(ui, !ui.isOpen));
+  addEventListener('resize', event => { if (event.isTrusted && ui.isOpen) { layout(ui); } });
+};
 
-  split.addEventListener('pointerdown', e => {
-    split.setPointerCapture(e.pointerId); split.classList.add('drag');
+const wireDivider = (ui: TerminalsUi) => {
+  const { split } = ui;
+  split.addEventListener('pointerdown', event => {
+    split.setPointerCapture(event.pointerId); split.classList.add('drag');
     let frame = 0;
-    const move = (m: PointerEvent) => {
-      width = clamp(m.clientX);
-      cancelAnimationFrame(frame); frame = requestAnimationFrame(layout);
+    const move = (moveEvent: PointerEvent) => {
+      ui.width = clampWidth(moveEvent.clientX);
+      cancelAnimationFrame(frame); frame = requestAnimationFrame(() => layout(ui));
     };
     const up = () => {
       split.removeEventListener('pointermove', move); split.classList.remove('drag');
-      api.layout(open, width);
+      ui.api.layout(ui.isOpen, ui.width);
     };
     split.addEventListener('pointermove', move);
     split.addEventListener('pointerup', up, { once: true });
     split.addEventListener('lostpointercapture', up, { once: true });
   });
+};
 
-  // ---------- the + menu, and the same choices when no terminal is open ----------
-  const kindButtons = (then: () => void) => setup.kinds.map(({ kind, name }) =>
-    make('button', { type: 'button', role: 'menuitem', onclick: () => { then(); void create(kind); } }, make('i', { className: 'kind ' + kind }), name));
-  const folderButton = (then: () => void, label: Node | string) => make('button', {
-    type: 'button', role: 'menuitem', title: folder,
-    onclick: async () => { then(); folder = await api.pickFolder(); renderStart(); },
-  }, label);
+/** The + menu's choices, also shown when no terminal is open. */
+const kindButtons = (ui: TerminalsUi, then: () => void) => ui.kinds.map(({ kind, name }) =>
+  make('button', { type: 'button', role: 'menuitem', onclick: () => { then(); void create(ui, kind); } }, make('i', { className: 'kind ' + kind }), name));
 
-  function openMenu() {
-    menu.replaceChildren(...kindButtons(closeMenu), make('hr'),
-      folderButton(closeMenu, make('span', { className: 'folder' }, `In ${base(folder)} · Change…`)));
-    const r = add.getBoundingClientRect();
-    menu.hidden = false;
-    menu.style.top = r.bottom + 4 + 'px';
-    menu.style.left = Math.max(8, Math.min(r.right - menu.offsetWidth, innerWidth - menu.offsetWidth - 8)) + 'px';
-    (menu.querySelector('button') as HTMLElement | null)?.focus();
-  }
-  function closeMenu() { menu.hidden = true; }
-  add.addEventListener('click', () => menu.hidden ? openMenu() : closeMenu());
-  addEventListener('pointerdown', e => { if (!menu.hidden && !menu.contains(e.target as Node) && e.target !== add) closeMenu(); }, true);
-  menu.addEventListener('keydown', e => {
-    const items = [...menu.querySelectorAll('button')], i = items.indexOf(document.activeElement as HTMLButtonElement);
-    if (e.key === 'Escape') { closeMenu(); add.focus(); }
-    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus(); }
-  });
+const folderButton = (ui: TerminalsUi, then: () => void, label: Node | string) => make('button', {
+  type: 'button', role: 'menuitem', title: ui.folder,
+  onclick: async () => { then(); ui.folder = await ui.api.pickFolder(); renderStart(ui); },
+}, label);
 
-  const start = make('div', { className: 'start' });
-  function renderStart() {
-    start.replaceChildren(
-      make('h2', {}, 'Start a terminal'),
-      make('div', { className: 'folder' }, 'In ', folderButton(() => {}, folder)),
-      make('div', { className: 'kinds' }, ...kindButtons(() => {})),
-    );
-  }
-  renderStart();
-  area.append(start);
+const renderStart = (ui: TerminalsUi) => {
+  ui.start.replaceChildren(
+    make('h2', {}, 'Start a terminal'),
+    make('div', { className: 'folder' }, 'In ', folderButton(ui, () => {}, ui.folder)),
+    make('div', { className: 'kinds' }, ...kindButtons(ui, () => {})),
+  );
+};
 
-  // ---------- the tabs ----------
-  function select(v: View | null) {
-    active = v;
-    for (const x of views.values()) {
-      x.el.hidden = x !== v;
-      x.button.classList.toggle('active', x === v);
-      x.button.ariaSelected = String(x === v);
+const closeMenu = (ui: TerminalsUi) => { ui.menu.hidden = true; };
+
+const openMenu = (ui: TerminalsUi) => {
+  const { menu } = ui, close = () => closeMenu(ui);
+  menu.replaceChildren(...kindButtons(ui, close), make('hr'),
+    folderButton(ui, close, make('span', { className: 'folder' }, `In ${base(ui.folder)} · Change…`)));
+  const bounds = ui.add.getBoundingClientRect();
+  menu.hidden = false;
+  menu.style.top = bounds.bottom + 4 + 'px';
+  menu.style.left = Math.max(8, Math.min(bounds.right - menu.offsetWidth, innerWidth - menu.offsetWidth - 8)) + 'px';
+  (menu.querySelector('button') as HTMLElement | null)?.focus();
+};
+
+const wireMenu = (ui: TerminalsUi) => {
+  const { menu, add } = ui;
+  add.addEventListener('click', () => menu.hidden ? openMenu(ui) : closeMenu(ui));
+  addEventListener('pointerdown', event => { if (!menu.hidden && !menu.contains(event.target as Node) && event.target !== add) closeMenu(ui); }, true);
+  menu.addEventListener('keydown', event => {
+    const items = [...menu.querySelectorAll('button')], index = items.indexOf(document.activeElement as HTMLButtonElement);
+    if (event.key === 'Escape') { closeMenu(ui); add.focus(); }
+    else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      items[(index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
     }
-    start.hidden = !!v;
-    if (v) { fitActive(); v.term.focus(); v.button.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
-  }
-  function fitActive() {
-    if (!active || !open) return;
-    try { active.fit.fit(); } catch { /* not laid out yet */ }
-  }
-  new ResizeObserver(fitActive).observe(area);
+  });
+};
 
-  async function create(kind: TerminalKind) {
-    if (!open) show(true);
-    // sized like the tabs already open (or a guess) until it's laid out; the shell is told the real size right after
-    const size = active ? { cols: active.term.cols, rows: active.term.rows } : { cols: 100, rows: 30 };
-    attach(await api.create(kind, size.cols, size.rows));
-  }
+const create = async (ui: TerminalsUi, kind: TerminalKind) => {
+  if (!ui.isOpen) show(ui, true);
+  // sized like the tabs already open (or a guess) until it's laid out; the shell is told the real size right after
+  const size = ui.active ? { cols: ui.active.terminal.cols, rows: ui.active.terminal.rows } : { cols: 100, rows: 30 };
+  attach(ui, await ui.api.create(kind, size.cols, size.rows));
+};
 
-  function attach(tab: Tab) {
-    const term = new Terminal({
-      fontFamily: "'Cascadia Mono', 'Cascadia Code', Consolas, Menlo, 'SF Mono', monospace", fontSize: 13, lineHeight: 1.1,
-      cursorBlink: true, scrollback: 5000, theme: THEME, allowProposedApi: false,
-      // while a CLI has the mouse, Shift-drag (Option-drag on a Mac) still selects text the terminal's own way
-      macOptionClickForcesSelection: true,
-      ...(/Windows/.test(navigator.userAgent) ? { windowsPty: { backend: 'conpty' as const } } : {}),
-    });
-    const fit = new FitAddon();
-    term.loadAddon(fit);
-    term.loadAddon(new WebLinksAddon((_e, uri) => window.open(uri))); // the app opens it in your browser
-    const el = make('div', { className: 'view', hidden: true });
-    area.append(el);
-    term.open(el);
+const cycle = (ui: TerminalsUi, step: number) => {
+  const all = [...ui.views.values()];
+  if (all.length > 1 && ui.active) select(ui, all[(all.indexOf(ui.active) + step + all.length) % all.length]);
+};
 
-    const label = make('span', { className: 'label' }, `${names.get(tab.kind) ?? tab.kind} · ${base(tab.folder)}`);
-    const close = make('button', { className: 'x', type: 'button', title: 'Close', ariaLabel: 'Close terminal' }, '✕');
-    const button = make('div', { className: 'tab', role: 'tab', title: tab.folder }, make('i', { className: 'kind ' + tab.kind }), label, close);
-    list.append(button);
-    const v: View = { tab, term, fit, el, button };
-    views.set(tab.id, v);
+/** Takes the tab away; `kill` also stops its shell (it isn't when the shell has ended by itself). */
+const remove = (ui: TerminalsUi, view: View, kill: boolean) => {
+  if (!ui.views.has(view.tab.id)) return;
+  if (kill) ui.api.kill(view.tab.id);
+  const all = [...ui.views.values()], index = all.indexOf(view);
+  ui.views.delete(view.tab.id);
+  view.terminal.dispose(); view.element.remove(); view.button.remove();
+  if (ui.active === view) select(ui, all[index + 1] ?? all[index - 1] ?? null);
+};
 
-    button.addEventListener('click', () => select(v));
-    button.addEventListener('auxclick', e => { if (e.button === 1) remove(v, true); });
-    close.addEventListener('click', e => { e.stopPropagation(); remove(v, true); });
-    term.onData(data => api.write(tab.id, data));
-    term.onResize(({ cols, rows }) => api.resize(tab.id, cols, rows));
-    term.onTitleChange(title => { button.title = title ? `${title}\n${tab.folder}` : tab.folder; });
+const openXterm = (area: HTMLElement) => {
+  const terminal = new Terminal({
+    fontFamily: "'Cascadia Mono', 'Cascadia Code', Consolas, Menlo, 'SF Mono', monospace", fontSize: 13, lineHeight: 1.1,
+    cursorBlink: true, scrollback: 5000, theme: THEME, allowProposedApi: false,
+    // while a CLI has the mouse, Shift-drag (Option-drag on a Mac) still selects text the terminal's own way
+    macOptionClickForcesSelection: true,
+    ...(/Windows/.test(navigator.userAgent) ? { windowsPty: { backend: 'conpty' as const } } : {}),
+  });
+  const fit = new FitAddon();
+  terminal.loadAddon(fit);
+  terminal.loadAddon(new WebLinksAddon((_event, uri) => window.open(uri))); // the app opens it in your browser
+  const element = make('div', { className: 'view', hidden: true });
+  area.append(element);
+  terminal.open(element);
+  return { terminal, fit, element };
+};
 
-    // copy and paste like other terminals: Ctrl+C copies only with text selected (else it stops what runs),
-    // Ctrl+V or Ctrl+Shift+V pastes; ⌘C and ⌘V on a Mac. A right click copies the selection, or pastes.
-    const paste = () => { void api.paste().then(text => { if (text) term.paste(text); }); };
-    const copy = () => { api.copy(term.getSelection()); term.clearSelection(); };
-    term.attachCustomKeyEventHandler(e => {
-      if (e.type !== 'keydown') return true;
-      const mod = isMac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey, key = e.key.toLowerCase();
-      if (mod && key === 'c' && (isMac || e.shiftKey || term.hasSelection())) { e.preventDefault(); if (term.hasSelection()) copy(); return false; }
-      if (mod && key === 'v') { e.preventDefault(); paste(); return false; }
-      if (e.ctrlKey && e.key === 'Tab') { e.preventDefault(); cycle(e.shiftKey ? -1 : 1); return false; }
-      return true;
-    });
-    term.parser.registerOscHandler(52, data => {
-      const text = osc52Text(data);
-      if (text) api.copy(text);
-      return true;
-    });
-    el.addEventListener('contextmenu', e => { e.preventDefault(); if (term.hasSelection()) copy(); else paste(); });
+const isShortcut = (event: KeyboardEvent) => isMac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+const isCopyKey = (event: KeyboardEvent, terminal: Terminal) =>
+  isShortcut(event) && event.key.toLowerCase() === 'c' && (isMac || event.shiftKey || terminal.hasSelection());
 
-    select(v);
-    return v;
-  }
+// copy and paste like other terminals: Ctrl+C copies only with text selected (else it stops what runs),
+// Ctrl+V or Ctrl+Shift+V pastes; ⌘C and ⌘V on a Mac. A right click copies the selection, or pastes.
+const wireClipboard = (ui: TerminalsUi, { terminal, element }: View) => {
+  const paste = () => { void ui.api.paste().then(text => { if (text) terminal.paste(text); }); };
+  const copy = () => { ui.api.copy(terminal.getSelection()); terminal.clearSelection(); };
+  terminal.attachCustomKeyEventHandler(event => {
+    if (event.type !== 'keydown') return true;
+    if (isCopyKey(event, terminal)) { event.preventDefault(); if (terminal.hasSelection()) copy(); return false; }
+    if (isShortcut(event) && event.key.toLowerCase() === 'v') { event.preventDefault(); paste(); return false; }
+    if (event.ctrlKey && event.key === 'Tab') { event.preventDefault(); cycle(ui, event.shiftKey ? -1 : 1); return false; }
+    return true;
+  });
+  terminal.parser.registerOscHandler(52, data => {
+    const text = osc52Text(data);
+    if (text) ui.api.copy(text);
+    return true;
+  });
+  element.addEventListener('contextmenu', event => { event.preventDefault(); if (terminal.hasSelection()) copy(); else paste(); });
+};
 
-  function cycle(step: number) {
-    const all = [...views.values()];
-    if (all.length > 1 && active) select(all[(all.indexOf(active) + step + all.length) % all.length]);
-  }
+const attach = (ui: TerminalsUi, tab: Tab) => {
+  const { terminal, fit, element } = openXterm(ui.area);
+  const label = make('span', { className: 'label' }, `${ui.names.get(tab.kind) ?? tab.kind} · ${base(tab.folder)}`);
+  const close = make('button', { className: 'x', type: 'button', title: 'Close', ariaLabel: 'Close terminal' }, '✕');
+  const button = make('div', { className: 'tab', role: 'tab', title: tab.folder }, make('i', { className: 'kind ' + tab.kind }), label, close);
+  ui.list.append(button);
+  const view: View = { tab, terminal, fit, element, button };
+  ui.views.set(tab.id, view);
 
-  /** Takes the tab away; `kill` also stops its shell (it isn't when the shell has ended by itself). */
-  function remove(v: View, kill: boolean) {
-    if (!views.has(v.tab.id)) return;
-    if (kill) api.kill(v.tab.id);
-    const all = [...views.values()], i = all.indexOf(v);
-    views.delete(v.tab.id);
-    v.term.dispose(); v.el.remove(); v.button.remove();
-    if (active === v) select(all[i + 1] ?? all[i - 1] ?? null);
-  }
+  button.addEventListener('click', () => select(ui, view));
+  button.addEventListener('auxclick', event => { if (event.button === 1) remove(ui, view, true); });
+  close.addEventListener('click', event => { event.stopPropagation(); remove(ui, view, true); });
+  terminal.onData(data => ui.api.write(tab.id, data));
+  terminal.onResize(({ cols, rows }) => ui.api.resize(tab.id, cols, rows));
+  terminal.onTitleChange(title => { button.title = title ? `${title}\n${tab.folder}` : tab.folder; });
+  wireClipboard(ui, view);
 
-  api.onData((id, data) => views.get(id)?.term.write(data));
-  api.onExit(id => { const v = views.get(id); if (v) remove(v, false); });
+  select(ui, view);
+  return view;
+};
+
+export const startTerminals = async (api: TerminalsApi) => {
+  const setup = await api.setup();
+  const ui = buildUi(api, setup);
+  document.body.append(ui.side, ui.split, ui.menu);
+  wireToggle(ui);
+  wireDivider(ui);
+  wireMenu(ui);
+  renderStart(ui);
+  ui.area.append(ui.start);
+  new ResizeObserver(() => fitActive(ui)).observe(ui.area);
+
+  api.onData((id, data) => ui.views.get(id)?.terminal.write(data));
+  api.onExit(id => { const view = ui.views.get(id); if (view) remove(ui, view, false); });
 
   // the tabs still running from before a reload, then the side as it was left
-  for (const tab of setup.tabs) attach(tab);
-  if (setup.open || setup.tabs.length) show(true);
-}
+  for (const tab of setup.tabs) attach(ui, tab);
+  if (setup.open || setup.tabs.length) show(ui, true);
+};

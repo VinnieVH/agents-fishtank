@@ -5,18 +5,41 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { isRecord } from './session.ts';
 
 const RESCAN_MS = 10_000;
 const LOCAL_ID = /^local_[A-Za-z0-9-]{1,64}$/; // what the app accepts in the link
 
 /** Where the Claude desktop app keeps its data on this platform. */
-export function desktopDataDir() {
+export const desktopDataDir = () => {
   if (process.platform === 'darwin') return path.join(os.homedir(), 'Library', 'Application Support', 'Claude');
   if (process.platform === 'win32') return path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'Claude');
   return path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'Claude');
-}
+};
 
 export const desktopLink = (localId: string) => 'claude://code/continue?session=' + encodeURIComponent(localId);
+
+const listFolder = (folder: string) => { try { return fs.readdirSync(folder, { withFileTypes: true }); } catch { return []; } };
+
+const subfolders = (folder: string) =>
+  listFolder(folder).filter(entry => entry.isDirectory()).map(entry => path.join(folder, entry.name));
+
+/** <folder>/<account>/<org>/local_*.json */
+const sessionFiles = (folder: string) =>
+  subfolders(folder).flatMap(subfolders).flatMap(orgFolder => listFolder(orgFolder)
+    .filter(entry => entry.isFile() && /^local_.*\.json$/.test(entry.name))
+    .map(entry => path.join(orgFolder, entry.name)));
+
+/** The Claude Code session id and the app's local_ id in a session file, if it holds both. */
+const readIds = (file: string) => {
+  try {
+    const session: unknown = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (!isRecord(session)) return undefined;
+    const { cliSessionId, sessionId } = session;
+    if (typeof cliSessionId === 'string' && typeof sessionId === 'string' && LOCAL_ID.test(sessionId)) return { cliSessionId, sessionId };
+  } catch { /* being written, or not a session */ }
+  return undefined;
+};
 
 export class DesktopSessions {
   /** Claude Code session id → the app's local_ id. */
@@ -42,21 +65,8 @@ export class DesktopSessions {
       try { mtime = fs.statSync(file).mtimeMs; } catch { continue; }
       if (this.seen.get(file) === mtime) continue;
       this.seen.set(file, mtime);
-      try {
-        const s = JSON.parse(fs.readFileSync(file, 'utf8'));
-        if (typeof s?.cliSessionId === 'string' && typeof s.sessionId === 'string' && LOCAL_ID.test(s.sessionId)) this.ids.set(s.cliSessionId, s.sessionId);
-      } catch { /* being written, or not a session */ }
+      const ids = readIds(file);
+      if (ids) this.ids.set(ids.cliSessionId, ids.sessionId);
     }
   }
-}
-
-/** <dir>/<account>/<org>/local_*.json */
-function sessionFiles(dir: string) {
-  const list = (d: string) => { try { return fs.readdirSync(d, { withFileTypes: true }); } catch { return []; } };
-  const out: string[] = [];
-  for (const account of list(dir)) if (account.isDirectory())
-    for (const org of list(path.join(dir, account.name))) if (org.isDirectory())
-      for (const f of list(path.join(dir, account.name, org.name)))
-        if (f.isFile() && /^local_.*\.json$/.test(f.name)) out.push(path.join(dir, account.name, org.name, f.name));
-  return out;
 }

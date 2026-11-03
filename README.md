@@ -257,7 +257,8 @@ npm run dist         # build the installers into release/
 
 To work on a creature, run `npm run dev` and open http://localhost:5173/creatures.html?c=octopus: each species large
 in its colour variants, and swimming as a working, waiting and idle session (`&night` for the night tank). Its
-drawing is in `src/art/fishArt.ts`, its size and speed in `src/species.ts`; the page reloads as you change them.
+drawing is in `src/art/classicFish.ts`, `oddFish.ts` or `invertebrates.ts` (put together in `fishArt.ts`), its size
+and speed in `src/species.ts`; the page reloads as you change them.
 
 For screenshots and trying out the scenery, these options override the settings. In a browser (`npm start` /
 `npm run dev`) they're URL parameters: `?time=22:30&shark`. The app takes them as arguments:
@@ -276,7 +277,7 @@ Windows.
 | --- | --- |
 | `src/main.ts` | Sets up the Pixi app, the layers, the session → fish sync and the loop |
 | `src/scene/` | Fish, water, sky, visitors (whale, shark, orca, manta, dolphins, jellyfish, submarine, kraken), crab, fish food, credits gauge, air tanks |
-| `src/art/` | Canvas 2D painters for the fish, terrain, coral reef (`reef.ts`), visitors and crab |
+| `src/art/` | Canvas 2D painters for the fish (`fishArt.ts`), terrain (`terrain*.ts`), coral reef (`reef*.ts`), visitors and crab |
 | `src/panel.ts` | Side panel, Claude usage and the live `/events` connection |
 | `src/settings.ts`, `shared/settings.ts` | The settings dialog; the settings, their defaults and validation |
 | `src/sky.ts`, `src/species.ts`, `src/credits.ts`, `src/limits.ts` | Sun and light, species and glow colour picker, Copilot credits, Claude usage |

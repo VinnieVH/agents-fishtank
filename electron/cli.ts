@@ -13,47 +13,45 @@ import { disconnect, places } from './connect.ts';
 const [command, ...args] = process.argv.slice(2);
 const port = Number(process.env.FISHTANK_PORT) || DEFAULT_PORT;
 
-function request(method: string, path: string, body?: Buffer): Promise<boolean> {
-  return new Promise(resolve => {
-    const req = http.request({
-      host: '127.0.0.1', port: Number(args[0]) || port, path, method, timeout: 500,
-      headers: body ? { 'Content-Type': 'application/json' } : {},
-    }, res => { res.resume(); res.on('end', () => resolve(true)); });
-    req.on('timeout', () => req.destroy());
-    req.on('error', () => resolve(false));
-    req.end(body);
-  });
-}
+const request = (method: string, path: string, body?: Buffer): Promise<boolean> => new Promise(resolve => {
+  const outgoing = http.request({
+    host: '127.0.0.1', port: Number(args[0]) || port, path, method, timeout: 500,
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+  }, response => { response.resume(); response.on('end', () => resolve(true)); });
+  outgoing.on('timeout', () => outgoing.destroy());
+  outgoing.on('error', () => resolve(false));
+  outgoing.end(body);
+});
 
-async function readStdin() {
+const readStdin = async () => {
   const chunks: Buffer[] = [];
-  for await (const c of process.stdin) chunks.push(c);
+  for await (const chunk of process.stdin) chunks.push(chunk);
   return Buffer.concat(chunks);
-}
+};
 
-async function start() {
+const start = async () => {
   if (await request('HEAD', '/')) return;
   // the app itself, as a normal app this time, detached so the hook can finish (and isn't killed with it)
   const env = { ...process.env };
   delete env.ELECTRON_RUN_AS_NODE;
   spawn(process.execPath, ['--from-hook'], { detached: true, stdio: 'ignore', env, windowsHide: false }).unref();
-}
+};
 
 interface StatusInput { model?: { display_name?: string }; rate_limits?: Record<string, { used_percentage?: number } | undefined> }
 
 /** Without a status line of your own: e.g. "Opus · 5h 64% used · week 30% used". (Any status line hides Claude Code's
  *  footer hints, so it had better show something.) */
-function defaultLine(raw: string) {
-  let d: StatusInput = {};
-  try { d = JSON.parse(raw); } catch { /* show nothing */ }
+const defaultLine = (raw: string) => {
+  let status: StatusInput = {};
+  try { status = JSON.parse(raw); } catch { /* show nothing */ }
   const used = (name: string, key: string) => {
-    const p = d.rate_limits?.[key]?.used_percentage;
-    return typeof p === 'number' ? `${name} ${Math.round(p)}% used` : '';
+    const percentage = status.rate_limits?.[key]?.used_percentage;
+    return typeof percentage === 'number' ? `${name} ${Math.round(percentage)}% used` : '';
   };
-  return [d.model?.display_name ?? '', used('5h', 'five_hour'), used('week', 'seven_day')].filter(Boolean).join(' · ');
-}
+  return [status.model?.display_name ?? '', used('5h', 'five_hour'), used('week', 'seven_day')].filter(Boolean).join(' · ');
+};
 
-async function statusLine(encoded: string | undefined) {
+const statusLine = async (encoded: string | undefined) => {
   const input = await readStdin();
   // never hold up the status line: a fishtank that isn't running is simply skipped
   const forward = input.includes('"rate_limits"') ? request('POST', '/statusline/claude', input) : Promise.resolve(true);
@@ -66,9 +64,9 @@ async function statusLine(encoded: string | undefined) {
     yours.on('error', () => { process.exitCode = 1; });
   }
   await forward;
-}
+};
 
 if (command === 'start') await start();
 else if (command === 'statusline') await statusLine(args[1]);
-else if (command === 'disconnect') { const p = places(); disconnect('claude', p); disconnect('copilot', p); }
+else if (command === 'disconnect') { const folders = places(); disconnect('claude', folders); disconnect('copilot', folders); }
 else { console.error('Usage: fishtank start | statusline <port> [your status line, base64] | disconnect'); process.exitCode = 2; }

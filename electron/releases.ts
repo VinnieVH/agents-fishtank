@@ -8,23 +8,25 @@ export interface Release {
   assets: { name: string; browser_download_url: string }[];
 }
 
-const parse = (v: string) => /^v?(\d+)\.(\d+)\.(\d+)/.exec(v.trim())?.slice(1, 4).map(Number) ?? null;
+const parse = (version: string) => /^v?(\d+)\.(\d+)\.(\d+)/.exec(version.trim())?.slice(1, 4).map(Number) ?? null;
 
 /** Whether version `latest` (e.g. "v1.2.0") is newer than `current` ("1.1.0"). */
-export function isNewer(latest: string, current: string): boolean {
-  const a = parse(latest), b = parse(current);
-  if (!a || !b) return false;
-  for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] > b[i];
+export const isNewer = (latest: string, current: string): boolean => {
+  const latestParts = parse(latest), currentParts = parse(current);
+  if (!latestParts || !currentParts) return false;
+  for (let index = 0; index < 3; index++) {
+    if (latestParts[index] !== currentParts[index]) return latestParts[index] > currentParts[index];
+  }
   return false;
-}
+};
 
 /** The installer for this computer, or the release page if there's none. */
-export function pickAsset(r: Release, platform: string, arch: string): string {
-  const asset = r.assets.find(a => platform === 'darwin' ? a.name.endsWith(`-${arch}.dmg`) : platform === 'win32' && a.name.endsWith('.exe'));
-  return asset?.browser_download_url ?? r.html_url;
-}
+export const pickAsset = (release: Release, platform: string, arch: string): string => {
+  const asset = release.assets.find(candidate =>
+    platform === 'darwin' ? candidate.name.endsWith(`-${arch}.dmg`) : platform === 'win32' && candidate.name.endsWith('.exe'));
+  return asset?.browser_download_url ?? release.html_url;
+};
 
 /** "VinnieVH/agent-fishtank" from a package.json repository URL. */
-export function repoFrom(url: string): string | null {
-  return /github\.com[/:]([^/]+\/[^/.]+?)(?:\.git)?$/.exec(url.trim())?.[1] ?? null;
-}
+export const repoFrom = (url: string): string | null =>
+  /github\.com[/:]([^/]+\/[^/.]+?)(?:\.git)?$/.exec(url.trim())?.[1] ?? null;

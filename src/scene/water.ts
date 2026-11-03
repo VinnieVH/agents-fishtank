@@ -1,79 +1,107 @@
-import { Container, Graphics, MeshPlane, Sprite, Texture, type Renderer } from 'pixi.js';
-import { currentAt, reefs, sandY } from '../art/terrain';
+import { Container, Graphics, MeshPlane, Sprite, type Renderer, type Texture } from 'pixi.js';
+import { currentAt, reefs, sandLineFor } from '../art/terrain';
 import type { SoftKind } from '../art/reef';
 import { paintTexture } from '../art/canvas';
 import { rng, shade, TAU } from '../util';
 
-/** A soft coral growing from a reef (art/reef.ts), swaying in the water; `i` tells it apart from all the others. */
-interface Soft { i: number; kind: SoftKind; x: number; y: number; h: number; col: string; seed: number; ph: number }
-type Pt = [number, number];
-interface Anemone { x: number; y: number; n: number; len: number; col: string }
-interface Plankton { x: number; y: number; r: number; vx: number; vy: number; ph: number }
-interface Bubble { x: number; y: number; r: number; v: number; ph: number; src: number }
+/** A soft coral growing from a reef (art/reef.ts), swaying in the water; `id` tells it apart from all the others. */
+interface Soft { id: number; kind: SoftKind; x: number; y: number; h: number; color: string; seed: number; phase: number }
+type Point = [number, number];
+interface Branch { x: number; y: number; length: number; angle: number; w: number; depth: number }
+interface Anemone { x: number; y: number; tentacles: number; length: number; color: string }
+interface Plankton { x: number; y: number; radius: number; vx: number; vy: number; phase: number }
+interface Bubble { x: number; y: number; radius: number; speed: number; phase: number; source: number }
+/** A streak flowing along the current: `along` it from 0 to 1, `offset` across it from -1 to 1. */
+interface Streak { along: number; offset: number; length: number }
+interface TankSize { width: number; height: number }
+/** What the water needs each frame (`t` on the scenery's own clock); main.ts keeps one and refills it, so a frame allocates nothing. */
+export interface WaterFrame { t: number; deltaFrames: number; isBusy: boolean; day: number; night: number }
+type SoftPainter = (g: Graphics, coral: Soft, random: () => number) => void;
 
 /** How far each kind sways over (as a fraction of its height) and how slowly (ms): fans flex a little, whips a lot. */
 const SWAY: Record<SoftKind, [number, number]> = { fan: [.04, 2300], whip: [.14, 1700], tree: [.07, 1500] };
+const BAND_STEPS = 60;
 
 /** Strokes a list of [x1, y1, x2, y2, width] segments three times: ink, colour, and a light rim on the left. */
-function branches(g: Graphics, segs: number[][], col: string) {
-  for (const [colr, extra, k, dx] of [[shade(col, -.65), 3, 1, 0], [col, 0, 1, 0], [shade(col, .45), 0, .3, -.25]] as const)
-    for (const [x1, y1, x2, y2, w] of segs) g.moveTo(x1 + dx * w, y1).lineTo(x2 + dx * w, y2).stroke({ width: w * k + extra, color: colr, cap: 'round' });
-}
+const strokeBranches = (g: Graphics, segments: number[][], color: string) => {
+  const layers = [[shade(color, -.65), 3, 1, 0], [color, 0, 1, 0], [shade(color, .45), 0, .3, -.25]] as const;
+  for (const [strokeColor, extraWidth, widthScale, rimShift] of layers) {
+    for (const [x1, y1, x2, y2, w] of segments) {
+      g.moveTo(x1 + rimShift * w, y1).lineTo(x2 + rimShift * w, y2).stroke({ width: w * widthScale + extraWidth, color: strokeColor, cap: 'round' });
+    }
+  }
+};
 
 /** A sea fan: one flat fan of ever finer branches, spread wide like a net. */
-function fan(g: Graphics, c: Soft, R: () => number) {
-  const segs: number[][] = [];
-  const grow = (x: number, y: number, len: number, ang: number, w: number, depth: number): void => {
+const paintFan: SoftPainter = (g, coral, random) => {
+  const segments: number[][] = [];
+  const grow = ({ x, y, length, angle, w, depth }: Branch): void => {
     if (!depth) return;
-    const x2 = x + Math.cos(ang) * len, y2 = y + Math.sin(ang) * len;
-    segs.push([x, y, x2, y2, w]);
-    const spread = .22 + R() * .2;
-    grow(x2, y2, len * .78, ang - spread, Math.max(1, w * .72), depth - 1);
-    grow(x2, y2, len * .78, ang + spread, Math.max(1, w * .72), depth - 1);
+    const x2 = x + Math.cos(angle) * length, y2 = y + Math.sin(angle) * length;
+    segments.push([x, y, x2, y2, w]);
+    const spread = .22 + random() * .2;
+    grow({ x: x2, y: y2, length: length * .78, angle: angle - spread, w: Math.max(1, w * .72), depth: depth - 1 });
+    grow({ x: x2, y: y2, length: length * .78, angle: angle + spread, w: Math.max(1, w * .72), depth: depth - 1 });
   };
-  grow(0, 0, c.h * .16, -Math.PI / 2, Math.max(3, c.h * .022), 7);
-  branches(g, segs, c.col);
-  for (const [, , x2, y2] of segs.slice(-64)) g.circle(x2, y2, 1.6).fill(shade(c.col, .55));
-}
+  grow({ x: 0, y: 0, length: coral.h * .16, angle: -Math.PI / 2, w: Math.max(3, coral.h * .022), depth: 7 });
+  strokeBranches(g, segments, coral.color);
+  for (const [, , x2, y2] of segments.slice(-64)) g.circle(x2, y2, 1.6).fill(shade(coral.color, .55));
+};
 
 /** Sea whips: a bunch of long, thin rods covered in little polyps. */
-function whip(g: Graphics, c: Soft, R: () => number) {
-  for (let k = 0, n = 4 + Math.floor(R() * 4); k < n; k++) {
-    const f = k / (n - 1) - .5, len = c.h * (.6 + R() * .4), lean = f * .5 + (R() - .5) * .15, bend = (R() - .5) * .5;
-    const pts: Pt[] = [[f * 10, 0]];
-    for (let i = 1; i <= 14; i++) { const t = i / 14, a = lean + bend * t * t, [px, py] = pts[i - 1]; pts.push([px + Math.sin(a) * len / 14, py - Math.cos(a) * len / 14]); }
-    const segs = pts.slice(1).map(([x, y], i) => [pts[i][0], pts[i][1], x, y, 5.5 - 2.5 * i / 14]);
-    branches(g, segs, c.col);
-    for (let i = 1; i < pts.length; i++) g.circle(pts[i][0] + (i % 2 ? 1.6 : -1.6), pts[i][1], 1.2).fill(shade(c.col, .6));
+const paintWhip: SoftPainter = (g, coral, random) => {
+  for (let rod = 0, rods = 4 + Math.floor(random() * 4); rod < rods; rod++) {
+    const offset = rod / (rods - 1) - .5, length = coral.h * (.6 + random() * .4);
+    const lean = offset * .5 + (random() - .5) * .15, bend = (random() - .5) * .5;
+    const points: Point[] = [[offset * 10, 0]];
+    for (let step = 1; step <= 14; step++) {
+      const along = step / 14, angle = lean + bend * along * along, [lastX, lastY] = points[step - 1];
+      points.push([lastX + Math.sin(angle) * length / 14, lastY - Math.cos(angle) * length / 14]);
+    }
+    const segments = points.slice(1).map(([x, y], index) => [points[index][0], points[index][1], x, y, 5.5 - 2.5 * index / 14]);
+    strokeBranches(g, segments, coral.color);
+    for (let index = 1; index < points.length; index++) {
+      g.circle(points[index][0] + (index % 2 ? 1.6 : -1.6), points[index][1], 1.2).fill(shade(coral.color, .6));
+    }
   }
-}
+};
 
 /** A tree coral: a pale, see-through trunk branching out into clusters of bright round lobes. */
-function tree(g: Graphics, c: Soft, R: () => number) {
-  const segs: number[][] = [], ends: Pt[] = [];
-  const grow = (x: number, y: number, len: number, ang: number, w: number, depth: number): void => {
-    const x2 = x + Math.cos(ang) * len, y2 = y + Math.sin(ang) * len;
-    segs.push([x, y, x2, y2, w]);
+const paintTree: SoftPainter = (g, coral, random) => {
+  const segments: number[][] = [], ends: Point[] = [];
+  const grow = ({ x, y, length, angle, w, depth }: Branch): void => {
+    const x2 = x + Math.cos(angle) * length, y2 = y + Math.sin(angle) * length;
+    segments.push([x, y, x2, y2, w]);
     if (!depth) { ends.push([x2, y2]); return; }
-    for (let k = 0, n = 2 + (R() < .4 ? 1 : 0); k < n; k++) grow(x2, y2, len * .7, ang + (k - (n - 1) / 2) * .6 + (R() - .5) * .2, w * .65, depth - 1);
+    for (let index = 0, count = 2 + (random() < .4 ? 1 : 0); index < count; index++) {
+      grow({ x: x2, y: y2, length: length * .7, angle: angle + (index - (count - 1) / 2) * .6 + (random() - .5) * .2, w: w * .65, depth: depth - 1 });
+    }
   };
-  grow(0, 0, c.h * .32, -Math.PI / 2, Math.max(4, c.h * .06), 3);
-  for (const [x1, y1, x2, y2, w] of segs) g.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: w + 3, color: shade(c.col, -.6), cap: 'round', alpha: .8 });
-  for (const [x1, y1, x2, y2, w] of segs) g.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: w, color: shade(c.col, .65), cap: 'round', alpha: .85 });
-  for (const [ex, ey] of ends) for (let k = 0, n = 7 + Math.floor(R() * 5); k < n; k++) {
-    const a = R() * TAU, d = R() * 10, x = ex + Math.cos(a) * d, y = ey + Math.sin(a) * d * .8, r = 3.5 + R() * 3.5;
-    g.circle(x, y, r).fill(c.col).stroke({ width: 1.3, color: shade(c.col, -.65) });
-    g.circle(x - r * .3, y - r * .3, r * .35).fill({ color: 0xffffff, alpha: .6 });
+  grow({ x: 0, y: 0, length: coral.h * .32, angle: -Math.PI / 2, w: Math.max(4, coral.h * .06), depth: 3 });
+  for (const [x1, y1, x2, y2, w] of segments) g.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: w + 3, color: shade(coral.color, -.6), cap: 'round', alpha: .8 });
+  for (const [x1, y1, x2, y2, w] of segments) g.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: w, color: shade(coral.color, .65), cap: 'round', alpha: .85 });
+  for (const [endX, endY] of ends) for (let index = 0, count = 7 + Math.floor(random() * 5); index < count; index++) {
+    const angle = random() * TAU, distance = random() * 10;
+    const x = endX + Math.cos(angle) * distance, y = endY + Math.sin(angle) * distance * .8, radius = 3.5 + random() * 3.5;
+    g.circle(x, y, radius).fill(coral.color).stroke({ width: 1.3, color: shade(coral.color, -.65) });
+    g.circle(x - radius * .3, y - radius * .3, radius * .35).fill({ color: 0xffffff, alpha: .6 });
   }
-}
+};
 
-const SOFT: Record<SoftKind, (g: Graphics, c: Soft, R: () => number) => void> = { fan, whip, tree };
+// Cartoon style like the fish: branches stroked in ink, colour and a light rim; polyps and lobes with a shine.
+const SOFT_PAINTERS: Record<SoftKind, SoftPainter> = { fan: paintFan, whip: paintWhip, tree: paintTree };
 
-/** A point across the current at s, `v` from -1 (one edge) to 1 (the other). */
-function acrossCurrent(s: number, v: number, W: number, H: number): Pt {
-  const a = currentAt(s, W, H), b = currentAt(Math.min(1, s + .01), W, H), l = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-  return [a.x - (b.y - a.y) / l * v * a.w / 2, a.y + (b.x - a.x) / l * v * a.w / 2];
-}
+/** A point across the current `along` it, `offset` from -1 (one edge) to 1 (the other). */
+const acrossCurrent = (along: number, offset: number, { width, height }: TankSize): Point => {
+  const here = currentAt(along, width, height), ahead = currentAt(Math.min(1, along + .01), width, height);
+  const length = Math.hypot(ahead.x - here.x, ahead.y - here.y) || 1;
+  return [here.x - (ahead.y - here.y) / length * offset * here.w / 2, here.y + (ahead.x - here.x) / length * offset * here.w / 2];
+};
+
+const wrapAround = (value: number, size: number) => {
+  if (value < 0) return size;
+  return value > size ? 0 : value;
+};
 
 /** Everything that moves in the water: light rays, surface shimmer, the current far off, soft corals, anemones, bubbles, plankton. */
 export class Water {
@@ -88,21 +116,22 @@ export class Water {
   readonly current = new Container();
   private band = new Graphics();
   private streaks = new Graphics();
-  private flow: { s: number; v: number; len: number }[] = [];
+  private flow: Streak[] = [];
 
-  private W = 0; private H = 0;
+  private size: TankSize = { width: 0, height: 0 };
   private plants: Soft[] = [];
   /**
    * Each soft coral is drawn once into a texture, and sways by bending that texture on a mesh: redrawing hundreds of
    * outlined branches every frame would be far too slow. The textures are kept per coral (for this tank height), so a
    * resize only draws the ones that are new.
    */
-  private views: { p: Soft; mesh: MeshPlane; rest: Float32Array; baseY: number }[] = [];
+  private views: { plant: Soft; mesh: MeshPlane; rest: Float32Array; baseY: number }[] = [];
   private drawn = new Map<number, { texture: Texture; x: number; y: number }>();
   private drawnFor = 0;
   private anemoneList: Anemone[] = [];
   private planktonList: Plankton[] = [];
   private bubbleList: Bubble[] = [];
+  private raySprites: Sprite[] = [];
   private rayTexture: Texture | null = null;
 
   constructor() {
@@ -112,155 +141,204 @@ export class Water {
     this.anemoneTips.blendMode = 'add';
   }
 
-  build(W: number, H: number, renderer: Renderer) {
-    const sx = W / (this.W || W), sy0 = H / (this.H || H);
-    this.W = W; this.H = H;
-    const R = rng(99), sy = sandY(H);
+  build(width: number, height: number, renderer: Renderer) {
+    const scaleX = width / (this.size.width || width), scaleY = height / (this.size.height || height);
+    this.size.width = width; this.size.height = height;
+    const random = rng(99), sandTop = sandLineFor(height);
     // the soft corals growing from the reefs at the back, behind their rock and hard corals (main.ts puts the floor in
     // front of them), the taller ones further back
-    this.plants = reefs(W, H).flatMap(r => r.soft.map((c, k) => ({ ...c, i: r.i * 8 + k, h: c.s, ph: rng(c.seed)() * TAU })))
-      .sort((a, b) => b.h - a.h);
-    this.showPlants(renderer, H);
-    // the current's band, fading out as it goes away; its streaks spread along it at the start
-    const band = this.band.clear();
-    for (const v of [1, .65, .35]) for (let i = 0, n = 60; i < n; i++) { // three bands inside each other: soft edges
-      const s0 = i / n, s1 = (i + 1) / n;
-      band.poly([...acrossCurrent(s0, -v, W, H), ...acrossCurrent(s1, -v, W, H), ...acrossCurrent(s1, v, W, H), ...acrossCurrent(s0, v, W, H)])
-        .fill({ color: 0x8fdcff, alpha: .05 * (1 - .7 * s0) * Math.min(1, s0 * 10, (1 - s0) * 8) });
-    }
-    if (!this.flow.length) this.flow = Array.from({ length: 120 }, () => ({ s: R(), v: (R() - .5) * 1.5, len: .02 + R() * .03 }));
-    this.anemoneList = [W * .12, W * .52, W * .83].map((x, i) => ({ x, y: sy + 10, n: 16, len: 26 + i * 4, col: ['#ff5edb', '#5ef2ff', '#ffe95e'][i] }));
+    this.plants = reefs(width, height)
+      .flatMap(reef => reef.soft.map((coral, index) => ({ ...coral, id: reef.index * 8 + index, h: coral.size, phase: rng(coral.seed)() * TAU })))
+      .sort((one, other) => other.h - one.h);
+    this.showPlants(renderer, height);
+    this.paintBand();
+    if (!this.flow.length) this.flow = Array.from({ length: 120 }, () => ({ along: random(), offset: (random() - .5) * 1.5, length: .02 + random() * .03 }));
+    this.anemoneList = [width * .12, width * .52, width * .83]
+      .map((x, index) => ({ x, y: sandTop + 10, tentacles: 16, length: 26 + index * 4, color: ['#ff5edb', '#5ef2ff', '#ffe95e'][index] }));
     // plankton and bubbles keep drifting where they are when the tank is resized
-    if (this.planktonList.length) for (const p of this.planktonList) { p.x *= sx; p.y *= sy0; }
-    else this.planktonList = Array.from({ length: 70 }, () => ({ x: R() * W, y: R() * H, r: .6 + R() * 1.4, vx: (R() - .5) * .15, vy: (R() - .5) * .1, ph: R() * TAU }));
-    if (this.bubbleList.length) for (const b of this.bubbleList) { b.x *= sx; b.y *= sy0; }
-    else {
-      this.bubbleList = Array.from({ length: 30 }, () => ({ x: 0, y: H + R() * H, r: 1.5 + R() * 3.5, v: .4 + R() * .9, ph: R() * TAU, src: R() }));
-      for (const b of this.bubbleList) b.x = this.bubbleSource(b.src);
-    }
-
-    // one light-ray texture (a slanted trapezoid fading downwards), reused by six sprites. The sprites stay: new ones
-    // would show at full brightness until the next frame, and the tank is drawn right after a resize
-    const rh = H * .85, old = this.rayTexture;
-    this.rayTexture = paintTexture(260, rh, 1, g => {
-      const lg = g.createLinearGradient(0, 0, 0, rh);
-      lg.addColorStop(0, 'rgb(180,235,255)'); lg.addColorStop(1, 'rgba(180,235,255,0)');
-      g.fillStyle = lg; g.beginPath(); g.moveTo(0, 0); g.lineTo(70, 0); g.lineTo(260, rh); g.lineTo(120, rh); g.fill();
-    });
-    if (!this.rays.children.length) for (let i = 0; i < 6; i++) this.rays.addChild(new Sprite({ texture: this.rayTexture, alpha: 0 }));
-    for (const r of this.rays.children as Sprite[]) r.texture = this.rayTexture;
-    old?.destroy(true);
+    this.placePlankton(random, scaleX, scaleY);
+    this.placeBubbles(random, scaleX, scaleY);
+    this.paintRays(height);
   }
 
-  update(t: number, dt: number, busy: boolean, day: number, night: number) {
-    const { W, H } = this;
-
-    this.rays.children.forEach((r, i) => {
-      r.x = i * W / 6 + Math.sin(t / 5000 + i * 1.7) * 70;
-      r.alpha = (.035 + Math.sin(t / 2300 + i) * .015) * (.15 + .85 * day);
-    });
-
-    // streaks flowing along the current, slower and smaller the further away they are
-    const st = this.streaks.clear();
-    for (const f of this.flow) {
-      f.s += dt * .0011 * (1 - .65 * f.s);
-      if (f.s > 1) { f.s = 0; f.v = (Math.random() - .5) * 1.5; }
-      const a = acrossCurrent(f.s, f.v, W, H), b = acrossCurrent(Math.max(0, f.s - f.len * (1 - .6 * f.s)), f.v, W, H);
-      st.moveTo(...a).lineTo(...b).stroke({ width: .8 + 2.4 * (1 - f.s), color: 0xc8f2ff, alpha: .34 * (1 - .6 * f.s) * Math.min(1, f.s * 15, (1 - f.s) * 10), cap: 'round' });
-    }
-
-    const sh = this.shimmer.clear();
-    for (let r = 0; r < 3; r++) {
-      sh.moveTo(0, 6 + r * 7 + Math.sin(t / (600 + r * 200)) * 3);
-      for (let x = 16; x <= W + 16; x += 16) sh.lineTo(x, 6 + r * 7 + Math.sin(x / 40 + t / (600 + r * 200)) * 3);
-      sh.stroke({ width: 2, color: 0xc8f0ff, alpha: .12 });
-    }
-
+  update({ t, deltaFrames, isBusy, day, night }: WaterFrame) {
+    this.moveRays(t, day);
+    this.drawStreaks(deltaFrames);
+    this.drawShimmer(t);
     this.swayPlants(t);
-
     this.drawAnemones(t);
     this.anemoneTips.alpha = night;
     this.anemoneTips.visible = night > .05;
+    this.drawBubbles(deltaFrames, isBusy);
+    this.drawPlankton(t, deltaFrames, night);
+  }
 
-    const sy = sandY(H), b = this.bubbles.clear();
-    for (const p of this.bubbleList) {
-      p.y -= p.v * (busy ? 2.6 : .7) * dt;
-      if (p.y < -10) { p.y = sy - 40 + Math.random() * 10; p.x = this.bubbleSource(p.src); }
-      const x = p.x + Math.sin(p.y / 25 + p.ph) * 4;
-      b.circle(x, p.y, p.r).stroke({ width: 1, color: 0xd2f5ff, alpha: .6 });
-      b.circle(x - p.r * .35, p.y - p.r * .35, p.r * .3).fill({ color: 0xffffff, alpha: .5 });
+  /** The current's band, fading out as it goes away: three bands inside each other give it soft edges. */
+  private paintBand() {
+    const band = this.band.clear();
+    for (const spread of [1, .65, .35]) for (let step = 0; step < BAND_STEPS; step++) {
+      const from = step / BAND_STEPS, to = (step + 1) / BAND_STEPS;
+      band.poly([...acrossCurrent(from, -spread, this.size), ...acrossCurrent(to, -spread, this.size), ...acrossCurrent(to, spread, this.size), ...acrossCurrent(from, spread, this.size)])
+        .fill({ color: 0x8fdcff, alpha: .05 * (1 - .7 * from) * Math.min(1, from * 10, (1 - from) * 8) });
     }
+  }
 
-    // plankton, bioluminescent at night
-    const pl = this.plankton.clear();
+  private placePlankton(random: () => number, scaleX: number, scaleY: number) {
+    if (!this.planktonList.length) {
+      this.planktonList = Array.from({ length: 70 }, () => ({ x: random() * this.size.width, y: random() * this.size.height, radius: .6 + random() * 1.4,
+        vx: (random() - .5) * .15, vy: (random() - .5) * .1, phase: random() * TAU }));
+      return;
+    }
+    for (const mote of this.planktonList) { mote.x *= scaleX; mote.y *= scaleY; }
+  }
+
+  private placeBubbles(random: () => number, scaleX: number, scaleY: number) {
+    if (!this.bubbleList.length) {
+      this.bubbleList = Array.from({ length: 30 }, () => ({ x: 0, y: this.size.height + random() * this.size.height, radius: 1.5 + random() * 3.5,
+        speed: .4 + random() * .9, phase: random() * TAU, source: random() }));
+      for (const bubble of this.bubbleList) bubble.x = this.bubbleSource(bubble.source);
+      return;
+    }
+    for (const bubble of this.bubbleList) { bubble.x *= scaleX; bubble.y *= scaleY; }
+  }
+
+  /**
+   * One light-ray texture (a slanted trapezoid fading downwards), reused by six sprites. The sprites stay: new ones
+   * would show at full brightness until the next frame, and the tank is drawn right after a resize.
+   */
+  private paintRays(height: number) {
+    const rayHeight = height * .85, old = this.rayTexture;
+    const texture = paintTexture({ w: 260, h: rayHeight }, 1, g => {
+      const gradient = g.createLinearGradient(0, 0, 0, rayHeight);
+      gradient.addColorStop(0, 'rgb(180,235,255)'); gradient.addColorStop(1, 'rgba(180,235,255,0)');
+      g.fillStyle = gradient; g.beginPath(); g.moveTo(0, 0); g.lineTo(70, 0); g.lineTo(260, rayHeight); g.lineTo(120, rayHeight); g.fill();
+    });
+    this.rayTexture = texture;
+    if (!this.raySprites.length) {
+      for (let index = 0; index < 6; index++) {
+        const ray = new Sprite({ texture, alpha: 0 });
+        this.raySprites.push(ray); this.rays.addChild(ray);
+      }
+    }
+    for (const ray of this.raySprites) ray.texture = texture;
+    old?.destroy(true);
+  }
+
+  private moveRays(t: number, day: number) {
+    this.raySprites.forEach((ray, index) => {
+      ray.x = index * this.size.width / 6 + Math.sin(t / 5000 + index * 1.7) * 70;
+      ray.alpha = (.035 + Math.sin(t / 2300 + index) * .015) * (.15 + .85 * day);
+    });
+  }
+
+  /** Streaks flowing along the current, slower and smaller the further away they are. */
+  private drawStreaks(deltaFrames: number) {
+    const streaks = this.streaks.clear();
+    for (const streak of this.flow) {
+      streak.along += deltaFrames * .0011 * (1 - .65 * streak.along);
+      if (streak.along > 1) { streak.along = 0; streak.offset = (Math.random() - .5) * 1.5; }
+      const head = acrossCurrent(streak.along, streak.offset, this.size);
+      const tail = acrossCurrent(Math.max(0, streak.along - streak.length * (1 - .6 * streak.along)), streak.offset, this.size);
+      const alpha = .34 * (1 - .6 * streak.along) * Math.min(1, streak.along * 15, (1 - streak.along) * 10);
+      streaks.moveTo(...head).lineTo(...tail).stroke({ width: .8 + 2.4 * (1 - streak.along), color: 0xc8f2ff, alpha, cap: 'round' });
+    }
+  }
+
+  private drawShimmer(t: number) {
+    const shimmer = this.shimmer.clear();
+    for (let row = 0; row < 3; row++) {
+      shimmer.moveTo(0, 6 + row * 7 + Math.sin(t / (600 + row * 200)) * 3);
+      for (let x = 16; x <= this.size.width + 16; x += 16) shimmer.lineTo(x, 6 + row * 7 + Math.sin(x / 40 + t / (600 + row * 200)) * 3);
+      shimmer.stroke({ width: 2, color: 0xc8f0ff, alpha: .12 });
+    }
+  }
+
+  private drawBubbles(deltaFrames: number, isBusy: boolean) {
+    const sandTop = sandLineFor(this.size.height), bubbles = this.bubbles.clear();
+    for (const bubble of this.bubbleList) {
+      bubble.y -= bubble.speed * (isBusy ? 2.6 : .7) * deltaFrames;
+      if (bubble.y < -10) { bubble.y = sandTop - 40 + Math.random() * 10; bubble.x = this.bubbleSource(bubble.source); }
+      const x = bubble.x + Math.sin(bubble.y / 25 + bubble.phase) * 4;
+      bubbles.circle(x, bubble.y, bubble.radius).stroke({ width: 1, color: 0xd2f5ff, alpha: .6 });
+      bubbles.circle(x - bubble.radius * .35, bubble.y - bubble.radius * .35, bubble.radius * .3).fill({ color: 0xffffff, alpha: .5 });
+    }
+  }
+
+  /** Plankton, bioluminescent at night. */
+  private drawPlankton(t: number, deltaFrames: number, night: number) {
+    const plankton = this.plankton.clear();
     this.plankton.blendMode = night > .05 ? 'add' : 'normal';
     const color = (200 - 110 * night | 0) << 16 | 255 << 8 | (240 + 15 * night | 0);
-    for (const p of this.planktonList) {
-      p.x += p.vx * dt; p.y += (p.vy + Math.sin(t / 2000 + p.ph) * .05) * dt;
-      if (p.x < 0) p.x = W; if (p.x > W) p.x = 0; if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
-      pl.circle(p.x, p.y, p.r).fill({ color, alpha: Math.min(1, (.25 + Math.sin(t / 700 + p.ph) * .15) * (1 + 1.4 * night)) });
+    for (const mote of this.planktonList) {
+      mote.x += mote.vx * deltaFrames; mote.y += (mote.vy + Math.sin(t / 2000 + mote.phase) * .05) * deltaFrames;
+      mote.x = wrapAround(mote.x, this.size.width); mote.y = wrapAround(mote.y, this.size.height);
+      plankton.circle(mote.x, mote.y, mote.radius).fill({ color, alpha: Math.min(1, (.25 + Math.sin(t / 700 + mote.phase) * .15) * (1 + 1.4 * night)) });
     }
   }
 
   /** Bubbles rise from the treasure chest and from the reef past the middle. */
-  private bubbleSource(src: number) {
-    return src < .6 ? this.W * .2 + 20 + Math.random() * 10 : this.W * .58 + (Math.random() - .5) * 20;
+  private bubbleSource(source: number) {
+    return source < .6 ? this.size.width * .2 + 20 + Math.random() * 10 : this.size.width * .58 + (Math.random() - .5) * 20;
   }
 
   /** Gives every plant its mesh, drawing the ones not drawn yet for this tank height. */
-  private showPlants(renderer: Renderer, H: number) {
-    if (this.drawnFor !== H) { for (const d of this.drawn.values()) d.texture.destroy(true); this.drawn.clear(); this.drawnFor = H; }
-    for (const v of this.views) v.mesh.destroy();
-    this.views = [];
-    for (const p of this.plants) {
-      let d = this.drawn.get(p.i);
-      if (!d) {
-        const g = new Graphics();
-        this.paintPlant(g, p);
-        const b = g.getLocalBounds();
-        d = { texture: renderer.generateTexture({ target: g, resolution: renderer.resolution, antialias: true }), x: b.x, y: b.y };
-        g.destroy();
-        this.drawn.set(p.i, d);
-      }
-      const mesh = new MeshPlane({ texture: d.texture, verticesX: 2, verticesY: Math.max(6, Math.min(32, Math.round(p.h / 28))) });
-      mesh.position.set(p.x + d.x, p.y + d.y);
-      this.softCorals.addChild(mesh);
-      this.views.push({ p, mesh, rest: mesh.geometry.positions.slice(), baseY: -d.y });
+  private showPlants(renderer: Renderer, height: number) {
+    if (this.drawnFor !== height) {
+      for (const art of this.drawn.values()) art.texture.destroy(true);
+      this.drawn.clear(); this.drawnFor = height;
     }
+    for (const view of this.views) view.mesh.destroy();
+    this.views = [];
+    for (const plant of this.plants) {
+      const art = this.drawn.get(plant.id) ?? this.drawPlant(renderer, plant);
+      const mesh = new MeshPlane({ texture: art.texture, verticesX: 2, verticesY: Math.max(6, Math.min(32, Math.round(plant.h / 28))) });
+      mesh.position.set(plant.x + art.x, plant.y + art.y);
+      this.softCorals.addChild(mesh);
+      this.views.push({ plant, mesh, rest: mesh.geometry.positions.slice(), baseY: -art.y });
+    }
+  }
+
+  private drawPlant(renderer: Renderer, plant: Soft) {
+    const graphics = new Graphics();
+    SOFT_PAINTERS[plant.kind](graphics, { ...plant, x: 0, y: 0 }, rng(plant.seed));
+    const bounds = graphics.getLocalBounds();
+    const art = { texture: renderer.generateTexture({ target: graphics, resolution: renderer.resolution, antialias: true }), x: bounds.x, y: bounds.y };
+    graphics.destroy();
+    this.drawn.set(plant.id, art);
+    return art;
   }
 
   /** Bends each plant in the water: further over the higher up, with a slow sway and a small ripple running up it. */
   private swayPlants(t: number) {
-    for (const { p, mesh, rest, baseY } of this.views) {
-      const [amp, period] = SWAY[p.kind], lean = Math.sin(t / period + p.ph) * amp * p.h, pos = mesh.geometry.positions;
-      for (let k = 0; k < pos.length; k += 2) {
-        const s = Math.max(0, (baseY - rest[k + 1]) / p.h);
-        pos[k] = rest[k] + lean * s * s + Math.sin(t / 800 + p.ph * 1.7 + s * 5) * 2.5 * s;
+    for (const { plant, mesh, rest, baseY } of this.views) {
+      const [amplitude, period] = SWAY[plant.kind], lean = Math.sin(t / period + plant.phase) * amplitude * plant.h;
+      const positions = mesh.geometry.positions;
+      for (let index = 0; index < positions.length; index += 2) {
+        const rise = Math.max(0, (baseY - rest[index + 1]) / plant.h);
+        positions[index] = rest[index] + lean * rise * rise + Math.sin(t / 800 + plant.phase * 1.7 + rise * 5) * 2.5 * rise;
       }
       mesh.geometry.getBuffer('aPosition').update();
     }
   }
 
-  // Cartoon style like the fish: branches stroked in ink, colour and a light rim; polyps and lobes with a shine.
-  private paintPlant(g: Graphics, p: Soft) { SOFT[p.kind](g, { ...p, x: 0, y: 0 }, rng(p.seed)); }
-
   private drawAnemones(t: number) {
-    const g = this.anemones.clear(), tips = this.anemoneTips.clear();
-    for (const a of this.anemoneList) {
-      const inkC = shade(a.col, -.75);
-      for (let i = 0; i < a.n; i++) {
-        const base = -Math.PI + (i + .5) * Math.PI / a.n, sw = Math.sin(t / 700 + i * .6) * .25;
-        const ex = a.x + Math.cos(base + sw) * a.len, ey = a.y - 4 + Math.sin(base + sw) * a.len * 1.1;
-        const tentacle = () => g.moveTo(a.x + Math.cos(base) * 8, a.y - 4).quadraticCurveTo(a.x + Math.cos(base) * a.len * .6, a.y - a.len * .5, ex, ey);
-        tentacle().stroke({ width: 6.4, color: inkC, cap: 'round' });
-        tentacle().stroke({ width: 3.8, color: shade(a.col, -.15), cap: 'round' });
-        g.circle(ex, ey, 3.6).fill(a.col).stroke({ width: 1.4, color: inkC });
-        g.circle(ex - 1, ey - 1.1, 1.1).fill({ color: 0xffffff, alpha: .85 });
-        tips.circle(ex, ey, 6).fill({ color: a.col, alpha: .35 });
-        tips.circle(ex, ey, 3).fill(a.col);
+    const body = this.anemones.clear(), tips = this.anemoneTips.clear();
+    for (const anemone of this.anemoneList) {
+      const ink = shade(anemone.color, -.75);
+      for (let index = 0; index < anemone.tentacles; index++) {
+        const baseAngle = -Math.PI + (index + .5) * Math.PI / anemone.tentacles, swing = Math.sin(t / 700 + index * .6) * .25;
+        const tipX = anemone.x + Math.cos(baseAngle + swing) * anemone.length, tipY = anemone.y - 4 + Math.sin(baseAngle + swing) * anemone.length * 1.1;
+        const tentacle = () => body.moveTo(anemone.x + Math.cos(baseAngle) * 8, anemone.y - 4)
+          .quadraticCurveTo(anemone.x + Math.cos(baseAngle) * anemone.length * .6, anemone.y - anemone.length * .5, tipX, tipY);
+        tentacle().stroke({ width: 6.4, color: ink, cap: 'round' });
+        tentacle().stroke({ width: 3.8, color: shade(anemone.color, -.15), cap: 'round' });
+        body.circle(tipX, tipY, 3.6).fill(anemone.color).stroke({ width: 1.4, color: ink });
+        body.circle(tipX - 1, tipY - 1.1, 1.1).fill({ color: 0xffffff, alpha: .85 });
+        tips.circle(tipX, tipY, 6).fill({ color: anemone.color, alpha: .35 });
+        tips.circle(tipX, tipY, 3).fill(anemone.color);
       }
-      g.ellipse(a.x, a.y, 17, 9).fill(shade(a.col, -.45)).stroke({ width: 2, color: inkC });
-      g.ellipse(a.x - 5, a.y - 3, 6, 2).fill({ color: shade(a.col, .2), alpha: .8 });
+      body.ellipse(anemone.x, anemone.y, 17, 9).fill(shade(anemone.color, -.45)).stroke({ width: 2, color: ink });
+      body.ellipse(anemone.x - 5, anemone.y - 3, 6, 2).fill({ color: shade(anemone.color, .2), alpha: .8 });
     }
   }
 }

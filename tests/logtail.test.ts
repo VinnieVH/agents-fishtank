@@ -4,24 +4,24 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { LogTail } from '../server/logtail.ts';
 
-const dirs: string[] = [];
-afterEach(() => { for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true }); });
-function log(content: string) {
+const folders: string[] = [];
+afterEach(() => { for (const folder of folders.splice(0)) fs.rmSync(folder, { recursive: true, force: true }); });
+const log = (content: string) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fishtank-tail-'));
-  dirs.push(dir);
+  folders.push(dir);
   const file = path.join(dir, 'log.jsonl');
   fs.writeFileSync(file, content);
   return file;
-}
+};
 
 describe('LogTail', () => {
   it('returns complete new lines, holding back an unfinished one', () => {
     const file = log('a\nb\npar');
-    const t = new LogTail(file, 1024);
-    expect(t.read()).toEqual({ lines: ['a', 'b'], restarted: false });
-    expect(t.read()).toBeNull();
+    const tail = new LogTail(file, 1024);
+    expect(tail.read()).toEqual({ lines: ['a', 'b'], restarted: false });
+    expect(tail.read()).toBeNull();
     fs.appendFileSync(file, 'tial\nc\n');
-    expect(t.read()?.lines).toEqual(['partial', 'c']);
+    expect(tail.read()?.lines).toEqual(['partial', 'c']);
   });
 
   it('starts near the end of a big log, dropping the cut-off line', () => {
@@ -31,10 +31,10 @@ describe('LogTail', () => {
 
   it('starts over when the log is truncated', () => {
     const file = log('a\nb\n');
-    const t = new LogTail(file, 1024);
-    t.read();
+    const tail = new LogTail(file, 1024);
+    tail.read();
     fs.writeFileSync(file, 'c\n');
-    expect(t.read()).toEqual({ lines: ['c'], restarted: true });
+    expect(tail.read()).toEqual({ lines: ['c'], restarted: true });
   });
 
   it('copes with a missing file', () => {

@@ -6,6 +6,22 @@ import { nightTint } from '../util';
 type Mode = 'away' | 'walk' | 'pause' | 'leave';
 type Act = 'look' | 'snap' | 'dance';
 const ACTS: Act[] = ['look', 'snap', 'dance'];
+const SPEEDS: Record<Mode, number> = { away: 0, walk: 1, pause: 0, leave: 7 };
+
+/** What the crab needs each frame; main.ts keeps one and refills it, so a frame allocates nothing. */
+export interface CrabFrame { t: number; deltaFrames: number; width: number; height: number; calm: boolean; night: number }
+
+type PoseAim = Pick<CrabPose, 'open' | 'leftArm' | 'rightArm' | 'look' | 'brows' | 'fright'> & { sway: number };
+
+const ACT_AIMS: Record<Act, (aim: PoseAim, t: number) => void> = {
+  look: (aim, t) => { aim.look = Math.sin(t * .0016) > 0 ? 1 : -1; aim.leftArm = aim.rightArm = 0; aim.open = .15; aim.brows = .3; },
+  snap: (aim, t) => { aim.open = Math.max(0, Math.sin(t * .014)); aim.leftArm = aim.rightArm = 6; aim.look = 0; aim.brows = .6; },
+  dance: (aim, t) => {
+    const beat = Math.sin(t * .008);
+    aim.leftArm = 7 + beat * 7; aim.rightArm = 7 - beat * 7; aim.open = .5 + .5 * Math.sin(t * .016); aim.look = beat; aim.brows = 1;
+    aim.sway = beat * .1;
+  },
+};
 
 /**
  * A little red crab that comes out to stroll along the sand when every session is idle (or there are none),
@@ -16,93 +32,133 @@ export class Crab extends Sprite {
   private g = this.canvas.getContext('2d')!;
   private source: CanvasSource | null = null;
   private mode: Mode = 'away'; private act: Act = 'look';
-  private wx = 0; private dir = 1; private until = 0; private calmSince = -1; private next = 0; private sway = 0;
-  private scaredAt = 0; private spooked = false;
-  private pose: CrabPose = { step: 0, walking: 0, open: 0, armL: 0, armR: 0, look: 0, brows: 0, fright: 0 };
+  private sandX = 0; private direction = 1; private until = 0; private calmSince = -1; private nextVisit = 0; private sway = 0;
+  private scaredAt = 0; private isSpooked = false;
+  private pose: CrabPose = { step: 0, walking: 0, open: 0, leftArm: 0, rightArm: 0, look: 0, brows: 0, fright: 0 };
+  private aim: PoseAim = { open: 0, leftArm: 0, rightArm: 0, look: 0, brows: 0, fright: 0, sway: 0 };
   /** Out on the sand even while sessions are busy (the crabAlways setting, or ?crab). */
   always = false;
 
-  constructor(private res: number) {
+  constructor(private resolution: number) {
     super();
     this.visible = false;
   }
 
   /** Something new swam into the tank: if he's out, he bolts. */
-  scare() { this.spooked = true; }
+  scare() { this.isSpooked = true; }
 
-  update(t: number, dt: number, W: number, H: number, calm: boolean, night = 0) {
-    calm ||= this.always;
-    if (!calm) this.calmSince = -1; else if (this.calmSince < 0) this.calmSince = t;
-    const L = W < 760 ? 56 : 80, margin = L * .8;
+  update({ t, deltaFrames, width, height, calm, night }: CrabFrame) {
+    const isCalm = calm || this.always;
+    this.trackCalm(t, isCalm);
+    const length = width < 760 ? 56 : 80, margin = length * .8;
 
     if (this.mode === 'away') {
-      if (!calm || t - this.calmSince < (this.always ? 300 : 8000) || t < this.next) return;
-      this.dir = Math.random() < .5 ? 1 : -1;
-      this.wx = this.dir > 0 ? -margin : W + margin;
-      this.walk(t);
-    } else if ((!calm || this.spooked) && this.mode !== 'leave') {
-      // startled: a jump on the spot, then a sprint off the nearest edge
-      this.mode = 'leave'; this.scaredAt = t; this.dir = this.wx < W / 2 ? -1 : 1;
-    }
-    this.spooked = false;
+      if (!isCalm || !this.comeOut(t, width, margin)) return;
+    } else this.startleIfNeeded(t, width, isCalm);
+    this.isSpooked = false;
 
-    const startle = this.mode === 'leave' ? Math.min(1, (t - this.scaredAt) / 450) : 1;
-    const speed = this.mode === 'leave' ? (startle < 1 ? 0 : 7) : this.mode === 'walk' ? 1 : 0;
-    if (speed) this.wx += this.dir * speed * dt;
-    if (this.mode === 'walk' && t > this.until && this.wx > margin * 2 && this.wx < W - margin * 2) {
-      this.mode = 'pause'; this.until = t + 2500 + Math.random() * 3500;
-      this.act = ACTS[Math.floor(Math.random() * ACTS.length)];
-    } else if (this.mode === 'pause' && t > this.until) {
-      if (Math.random() < .25) this.dir *= -1;
-      this.walk(t);
-    }
-    if (this.mode !== 'pause' && (this.dir > 0 ? this.wx > W + margin : this.wx < -margin)) {
-      this.mode = 'away'; this.visible = false;
-      this.next = t + 15000 + Math.random() * 30000;
-      return;
-    }
+    const startle = this.startleProgress(t);
+    const speed = this.speedFor(startle);
+    if (speed) this.sandX += this.direction * speed * deltaFrames;
+    this.wander(t, width, margin);
+    if (this.hasWalkedOff(width, margin)) { this.goAway(t); return; }
 
-    this.animate(t, dt, speed);
-    this.render(L);
+    this.animate(t, deltaFrames, speed);
+    this.render(length);
     this.visible = true;
-    const hop = this.mode === 'leave' ? Math.sin(startle * Math.PI) * 16
-      : this.mode === 'pause' && this.act === 'dance' ? Math.abs(Math.sin(t * .008)) * 3 : 0;
-    this.position.set(this.wx, H - 14 - hop);
+    this.position.set(this.sandX, height - 14 - this.hop(t, startle));
     this.rotation = this.sway;
     this.tint = nightTint(night); // he sits in front of the night overlay
   }
 
-  private walk(t: number) { this.mode = 'walk'; this.until = t + 3000 + Math.random() * 5000; }
-
-  private animate(t: number, dt: number, speed: number) {
-    const p = this.pose, k = Math.min(1, .15 * dt), ease = (v: number, to: number) => v + (to - v) * k;
-    const pausing = this.mode === 'pause', act = pausing ? this.act : null;
-    p.step += speed * .2 * dt;
-    p.walking = ease(p.walking, speed ? 1 : 0);
-    let open = .2 + .1 * Math.sin(p.step), armL = Math.sin(p.step) * 2, armR = -armL,     look = this.dir * .7, brows = 0, sway = 0, fright = 0;
-        if (this.mode === 'leave') { open = 1; armL = armR = 14 + Math.sin(t * .03) * 3; look = this.dir; brows = -1; fright = 1; }
-    else if (act === 'look') { look = Math.sin(t * .0016) > 0 ? 1 : -1; armL = armR = 0; open = .15; brows = .3; }
-    else if (act === 'snap') { open = Math.max(0, Math.sin(t * .014)); armL = armR = 6; look = 0; brows = .6; }
-    else if (act === 'dance') {
-      const b = Math.sin(t * .008);
-      armL = 7 + b * 7; armR = 7 - b * 7; open = .5 + .5 * Math.sin(t * .016); look = b; brows = 1; sway = b * .1;
-    }
-    p.open = ease(p.open, open); p.armL = ease(p.armL, armL); p.armR = ease(p.armR, armR);
-    p.look = ease(p.look, look); p.brows = ease(p.brows, brows); this.sway = ease(this.sway, sway);
-    p.fright = fright ? Math.min(1, p.fright + .35 * dt) : ease(p.fright, 0); // the fright hits at once
+  private trackCalm(t: number, isCalm: boolean) {
+    if (!isCalm) this.calmSince = -1;
+    else if (this.calmSince < 0) this.calmSince = t;
   }
 
-  private render(L: number) {
-    const { canvas, g, res } = this, k = L / 100, cw = CRAB_BOX.w * k, ch = CRAB_BOX.h * k;
-    if (canvas.width !== Math.ceil(cw * res)) {
-      canvas.width = Math.ceil(cw * res); canvas.height = Math.ceil(ch * res);
-      this.source?.destroy();
-      this.source = canvasSource(canvas, res);
-      this.texture = new Texture({ source: this.source });
-      this.anchor.set(CRAB_BOX.ox / CRAB_BOX.w, CRAB_BOX.oy / CRAB_BOX.h);
+  /** Returns whether he came out onto the sand. */
+  private comeOut(t: number, width: number, margin: number) {
+    if (t - this.calmSince < (this.always ? 300 : 8000) || t < this.nextVisit) return false;
+    this.direction = Math.random() < .5 ? 1 : -1;
+    this.sandX = this.direction > 0 ? -margin : width + margin;
+    this.walk(t);
+    return true;
+  }
+
+  /** Startled: a jump on the spot, then a sprint off the nearest edge. */
+  private startleIfNeeded(t: number, width: number, isCalm: boolean) {
+    if ((isCalm && !this.isSpooked) || this.mode === 'leave') return;
+    this.mode = 'leave'; this.scaredAt = t; this.direction = this.sandX < width / 2 ? -1 : 1;
+  }
+
+  private startleProgress(t: number) {
+    return this.mode === 'leave' ? Math.min(1, (t - this.scaredAt) / 450) : 1;
+  }
+
+  /** Stands still while jumping with fright, then sprints. */
+  private speedFor(startle: number) {
+    return this.mode === 'leave' && startle < 1 ? 0 : SPEEDS[this.mode];
+  }
+
+  private wander(t: number, width: number, margin: number) {
+    if (this.mode === 'walk' && t > this.until && this.sandX > margin * 2 && this.sandX < width - margin * 2) {
+      this.mode = 'pause'; this.until = t + 2500 + Math.random() * 3500;
+      this.act = ACTS[Math.floor(Math.random() * ACTS.length)];
+    } else if (this.mode === 'pause' && t > this.until) {
+      if (Math.random() < .25) this.direction *= -1;
+      this.walk(t);
     }
-    g.setTransform(res, 0, 0, res, 0, 0); g.clearRect(0, 0, cw, ch);
-    g.save(); g.translate(CRAB_BOX.ox * k, CRAB_BOX.oy * k); paintCrab(g, L, this.pose); g.restore();
+  }
+
+  private hasWalkedOff(width: number, margin: number) {
+    if (this.mode === 'pause') return false;
+    return this.direction > 0 ? this.sandX > width + margin : this.sandX < -margin;
+  }
+
+  private goAway(t: number) {
+    this.mode = 'away'; this.visible = false;
+    this.nextVisit = t + 15000 + Math.random() * 30000;
+  }
+
+  private hop(t: number, startle: number) {
+    if (this.mode === 'leave') return Math.sin(startle * Math.PI) * 16;
+    return this.mode === 'pause' && this.act === 'dance' ? Math.abs(Math.sin(t * .008)) * 3 : 0;
+  }
+
+  private walk(t: number) { this.mode = 'walk'; this.until = t + 3000 + Math.random() * 5000; }
+
+  private aimPose(t: number) {
+    const { aim, pose } = this;
+    aim.open = .2 + .1 * Math.sin(pose.step); aim.leftArm = Math.sin(pose.step) * 2; aim.rightArm = -aim.leftArm;
+    aim.look = this.direction * .7; aim.brows = 0; aim.sway = 0; aim.fright = 0;
+    if (this.mode === 'leave') {
+      aim.open = 1; aim.leftArm = aim.rightArm = 14 + Math.sin(t * .03) * 3; aim.look = this.direction; aim.brows = -1; aim.fright = 1;
+    } else if (this.mode === 'pause') ACT_AIMS[this.act](aim, t);
+  }
+
+  private animate(t: number, deltaFrames: number, speed: number) {
+    const { aim, pose } = this, rate = Math.min(1, .15 * deltaFrames);
+    const ease = (from: number, to: number) => from + (to - from) * rate;
+    pose.step += speed * .2 * deltaFrames;
+    pose.walking = ease(pose.walking, speed ? 1 : 0);
+    this.aimPose(t);
+    pose.open = ease(pose.open, aim.open); pose.leftArm = ease(pose.leftArm, aim.leftArm); pose.rightArm = ease(pose.rightArm, aim.rightArm);
+    pose.look = ease(pose.look, aim.look); pose.brows = ease(pose.brows, aim.brows); this.sway = ease(this.sway, aim.sway);
+    pose.fright = aim.fright ? Math.min(1, pose.fright + .35 * deltaFrames) : ease(pose.fright, 0); // the fright hits at once
+  }
+
+  private render(length: number) {
+    const { canvas, g, resolution } = this, scale = length / 100;
+    const canvasWidth = CRAB_BOX.w * scale, canvasHeight = CRAB_BOX.h * scale;
+    if (canvas.width !== Math.ceil(canvasWidth * resolution)) {
+      canvas.width = Math.ceil(canvasWidth * resolution); canvas.height = Math.ceil(canvasHeight * resolution);
+      this.source?.destroy();
+      this.source = canvasSource(canvas, resolution);
+      this.texture = new Texture({ source: this.source });
+      this.anchor.set(CRAB_BOX.originX / CRAB_BOX.w, CRAB_BOX.originY / CRAB_BOX.h);
+    }
+    g.setTransform(resolution, 0, 0, resolution, 0, 0); g.clearRect(0, 0, canvasWidth, canvasHeight);
+    g.save(); g.translate(CRAB_BOX.originX * scale, CRAB_BOX.originY * scale); paintCrab(g, length, this.pose); g.restore();
     this.source!.update();
   }
 }

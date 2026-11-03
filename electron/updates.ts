@@ -5,16 +5,43 @@ import { app, dialog, shell } from 'electron';
 import { isNewer, pickAsset, type Release } from './releases.ts';
 
 const CHECK_EVERY_MS = 6 * 60 * 60 * 1000;
+const DOWNLOAD = 0, LATER = 1;
 
-async function latestRelease(repo: string): Promise<Release> {
+const latestRelease = async (repo: string): Promise<Release> => {
   // only published releases count; drafts and pre-releases never prompt anyone
-  const res = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, {
+  const answer = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, {
     headers: { Accept: 'application/vnd.github+json', 'User-Agent': `agent-fishtank/${app.getVersion()}` },
     signal: AbortSignal.timeout(5000),
   });
-  if (!res.ok) throw new Error(res.status === 404 ? 'no release has been published yet' : `GitHub answered ${res.status}`);
-  return await res.json() as Release;
-}
+  if (!answer.ok) throw new Error(answer.status === 404 ? 'no release has been published yet' : `GitHub answered ${answer.status}`);
+  return await answer.json() as Release;
+};
+
+/** The release, or null after telling a `manual` check why it couldn't get one. */
+const fetchRelease = async (repo: string, manual: boolean): Promise<Release | null> => {
+  try { return await latestRelease(repo); } catch (error) {
+    if (manual) await dialog.showMessageBox({ type: 'warning', message: 'Couldn\'t check for updates', detail: (error as Error).message });
+    return null;
+  }
+};
+
+/** Offers to download `latest`; resolves to the button chosen. */
+const offerDownload = async (release: Release, latest: string, current: string) => {
+  const notes = (release.body ?? '').trim().split('\n').slice(0, 8).join('\n');
+  // no parent window: the window is often hidden while sessions run
+  const { response } = await dialog.showMessageBox({
+    type: 'info', buttons: ['Download', 'Later', 'Skip This Version'], defaultId: DOWNLOAD, cancelId: LATER,
+    message: `Agent Fishtank ${latest} is available`,
+    detail: [
+      `You have ${current}.`,
+      notes,
+      process.platform === 'darwin'
+        ? 'Download it, quit Agent Fishtank, then drag the new version to Applications to replace the old one.'
+        : 'Download it, quit Agent Fishtank, then run the installer.',
+    ].filter(Boolean).join('\n\n'),
+  });
+  return response;
+};
 
 export interface UpdateOptions {
   repo: string;
@@ -24,11 +51,11 @@ export interface UpdateOptions {
 }
 
 export class Updates {
-  private readonly o: UpdateOptions;
+  private readonly options: UpdateOptions;
   private dismissed = ''; // "Later": not again while the app runs
-  private open = false;
+  private isOpen = false;
 
-  constructor(o: UpdateOptions) { this.o = o; }
+  constructor(options: UpdateOptions) { this.options = options; }
 
   /** Checks now and every few hours, quietly: no network, rate limits and such show nothing. */
   start() {
@@ -38,35 +65,20 @@ export class Updates {
 
   /** `manual` (the menu item): also say when there's nothing new or the check failed, and ignore earlier answers. */
   async check(manual: boolean) {
-    if (this.open) return;
-    let release: Release;
-    try { release = await latestRelease(this.o.repo); } catch (e) {
-      if (manual) await dialog.showMessageBox({ type: 'warning', message: 'Couldn\'t check for updates', detail: (e as Error).message });
-      return;
-    }
+    if (this.isOpen) return;
+    const release = await fetchRelease(this.options.repo, manual);
+    if (!release) return;
     const latest = release.tag_name.replace(/^v/, ''), current = app.getVersion();
     if (!isNewer(latest, current)) {
       if (manual) await dialog.showMessageBox({ type: 'info', message: 'Agent Fishtank is up to date', detail: `You have the latest version, ${current}.` });
       return;
     }
-    if (!manual && (latest === this.dismissed || latest === this.o.skipped())) return;
+    if (!manual && (latest === this.dismissed || latest === this.options.skipped())) return;
 
-    const notes = (release.body ?? '').trim().split('\n').slice(0, 8).join('\n');
-    this.open = true;
-    // no parent window: the window is often hidden while sessions run
-    const { response } = await dialog.showMessageBox({
-      type: 'info', buttons: ['Download', 'Later', 'Skip This Version'], defaultId: 0, cancelId: 1,
-      message: `Agent Fishtank ${latest} is available`,
-      detail: [
-        `You have ${current}.`,
-        notes,
-        process.platform === 'darwin'
-          ? 'Download it, quit Agent Fishtank, then drag the new version to Applications to replace the old one.'
-          : 'Download it, quit Agent Fishtank, then run the installer.',
-      ].filter(Boolean).join('\n\n'),
-    }).finally(() => { this.open = false; });
-    if (response === 0) void shell.openExternal(pickAsset(release, process.platform, process.arch));
-    else if (response === 1) this.dismissed = latest;
-    else this.o.skip(latest);
+    this.isOpen = true;
+    const response = await offerDownload(release, latest, current).finally(() => { this.isOpen = false; });
+    if (response === DOWNLOAD) void shell.openExternal(pickAsset(release, process.platform, process.arch));
+    else if (response === LATER) this.dismissed = latest;
+    else this.options.skip(latest);
   }
 }

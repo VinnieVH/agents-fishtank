@@ -9,7 +9,7 @@ describe('Claude desktop app sessions', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fishtank-desktop-'));
     const org = path.join(dir, 'account', 'org');
     fs.mkdirSync(org, { recursive: true });
-    const write = (name: string, s: object) => fs.writeFileSync(path.join(org, name), JSON.stringify(s));
+    const write = (name: string, session: object) => fs.writeFileSync(path.join(org, name), JSON.stringify(session));
     write('local_abc-1.json', { sessionId: 'local_abc-1', cliSessionId: 'cli-1' });
     write('local_bad.json', { sessionId: 'local_../bad', cliSessionId: 'cli-2' }); // not an id the app accepts
     write('scheduled-tasks.json', { scheduledTasks: [] });

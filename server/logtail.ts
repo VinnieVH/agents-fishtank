@@ -27,13 +27,13 @@ export class LogTail {
       this.offset = 0; this.partial = ''; this.midLine = false; restarted = true;
     }
     if (size === this.offset) return restarted ? { lines: [], restarted } : null;
-    const buf = Buffer.alloc(size - this.offset);
-    const fd = fs.openSync(this.file, 'r');
-    try { fs.readSync(fd, buf, 0, buf.length, this.offset); } finally { fs.closeSync(fd); }
+    const buffer = Buffer.alloc(size - this.offset);
+    const descriptor = fs.openSync(this.file, 'r');
+    try { fs.readSync(descriptor, buffer, 0, buffer.length, this.offset); } finally { fs.closeSync(descriptor); }
     this.offset = size;
-    const lines = (this.partial + buf.toString('utf8')).split('\n');
+    const lines = (this.partial + buffer.toString('utf8')).split('\n');
     this.partial = lines.pop() ?? '';
     if (this.midLine) { lines.shift(); this.midLine = false; }
-    return { lines: lines.filter(l => l.trim()), restarted };
+    return { lines: lines.filter(line => line.trim()), restarted };
   }
 }

@@ -2,19 +2,20 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { applyHook, Claude, isShown, limitsFrom, liveFrom, nameOf, newClaudeSession, noteTitles, parseHook, type HookEvent } from '../server/claude.ts';
+import { applyHook, Claude, isShown, nameOf, newClaudeSession, noteTitles, parseHook, type HookEvent } from '../server/claude.ts';
+import { limitsFrom, liveFrom } from '../server/claudeStatus.ts';
 import { toSession } from '../server/session.ts';
 
-const T = 1_000_000;
+const START = 1_000_000;
 /** Plays hook events (as name or [name, extra fields]) into a fresh session, one second apart. */
-function play(...events: (string | [string, Partial<HookEvent>])[]) {
-  const s = newClaudeSession();
-  events.forEach((e, i) => {
-    const [name, extra] = typeof e === 'string' ? [e, {}] : e;
-    applyHook(s, { hook_event_name: name, session_id: 's1', ...extra }, T + i * 1000);
+const play = (...events: (string | [string, Partial<HookEvent>])[]) => {
+  const session = newClaudeSession();
+  events.forEach((event, index) => {
+    const [name, extra] = typeof event === 'string' ? [event, {}] : event;
+    applyHook(session, { hook_event_name: name, session_id: 's1', ...extra }, START + index * 1000);
   });
-  return s;
-}
+  return session;
+};
 
 describe('Claude Code hooks', () => {
   it('works from the prompt until Stop', () => {
@@ -43,19 +44,19 @@ describe('Claude Code hooks', () => {
   });
 
   it('tracks subagents with the description from their Agent call', () => {
-    const s = play('UserPromptSubmit',
+    const session = play('UserPromptSubmit',
       ['PreToolUse', { tool_name: 'Agent', tool_input: { subagent_type: 'Explore', description: 'Find the parser' } }],
       ['SubagentStart', { agent_id: 'a1', agent_type: 'Explore' }]);
-    expect(s.subagents.get('a1')).toMatchObject({ name: 'Explore', description: 'Find the parser', status: 'running' });
-    applyHook(s, { hook_event_name: 'SubagentStop', session_id: 's1', agent_id: 'a1', agent_type: 'Explore' }, T + 9000);
-    expect(s.subagents.get('a1')).toMatchObject({ status: 'done', end: T + 9000 });
+    expect(session.subagents.get('a1')).toMatchObject({ name: 'Explore', description: 'Find the parser', status: 'running' });
+    applyHook(session, { hook_event_name: 'SubagentStop', session_id: 's1', agent_id: 'a1', agent_type: 'Explore' }, START + 9000);
+    expect(session.subagents.get('a1')).toMatchObject({ status: 'done', end: START + 9000 });
   });
 
   it('describes subagents started by another subagent', () => {
-    const s = play('UserPromptSubmit',
+    const session = play('UserPromptSubmit',
       ['PreToolUse', { agent_id: 'boss', agent_type: 'general-purpose', tool_name: 'Agent', tool_input: { subagent_type: 'Explore', description: 'Scout the reef' } }],
       ['SubagentStart', { agent_id: 'scout', agent_type: 'Explore' }]);
-    expect(s.subagents.get('scout')?.description).toBe('Scout the reef');
+    expect(session.subagents.get('scout')?.description).toBe('Scout the reef');
   });
 
   it('ignores tool calls inside a subagent, but not its permission prompts', () => {
@@ -65,26 +66,26 @@ describe('Claude Code hooks', () => {
   });
 
   it('keeps working while a background subagent runs after the turn ends', () => {
-    const s = play('UserPromptSubmit', ['SubagentStart', { agent_id: 'a1', agent_type: 'general-purpose' }], 'Stop');
-    expect(s.state).toBe('idle');
-    expect(toSession('s1', 'claude', s, T + 5000)?.state).toBe('working');
+    const session = play('UserPromptSubmit', ['SubagentStart', { agent_id: 'a1', agent_type: 'general-purpose' }], 'Stop');
+    expect(session.state).toBe('idle');
+    expect(toSession({ id: 's1', source: 'claude', tracked: session, now: START + 5000 })?.state).toBe('working');
   });
 
   it('stops running subagents when the session ends', () => {
-    const s = play('UserPromptSubmit', ['SubagentStart', { agent_id: 'a1', agent_type: 'Explore' }], 'SessionEnd');
-    expect(s).toMatchObject({ state: 'idle', ended: true });
-    expect(s.subagents.get('a1')?.status).toBe('stopped');
+    const session = play('UserPromptSubmit', ['SubagentStart', { agent_id: 'a1', agent_type: 'Explore' }], 'SessionEnd');
+    expect(session).toMatchObject({ state: 'idle', ended: true });
+    expect(session.subagents.get('a1')?.status).toBe('stopped');
   });
 
   it('replays a real session with a background subagent', () => {
     // hook order captured from Claude Code 2.1.312 (payloads trimmed to the fields we use)
     const sub = { agent_id: 'a3ad7cd4db', agent_type: 'general-purpose' };
     const agentCall = { tool_name: 'Agent', tool_input: { subagent_type: 'general-purpose', description: 'Read package name' } };
-    const s = play('UserPromptSubmit', ['PreToolUse', agentCall], ['SubagentStart', sub], ['PostToolUse', agentCall],
+    const session = play('UserPromptSubmit', ['PreToolUse', agentCall], ['SubagentStart', sub], ['PostToolUse', agentCall],
       ['PreToolUse', { ...sub, tool_name: 'Read' }], ['PostToolUse', { ...sub, tool_name: 'Read' }], 'Stop');
-    expect(toSession('s1', 'claude', s, T + 7000)?.state).toBe('working'); // the subagent is still reading
-    applyHook(s, { hook_event_name: 'SubagentStop', session_id: 's1', ...sub }, T + 8000);
-    expect(toSession('s1', 'claude', s, T + 8000)).toMatchObject({
+    expect(toSession({ id: 's1', source: 'claude', tracked: session, now: START + 7000 })?.state).toBe('working'); // the subagent is still reading
+    applyHook(session, { hook_event_name: 'SubagentStop', session_id: 's1', ...sub }, START + 8000);
+    expect(toSession({ id: 's1', source: 'claude', tracked: session, now: START + 8000 })).toMatchObject({
       state: 'idle', subagents: [{ name: 'general-purpose', description: 'Read package name', status: 'done' }],
     });
   });
@@ -116,28 +117,28 @@ describe('running session files', () => {
       fs.mkdirSync(path.join(dir, 'sessions'));
       const file = path.join(dir, 'sessions', process.pid + '.json'); // a PID that's certainly alive
       const write = (status: string) => fs.writeFileSync(file, JSON.stringify({ pid: process.pid, sessionId: 's1', status, name: 'renamed', nameSource: 'user', statusUpdatedAt: Date.now() }));
-      const c = new Claude(dir);
-      c.handle({ hook_event_name: 'UserPromptSubmit', session_id: 's1', prompt: 'long task' });
-      write('idle'); c.poll();
-      expect(c.list(Date.now())).toMatchObject([{ id: 's1', state: 'idle', name: 'renamed' }]);
-      expect(c.running()).toBe(true);
-      fs.rmSync(file); c.poll();
-      expect(c.list(Date.now())).toMatchObject([{ state: 'working', name: 'long task' }]); // back to the hooks
+      const claude = new Claude(dir);
+      claude.handle({ hook_event_name: 'UserPromptSubmit', session_id: 's1', prompt: 'long task' });
+      write('idle'); claude.poll();
+      expect(claude.list(Date.now())).toMatchObject([{ id: 's1', state: 'idle', name: 'renamed' }]);
+      expect(claude.running()).toBe(true);
+      fs.rmSync(file); claude.poll();
+      expect(claude.list(Date.now())).toMatchObject([{ state: 'working', name: 'long task' }]); // back to the hooks
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
   it('forgets sessions that ended over an hour ago', () => {
-    const c = new Claude(os.tmpdir());
-    c.handle({ hook_event_name: 'SessionEnd', session_id: 'old' }, Date.now() - 2 * 3600_000);
-    expect(c.list(Date.now())).toEqual([]);
-    expect(c.running()).toBe(false);
+    const claude = new Claude(os.tmpdir());
+    claude.handle({ hook_event_name: 'SessionEnd', session_id: 'old' }, Date.now() - 2 * 3600_000);
+    expect(claude.list(Date.now())).toEqual([]);
+    expect(claude.running()).toBe(false);
   });
 });
 
 describe('plan usage from the status line', () => {
   it('reads both windows, with reset times in ms', () => {
-    const l = limitsFrom(JSON.stringify({ rate_limits: { five_hour: { used_percentage: 23.5, resets_at: 1738425600 }, seven_day: { used_percentage: 41.2, resets_at: 1738857600 } } }), 5);
-    expect(l).toEqual({ fiveHour: { usedPct: 23.5, resetsAt: 1738425600_000 }, sevenDay: { usedPct: 41.2, resetsAt: 1738857600_000 }, at: 5 });
+    const limits = limitsFrom(JSON.stringify({ rate_limits: { five_hour: { used_percentage: 23.5, resets_at: 1738425600 }, seven_day: { used_percentage: 41.2, resets_at: 1738857600 } } }), 5);
+    expect(limits).toEqual({ fiveHour: { usedPct: 23.5, resetsAt: 1738425600_000 }, sevenDay: { usedPct: 41.2, resetsAt: 1738857600_000 }, at: 5 });
   });
 
   it('copes with a missing window, and ignores input without usage', () => {
@@ -148,18 +149,18 @@ describe('plan usage from the status line', () => {
 });
 
 describe('session names', () => {
-  const ai = (t: string) => JSON.stringify({ type: 'ai-title', aiTitle: t, sessionId: 's1' });
-  const custom = (t: string) => JSON.stringify({ type: 'custom-title', customTitle: t, sessionId: 's1' });
+  const ai = (START: string) => JSON.stringify({ type: 'ai-title', aiTitle: START, sessionId: 's1' });
+  const custom = (START: string) => JSON.stringify({ type: 'custom-title', customTitle: START, sessionId: 's1' });
 
   it('prefers a name you gave, then Claude Code\'s title, then the first prompt', () => {
-    const s = play(['UserPromptSubmit', { prompt: 'can you look at the failing test' }]);
-    expect(nameOf(s)).toBe('can you look at the failing test');
-    noteTitles(s, [JSON.stringify({ type: 'user', message: { content: 'x' } }), ai('Fix flaky login test')]);
-    expect(nameOf(s)).toBe('Fix flaky login test');
-    noteTitles(s, [ai('Fix flaky login test and CI'), custom('login-fix')]);
-    expect(nameOf(s)).toBe('login-fix');
-    s.live = { state: 'idle', name: 'renamed in the CLI' };
-    expect(nameOf(s)).toBe('renamed in the CLI');
+    const session = play(['UserPromptSubmit', { prompt: 'can you look at the failing test' }]);
+    expect(nameOf(session)).toBe('can you look at the failing test');
+    noteTitles(session, [JSON.stringify({ type: 'user', message: { content: 'x' } }), ai('Fix flaky login test')]);
+    expect(nameOf(session)).toBe('Fix flaky login test');
+    noteTitles(session, [ai('Fix flaky login test and CI'), custom('login-fix')]);
+    expect(nameOf(session)).toBe('login-fix');
+    session.live = { state: 'idle', name: 'renamed in the CLI' };
+    expect(nameOf(session)).toBe('renamed in the CLI');
   });
 
   it('follows the transcript, also of a session no hook told us about', () => {
@@ -170,70 +171,70 @@ describe('session names', () => {
       const transcript = path.join(dir, 'projects', '-Users-me-app', 's1.jsonl');
       fs.writeFileSync(transcript, [JSON.stringify({ type: 'user', message: { content: 'hi' } }), ai('Multi-CLI support')].join('\n') + '\n');
       fs.writeFileSync(path.join(dir, 'sessions', process.pid + '.json'), JSON.stringify({ sessionId: 's1', status: 'busy', name: 'app-2b', nameSource: 'derived', statusUpdatedAt: Date.now() }));
-      const c = new Claude(dir);
-      c.poll();
-      expect(c.list(Date.now())).toMatchObject([{ id: 's1', name: 'Multi-CLI support', state: 'working' }]);
+      const claude = new Claude(dir);
+      claude.poll();
+      expect(claude.list(Date.now())).toMatchObject([{ id: 's1', name: 'Multi-CLI support', state: 'working' }]);
       fs.appendFileSync(transcript, custom('fishtank') + '\n');
-      c.poll();
-      expect(c.list(Date.now())[0].name).toBe('fishtank');
+      claude.poll();
+      expect(claude.list(Date.now())[0].name).toBe('fishtank');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
 
 describe('opened but unused sessions', () => {
-  function registry() {
+  const sessionRegistry = () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fishtank-spare-'));
     fs.mkdirSync(path.join(dir, 'sessions'));
     // a PID that's certainly alive
     const write = (entry: object) => fs.writeFileSync(path.join(dir, 'sessions', process.pid + '.json'), JSON.stringify({ statusUpdatedAt: Date.now(), ...entry }));
     return { dir, write, done: () => fs.rmSync(dir, { recursive: true, force: true }) };
-  }
+  };
 
   it('ignores spare session processes and daemons, also for staying open', () => {
-    const r = registry();
+    const registry = sessionRegistry();
     try {
-      const c = new Claude(r.dir);
-      r.write({ sessionId: 'spare-1', status: 'idle', kind: 'bg', spare: true });
-      c.poll();
-      expect(c.list(Date.now())).toEqual([]);
-      expect(c.running()).toBe(false);
-      r.write({ sessionId: 'd-1', status: 'idle', kind: 'daemon' });
-      c.poll();
-      expect(c.running()).toBe(false);
-    } finally { r.done(); }
+      const claude = new Claude(registry.dir);
+      registry.write({ sessionId: 'spare-1', status: 'idle', kind: 'bg', spare: true });
+      claude.poll();
+      expect(claude.list(Date.now())).toEqual([]);
+      expect(claude.running()).toBe(false);
+      registry.write({ sessionId: 'd-1', status: 'idle', kind: 'daemon' });
+      claude.poll();
+      expect(claude.running()).toBe(false);
+    } finally { registry.done(); }
   });
 
   it('shows one fish when "+ New" opens a session and the first message arrives under another id', () => {
-    const r = registry();
+    const registry = sessionRegistry();
     try {
-      const c = new Claude(r.dir);
-      r.write({ sessionId: 'temp-id', status: 'idle', kind: 'interactive', name: 'app-3', nameSource: 'derived' });
-      c.poll();
-      expect(c.list(Date.now())).toEqual([]);     // opened, not used yet: no fish
-      expect(c.running()).toBe(true);             // but it keeps the app open
-      c.handle({ hook_event_name: 'UserPromptSubmit', session_id: 'real-id', prompt: 'Add a crab' });
-      r.write({ sessionId: 'real-id', status: 'busy', kind: 'interactive' });
-      c.poll();
-      expect(c.list(Date.now())).toMatchObject([{ id: 'real-id', name: 'Add a crab', state: 'working' }]);
-    } finally { r.done(); }
+      const claude = new Claude(registry.dir);
+      registry.write({ sessionId: 'temp-id', status: 'idle', kind: 'interactive', name: 'app-3', nameSource: 'derived' });
+      claude.poll();
+      expect(claude.list(Date.now())).toEqual([]);     // opened, not used yet: no fish
+      expect(claude.running()).toBe(true);             // but it keeps the app open
+      claude.handle({ hook_event_name: 'UserPromptSubmit', session_id: 'real-id', prompt: 'Add a crab' });
+      registry.write({ sessionId: 'real-id', status: 'busy', kind: 'interactive' });
+      claude.poll();
+      expect(claude.list(Date.now())).toMatchObject([{ id: 'real-id', name: 'Add a crab', state: 'working' }]);
+    } finally { registry.done(); }
   });
 
   it('carries a session on under its new id after a /clear, keeping its fish and name until it gets a new one', () => {
-    const r = registry();
+    const registry = sessionRegistry();
     try {
-      const c = new Claude(r.dir);
-      c.handle({ hook_event_name: 'UserPromptSubmit', session_id: 'before', prompt: 'Feature ideas' });
-      r.write({ sessionId: 'before', status: 'idle', kind: 'interactive' });
-      c.poll();
-      // /clear: the old session ends and the same process starts a new one, which hasn't been used yet
-      c.handle({ hook_event_name: 'SessionEnd', session_id: 'before' });
-      c.handle({ hook_event_name: 'SessionStart', session_id: 'after' });
-      r.write({ sessionId: 'after', status: 'idle', kind: 'interactive' });
-      c.poll();
-      expect(c.list(Date.now())).toMatchObject([{ id: 'after', was: 'before', name: 'Feature ideas' }]);
-      r.write({ sessionId: 'after', status: 'idle', kind: 'interactive', name: 'Test 123', nameSource: 'user' }); // /rename
-      c.poll();
-      expect(c.list(Date.now())).toMatchObject([{ id: 'after', was: 'before', name: 'Test 123' }]);
-    } finally { r.done(); }
+      const claude = new Claude(registry.dir);
+      claude.handle({ hook_event_name: 'UserPromptSubmit', session_id: 'before', prompt: 'Feature ideas' });
+      registry.write({ sessionId: 'before', status: 'idle', kind: 'interactive' });
+      claude.poll();
+      // /clear: the old session ends and the same process starts a new one, which hasn'START been used yet
+      claude.handle({ hook_event_name: 'SessionEnd', session_id: 'before' });
+      claude.handle({ hook_event_name: 'SessionStart', session_id: 'after' });
+      registry.write({ sessionId: 'after', status: 'idle', kind: 'interactive' });
+      claude.poll();
+      expect(claude.list(Date.now())).toMatchObject([{ id: 'after', was: 'before', name: 'Feature ideas' }]);
+      registry.write({ sessionId: 'after', status: 'idle', kind: 'interactive', name: 'Test 123', nameSource: 'user' }); // /rename
+      claude.poll();
+      expect(claude.list(Date.now())).toMatchObject([{ id: 'after', was: 'before', name: 'Test 123' }]);
+    } finally { registry.done(); }
   });
 });

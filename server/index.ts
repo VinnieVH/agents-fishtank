@@ -18,7 +18,7 @@ startServer({
     console.log('No Copilot CLI or Claude Code running, shutting down fishtank.');
     setTimeout(() => process.exit(0), 300);
   },
-}).then(t => console.log(`Agent fishtank: ${t.url}`), (err: NodeJS.ErrnoException) => {
-  console.log(err.code === 'EADDRINUSE' ? `Port ${port} is already in use (fishtank already running?).` : String(err));
-  process.exit(err.code === 'EADDRINUSE' ? 0 : 1);
+}).then(tank => console.log(`Agent fishtank: ${tank.url}`), (error: NodeJS.ErrnoException) => {
+  console.log(error.code === 'EADDRINUSE' ? `Port ${port} is already in use (fishtank already running?).` : String(error));
+  process.exit(error.code === 'EADDRINUSE' ? 0 : 1);
 });

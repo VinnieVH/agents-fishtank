@@ -7,21 +7,21 @@ describe('sunPosition', () => {
   it('puts the sun high at midsummer noon and below the horizon at midnight', () => {
     const noon = sunPosition(new Date(Date.UTC(2024, 5, 21, 11, 45)), brussels);
     const midnight = sunPosition(new Date(Date.UTC(2024, 5, 21, 23, 45)), brussels);
-    expect(noon.el).toBeGreaterThan(60);
-    expect(noon.el).toBeLessThan(64);
-    expect(Math.abs(noon.ha)).toBeLessThan(.05);
-    expect(midnight.el).toBeLessThan(-10);
+    expect(noon.elevation).toBeGreaterThan(60);
+    expect(noon.elevation).toBeLessThan(64);
+    expect(Math.abs(noon.hourAngle)).toBeLessThan(.05);
+    expect(midnight.elevation).toBeLessThan(-10);
   });
 
   it('keeps the winter sun low', () => {
-    expect(sunPosition(new Date(Date.UTC(2024, 11, 21, 11, 45)), brussels).el).toBeLessThan(17);
+    expect(sunPosition(new Date(Date.UTC(2024, 11, 21, 11, 45)), brussels).elevation).toBeLessThan(17);
   });
 
   it('marks the morning as dawn and the evening as dusk', () => {
     const morning = sunPosition(new Date(Date.UTC(2024, 2, 20, 5, 45)), brussels);
     const evening = sunPosition(new Date(Date.UTC(2024, 2, 20, 17, 55)), brussels);
-    expect(lightFor(morning.el, morning.ha).phase).toBe('Dawn');
-    expect(lightFor(evening.el, evening.ha).phase).toBe('Dusk');
+    expect(lightFor(morning.elevation, morning.hourAngle).phase).toBe('Dawn');
+    expect(lightFor(evening.elevation, evening.hourAngle).phase).toBe('Dusk');
   });
 });
 

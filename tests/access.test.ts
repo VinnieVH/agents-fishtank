@@ -10,8 +10,8 @@ let dir = '';
 
 afterEach(() => {
   if (!dir) return;
-  for (const f of fs.readdirSync(dir)) {
-    const file = path.join(dir, f);
+  for (const name of fs.readdirSync(dir)) {
+    const file = path.join(dir, name);
     if (process.platform === 'win32') execFileSync('icacls', [file, '/reset'], { stdio: 'ignore' });
     else fs.chmodSync(file, 0o600);
   }

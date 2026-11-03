@@ -72,13 +72,13 @@ app.stage.addChild(bodies, marks);
 const states = ['working', 'waiting', 'idle'];
 const W = () => app.screen.width, bottom = () => app.screen.height - 30;
 const fish = states.map((state, i) => {
-  const f = new Fish('live-' + i, 'live-' + i, false, { species, neon: NEON[i * 5] }, W(), bottom(), devicePixelRatio);
+  const f = new Fish({ key: 'live-' + i, sessionId: 'live-' + i, small: false, look: { species, neon: NEON[i * 5] }, tankWidth: W(), bottom: bottom(), resolution: devicePixelRatio });
   f.setLabel(state);
   bodies.addChild(f.body); marks.addChild(f.marks);
   return { f, state };
 });
 app.ticker.add(t => {
-  const tank = { t: performance.now(), dt: Math.min(3, t.deltaMS / 16.7), right: W(), bottom: bottom(), night: night ? 1 : 0 };
+  const tank = { t: performance.now(), deltaFrames: Math.min(3, t.deltaMS / 16.7), right: W(), bottom: bottom(), night: night ? 1 : 0 };
   for (const { f, state } of fish) f.update(tank, state, undefined);
 });
 </script>

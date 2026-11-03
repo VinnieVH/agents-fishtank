@@ -14,7 +14,7 @@ export interface SpeciesInfo {
   markY: number;
   /** drawing bounds in body units: [left, top, right, bottom], head points right */
   bounds: [number, number, number, number];
-  /** swims with a fin, keeping its body straight (the fin is a layer of its own, see FIN in fishArt.ts) */
+  /** swims with a fin, keeping its body straight (the fin is a layer of its own, see SeparateFin in art/fishLook.ts) */
   stiff?: boolean;
 }
 
@@ -35,13 +35,13 @@ export const SPECIES: Record<Species, SpeciesInfo> = {
 export const ALL_SPECIES = Object.keys(SPECIES) as Species[];
 
 /** The species least represented right now; ties are broken by the session id so the choice is stable. */
-export function pickSpecies(sessionId: string, inTank: Iterable<Species>): Species {
-  const count = Object.fromEntries(ALL_SPECIES.map(s => [s, 0])) as Record<Species, number>;
-  for (const s of inTank) count[s]++;
+export const pickSpecies = (sessionId: string, inTank: Iterable<Species>): Species => {
+  const count = Object.fromEntries(ALL_SPECIES.map(species => [species, 0])) as Record<Species, number>;
+  for (const species of inTank) count[species]++;
   const min = Math.min(...Object.values(count));
-  const options = ALL_SPECIES.filter(s => count[s] === min);
+  const options = ALL_SPECIES.filter(species => count[species] === min);
   return options[hash(sessionId + ':species') % options.length];
-}
+};
 
 /** Neon glow colours, far enough apart to tell sessions apart (also in the panel's swatches). */
 export const NEON = ['#39ff14', '#00f0ff', '#ff00e6', '#fff200', '#ff6a00', '#b026ff', '#00ffb3', '#ff2e63',
@@ -54,13 +54,16 @@ export interface Look { species: Species; neon: string }
  * The glow colour least used in the tank, above all among fish of the same species, so two fish that look the same
  * are as rare as possible. Ties are broken by the session id.
  */
-export function pickNeon(sessionId: string, species: Species, inTank: Iterable<Look>): string {
-  const score = new Map(NEON.map(n => [n, 0]));
-  for (const l of inTank) if (score.has(l.neon)) score.set(l.neon, score.get(l.neon)! + (l.species === species ? 100 : 1));
+export const pickNeon = (sessionId: string, species: Species, inTank: Iterable<Look>): string => {
+  const score = new Map(NEON.map(neon => [neon, 0]));
+  for (const look of inTank) {
+    const current = score.get(look.neon);
+    if (current !== undefined) score.set(look.neon, current + (look.species === species ? 100 : 1));
+  }
   const min = Math.min(...score.values());
-  const options = NEON.filter(n => score.get(n) === min);
+  const options = NEON.filter(neon => score.get(neon) === min);
   return options[hash(sessionId + ':neon') % options.length];
-}
+};
 
 /** Remembers each session's look (also across reloads) so a fish never changes species or colour. */
 export class SpeciesStore {
@@ -71,7 +74,7 @@ export class SpeciesStore {
   get(sessionId: string, inTank: Look[]): Look {
     const known = this.map[sessionId];
     const kept = typeof known === 'string' ? known : known?.species;
-    const species = kept && kept in SPECIES ? kept : pickSpecies(sessionId, inTank.map(l => l.species));
+    const species = kept && kept in SPECIES ? kept : pickSpecies(sessionId, inTank.map(look => look.species));
     const neon = typeof known === 'object' && NEON.includes(known.neon) ? known.neon : pickNeon(sessionId, species, inTank);
     return this.map[sessionId] = { species, neon };
   }

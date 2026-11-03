@@ -8,46 +8,53 @@ const dialog = document.getElementById('settings') as HTMLDialogElement;
 const form = dialog.querySelector('form')!;
 const field = <T extends HTMLInputElement | HTMLSelectElement>(name: string) => form.elements.namedItem(name) as T;
 const FLAGS = ['visitors', 'crabAlways', 'notifyWaiting', 'notifyFinished', 'openOnSession', 'quitWhenIdle', 'openAtLogin'] as const;
+const LOCATION_FIELDS = ['customLocation', 'lat', 'lon'];
 
 let current: Settings = DEFAULT_SETTINGS;
 
-/** Shows the latest settings in the dialog, unless the user is busy changing them. */
-export function showSettings(s: Settings, desktop: boolean) {
-  current = s;
-  for (const el of dialog.querySelectorAll<HTMLElement>('[data-desktop]')) el.hidden = !desktop;
-  if (dialog.open && dialog.contains(document.activeElement) && document.activeElement?.matches('input[type=number]')) return;
-  field<HTMLSelectElement>('daylight').value = s.daylight;
-  field<HTMLSelectElement>('motion').value = s.motion;
-  field<HTMLSelectElement>('notifyAfter').value = String(s.notifyAfter);
-  for (const k of FLAGS) field<HTMLInputElement>(k).checked = s[k];
-  field<HTMLInputElement>('customLocation').checked = !!s.location;
-  if (s.location) { field<HTMLInputElement>('lat').value = String(s.location.lat); field<HTMLInputElement>('lon').value = String(s.location.lon); }
-  coords();
-}
-
-function coords() {
+const showCoordinates = () => {
   (dialog.querySelector('.coords') as HTMLElement).hidden = !field<HTMLInputElement>('customLocation').checked;
-}
+};
 
-function save(change: Partial<Settings>) {
+/** Shows the latest settings in the dialog, unless the user is busy changing them. */
+export const showSettings = (settings: Settings, desktop: boolean) => {
+  current = settings;
+  for (const element of dialog.querySelectorAll<HTMLElement>('[data-desktop]')) element.hidden = !desktop;
+  if (dialog.open && dialog.contains(document.activeElement) && document.activeElement?.matches('input[type=number]')) return;
+  field<HTMLSelectElement>('daylight').value = settings.daylight;
+  field<HTMLSelectElement>('motion').value = settings.motion;
+  field<HTMLSelectElement>('notifyAfter').value = String(settings.notifyAfter);
+  for (const flag of FLAGS) field<HTMLInputElement>(flag).checked = settings[flag];
+  field<HTMLInputElement>('customLocation').checked = !!settings.location;
+  if (settings.location) {
+    field<HTMLInputElement>('lat').value = String(settings.location.lat);
+    field<HTMLInputElement>('lon').value = String(settings.location.lon);
+  }
+  showCoordinates();
+};
+
+const save = (change: Partial<Settings>) => {
   current = { ...current, ...change };
   void fetch('/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(change) }).catch(() => {});
-}
+};
 
-form.addEventListener('change', e => {
-  const el = e.target as HTMLInputElement;
-  if (el.name === 'daylight' || el.name === 'motion') save({ [el.name]: el.value });
-  else if (el.name === 'notifyAfter') save({ notifyAfter: Number(el.value) });
-  else if ((FLAGS as readonly string[]).includes(el.name)) save({ [el.name]: el.checked });
-  else if (el.name === 'customLocation' || el.name === 'lat' || el.name === 'lon') {
-    coords();
-    const lat = parseFloat(field<HTMLInputElement>('lat').value), lon = parseFloat(field<HTMLInputElement>('lon').value);
-    if (!field<HTMLInputElement>('customLocation').checked) save({ location: null });
-    else if (Math.abs(lat) <= 90 && Math.abs(lon) <= 180) save({ location: { lat, lon } });
-  }
+const saveLocation = () => {
+  showCoordinates();
+  const lat = parseFloat(field<HTMLInputElement>('lat').value), lon = parseFloat(field<HTMLInputElement>('lon').value);
+  if (!field<HTMLInputElement>('customLocation').checked) save({ location: null });
+  else if (Math.abs(lat) <= 90 && Math.abs(lon) <= 180) save({ location: { lat, lon } });
+};
+
+form.addEventListener('change', event => {
+  const control = event.target as HTMLInputElement;
+  const { name } = control;
+  if (name === 'daylight' || name === 'motion') save({ [name]: control.value });
+  else if (name === 'notifyAfter') save({ notifyAfter: Number(control.value) });
+  else if ((FLAGS as readonly string[]).includes(name)) save({ [name]: control.checked });
+  else if (LOCATION_FIELDS.includes(name)) saveLocation();
 });
 
-function open() { if (!dialog.open) dialog.showModal(); }
-document.getElementById('gear')!.addEventListener('click', open);
+const openSettings = () => { if (!dialog.open) dialog.showModal(); };
+document.getElementById('gear')!.addEventListener('click', openSettings);
 // the app's menu item (electron/main.ts)
-(window as unknown as { openSettings: () => void }).openSettings = open;
+(window as unknown as { openSettings: () => void }).openSettings = openSettings;

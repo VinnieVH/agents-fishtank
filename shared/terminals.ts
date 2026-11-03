@@ -42,12 +42,12 @@ export interface TerminalsApi {
  * CLI catch the mouse, select text themselves and copy it this way. Undefined for a request to read the clipboard
  * (`?`), which isn't allowed, or for anything malformed.
  */
-export function osc52Text(data: string): string | undefined {
-  const i = data.indexOf(';');
-  if (i < 0) return undefined;
-  const payload = data.slice(i + 1).replace(/;$/, '');
+export const osc52Text = (data: string): string | undefined => {
+  const separator = data.indexOf(';');
+  if (separator < 0) return undefined;
+  const payload = data.slice(separator + 1).replace(/;$/, '');
   if (!payload || payload === '?') return undefined;
   try {
-    return new TextDecoder().decode(Uint8Array.from(atob(payload), c => c.charCodeAt(0)));
+    return new TextDecoder().decode(Uint8Array.from(atob(payload), character => character.charCodeAt(0)));
   } catch { return undefined; }
-}
+};

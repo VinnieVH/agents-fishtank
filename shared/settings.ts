@@ -35,22 +35,34 @@ const MOTION: Motion[] = ['auto', 'full', 'calm', 'minimal'];
 export const NOTIFY_AFTER = [30, 60, 300];
 const FLAGS = ['visitors', 'crabAlways', 'notifyWaiting', 'notifyFinished', 'openOnSession', 'quitWhenIdle', 'openAtLogin'] as const;
 
+const isOneOf = <T>(options: readonly T[], candidate: unknown): candidate is T => options.includes(candidate as T);
+
+/** The location in `change`: null to guess it, undefined when it isn't a valid one. */
+const validLocation = (change: unknown): Settings['location'] | undefined => {
+  if (change === null) return null;
+  if (!change || typeof change !== 'object') return undefined;
+  const { lat, lon } = change as Record<string, unknown>;
+  const isValid = typeof lat === 'number' && typeof lon === 'number' && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
+  return isValid ? { lat, lon } : undefined;
+};
+
 /**
  * `base` with the valid parts of `change` applied: known keys with the right type only, so a stored file from another
  * version or a bad request can't put anything odd in.
  */
-export function mergeSettings(base: Settings, change: unknown): Settings {
+export const mergeSettings = (base: Settings, change: unknown): Settings => {
   const next: Settings = { ...base };
   if (!change || typeof change !== 'object') return next;
-  const c = change as Record<string, unknown>;
-  if (DAYLIGHT.includes(c.daylight as Daylight)) next.daylight = c.daylight as Daylight;
-  if (MOTION.includes(c.motion as Motion)) next.motion = c.motion as Motion;
-  for (const k of FLAGS) if (typeof c[k] === 'boolean') next[k] = c[k];
-  if (NOTIFY_AFTER.includes(c.notifyAfter as number)) next.notifyAfter = c.notifyAfter as number;
-  if (c.location === null) next.location = null;
-  else if (c.location && typeof c.location === 'object') {
-    const { lat, lon } = c.location as Record<string, unknown>;
-    if (typeof lat === 'number' && typeof lon === 'number' && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) next.location = { lat, lon };
+  const changed = change as Record<string, unknown>;
+  const { daylight, motion, notifyAfter } = changed;
+  if (isOneOf(DAYLIGHT, daylight)) next.daylight = daylight;
+  if (isOneOf(MOTION, motion)) next.motion = motion;
+  for (const flag of FLAGS) {
+    const isOn = changed[flag];
+    if (typeof isOn === 'boolean') next[flag] = isOn;
   }
+  if (isOneOf(NOTIFY_AFTER, notifyAfter)) next.notifyAfter = notifyAfter;
+  const location = validLocation(changed.location);
+  if (location !== undefined) next.location = location;
   return next;
-}
+};
