@@ -170,6 +170,7 @@ are remembered.
 | **Open when a session starts** | Bring up the window when you start a session. Off: the fishtank runs in the background; open it from the Dock (Mac) or by starting Agent Fishtank again | On |
 | **Quit after the last session** | Off: the fishtank keeps running after your sessions end; closing the window only hides it. Quit from the menu | On |
 | **Start in the background when I log in** | Starts with your computer and keeps running, without opening the window | Off |
+| **Let other devices on my Wi-Fi watch the tank** | Shows an address (port `4322`, with a secret key) to open the tank in a browser on your phone, tablet or another computer on the same network. They can only watch: not open sessions, change settings or use the terminals. Windows may ask once to allow Agent Fishtank through the firewall on private networks | Off |
 
 Notifications don't appear while the fishtank window is in front either, and clicking one opens the tank. On a Mac, allow
 them the first time macOS asks (or later in **System Settings → Notifications → Agent Fishtank**).
@@ -179,7 +180,7 @@ them the first time macOS asks (or later in **System Settings → Notifications 
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `FISHTANK_PORT` | `4321` | The local port the app listens on. Connect again after changing it. |
+| `FISHTANK_PORT` | `4321` | The local port the app listens on. Connect again after changing it. Sharing on your Wi-Fi uses the next port |
 | `FISHTANK_NO_UPDATE_CHECK` | not set | Set to `1` to never check for updates |
 | `CLAUDE_CONFIG_DIR` | `~/.claude` | Claude Code's settings folder |
 | `COPILOT_HOME` | `~/.copilot` | Copilot CLI's folder |
@@ -191,6 +192,11 @@ them the first time macOS asks (or later in **System Settings → Notifications 
 Everything stays on your computer. The app only listens on `127.0.0.1`, reads your agents' local session files, and
 never answers your agents' hooks with anything but an empty "OK", so it can't change what they do. The only thing it
 sends over the internet is the update check to GitHub.
+
+If you turn on **Let other devices on my Wi-Fi watch the tank**, the app also answers on your local network, but only
+to show the tank, and only to a browser that has the address with its secret key: anyone with that address sees your
+session names and prompts, so share it only with people who may. The key stays the same between restarts; it's kept
+in `agent-fishtank-share-key` in the app's data folder (delete it to get a new one).
 
 ---
 
@@ -227,6 +233,10 @@ sends over the internet is the update check to GitHub.
 - **Settings:** the server keeps them in `settings.json` in the app's data folder (`npm start` uses a temp file) and
   sends them to the page with every update; the page's dialog posts changes to `/settings` (JSON from a localhost page
   only). The app itself acts on the notification and launch settings (`electron/main.ts`).
+- **Sharing on the network:** turned on in the settings, the server starts a second, watch-only server on all
+  interfaces at the next port (`server/share.ts`). It serves the page and `/events` (with the key from the shared
+  address) and refuses everything else, so settings, `/open`, hooks and terminals stay on `127.0.0.1`. Its feed
+  (`viewer`) has no session links or terminals, and the page hides the gear.
 - **Terminals:** the shells run in the app (`electron/terminals.ts`, with [node-pty](https://github.com/microsoft/node-pty),
   whose prebuilt binaries ship inside the app) and the page draws them with [xterm.js](https://xtermjs.org)
   (`src/terminals.ts`). They talk over Electron's IPC through `electron/preload.ts`, never through the local server:

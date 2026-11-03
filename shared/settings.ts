@@ -23,17 +23,20 @@ export interface Settings {
   openOnSession: boolean;
   quitWhenIdle: boolean;
   openAtLogin: boolean;
+  /** Others on the local network (Wi-Fi) may watch the tank, with the secret address (server/share.ts). */
+  shareOnNetwork: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   daylight: 'sun', location: null, visitors: true, crabAlways: false, motion: 'auto',
   notifyWaiting: true, notifyFinished: false, notifyAfter: 60, openOnSession: true, quitWhenIdle: true, openAtLogin: false,
-};
+    shareOnNetwork: false,
+  };
 
 const DAYLIGHT: Daylight[] = ['sun', 'day', 'night'];
 const MOTION: Motion[] = ['auto', 'full', 'calm', 'minimal'];
 export const NOTIFY_AFTER = [30, 60, 300];
-const FLAGS = ['visitors', 'crabAlways', 'notifyWaiting', 'notifyFinished', 'openOnSession', 'quitWhenIdle', 'openAtLogin'] as const;
+const FLAGS = ['visitors', 'crabAlways', 'notifyWaiting', 'notifyFinished', 'openOnSession', 'quitWhenIdle', 'openAtLogin', 'shareOnNetwork'] as const;
 
 const isOneOf = <T>(options: readonly T[], candidate: unknown): candidate is T => options.includes(candidate as T);
 

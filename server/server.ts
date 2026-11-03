@@ -11,6 +11,7 @@ import { limitsFrom } from './claudeStatus.ts';
 import { Copilot } from './copilot.ts';
 import { DesktopSessions } from './desktop.ts';
 import { isRecord } from './session.ts';
+import { createSharing } from './share.ts';
 import { focusTerminal, resumeInTerminal } from './terminal.ts';
 
 const IDLE_GRACE_MS = 15 * 1000;         // idle once no agent CLI process has been running this long
@@ -29,6 +30,8 @@ export const DEFAULT_PORT = 4321;
 
 export interface ServerOptions {
   port: number;
+  /** Where the tank is shared on the local network when that's turned on; the port after `port` by default. */
+  sharePort?: number;
   /** The built page (Vite's dist/). */
   distDir: string;
   copilotSessionDir?: string;
@@ -132,6 +135,14 @@ const fromPage = (request: Request, response: Response, act: (body: unknown) => 
   });
 };
 
+// Another device only watches: no settings, and no links or terminals to open from its fish.
+const forViewers = (snapshot: Snapshot): Snapshot => ({
+  ...snapshot, desktop: false, share: undefined, viewer: true,
+  sessions: snapshot.sessions.map(({ link: _link, terminal: _terminal, ...session }) => session),
+});
+
+const messageOf = (snapshot: Snapshot, isViewer: boolean) => `data: ${JSON.stringify(isViewer ? forViewers(snapshot) : snapshot)}\n\n`;
+
 const idFrom = (body: unknown) => isRecord(body) && typeof body.id === 'string' ? body.id : '';
 
 const resumeCopilot = (copilot: Copilot, id: string) =>
@@ -197,28 +208,41 @@ export const startServer = (options: ServerOptions): Promise<Fishtank> => {
   let settings = readSettings(options.settingsFile);
   options.onSettings?.(settings);
 
-  const clients = new Set<Response>();
+  const distFolder = path.resolve(options.distDir);
+  const clients = new Map<Response, boolean>(); // each page and whether it's a viewer on another device
   const takeSnapshot = (): Snapshot => {
     const now = Date.now();
-    return { sessions: [...copilot.list(now), ...claude.list(now)], time: now, quota: copilot.quota, limits, settings, desktop: !!options.desktop };
+    return {
+      sessions: [...copilot.list(now), ...claude.list(now)], time: now, quota: copilot.quota, limits, settings,
+      desktop: !!options.desktop, share: sharing.share(),
+    };
   };
   const broadcast = (snapshot: Snapshot) => {
-    const message = `data: ${JSON.stringify(snapshot)}\n\n`;
-    for (const client of clients) client.write(message);
+    const messages = [false, true].map(isViewer => messageOf(snapshot, isViewer));
+    for (const [client, isViewer] of clients) client.write(messages[Number(isViewer)]);
   };
   const changeSettings = (change: unknown) => {
     settings = mergeSettings(settings, change);
     idleWatch.resetGrace(); // e.g. turning "quit after the last session" back on doesn't quit right away
     if (options.settingsFile) saveSettings(options.settingsFile, settings);
+    sharing.update(settings.shareOnNetwork);
     options.onSettings?.(settings);
     broadcast(takeSnapshot());
   };
-  const subscribe = (request: Request, response: Response) => {
+  const subscribe = (request: Request, response: Response, isViewer = false) => {
     response.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
-    response.write(`data: ${JSON.stringify(takeSnapshot())}\n\n`);
-    clients.add(response);
+    response.write(messageOf(takeSnapshot(), isViewer));
+    clients.set(response, isViewer);
     request.on('close', () => clients.delete(response));
   };
+  const sharing = createSharing({
+    port: options.sharePort ?? options.port + 1,
+    keyFile: options.settingsFile && path.join(path.dirname(options.settingsFile), 'agent-fishtank-share-key'),
+    subscribe: (request, response) => subscribe(request, response, true),
+    serveFile: (url, response) => serveStatic(distFolder, url, response),
+    onChange: () => broadcast(takeSnapshot()),
+  });
+  sharing.update(settings.shareOnNetwork);
 
   const tick = setInterval(() => {
     copilot.poll();
@@ -233,7 +257,7 @@ export const startServer = (options: ServerOptions): Promise<Fishtank> => {
 
   const idleWatch = watchIdle({
     ...options, claude, copilot, settings: () => settings,
-    onShutdown: () => { for (const client of clients) client.write('event: shutdown\ndata: {}\n\n'); },
+    onShutdown: () => { for (const client of clients.keys()) client.write('event: shutdown\ndata: {}\n\n'); },
   });
 
   const postRoutes: Record<string, (request: Request, response: Response) => void> = {
@@ -245,7 +269,6 @@ export const startServer = (options: ServerOptions): Promise<Fishtank> => {
     '/settings': (request, response) => fromPage(request, response, changeSettings),
     '/open': (request, response) => fromPage(request, response, body => openSession({ claude, copilot }, body)),
   };
-  const distFolder = path.resolve(options.distDir);
   const server = http.createServer((request, response) => {
     const url = (request.url || '/').split('?')[0];
     if (request.method === 'POST' && Object.hasOwn(postRoutes, url)) return postRoutes[url](request, response);
@@ -255,8 +278,8 @@ export const startServer = (options: ServerOptions): Promise<Fishtank> => {
 
   return new Promise((resolve, reject) => {
     const stop = () => {
-      clearInterval(tick); idleWatch.stop();
-      for (const client of clients) client.end();
+      clearInterval(tick); idleWatch.stop(); sharing.stop();
+      for (const client of clients.keys()) client.end();
       server.close();
     };
     server.once('error', error => { stop(); reject(error); });

@@ -31,9 +31,16 @@ export interface LimitWindow { usedPct: number; resetsAt: number } // resetsAt i
 /** Claude Pro/Max usage limits; a window is null when Claude Code didn't report it. */
 export interface ClaudeLimits { fiveHour: LimitWindow | null; sevenDay: LimitWindow | null; at: number }
 
+/** The tank shared on the local network: the addresses to open on another device, or why it couldn't start. */
+export interface Share { urls: string[]; error?: string }
+
 export interface Snapshot {
   time: number; sessions: Session[]; quota?: Quota | null; limits?: ClaudeLimits | null;
   settings?: Settings;
   /** Shown in the desktop app, which offers the notification and launch settings. */
   desktop?: boolean;
+  /** While sharing is on; only sent to this computer's own page. */
+  share?: Share | null;
+  /** Watched from another device over the shared address: it can only look. */
+  viewer?: boolean;
 }

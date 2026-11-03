@@ -49,9 +49,10 @@ export const renderPanel = (snapshot: Snapshot, colorOf: (id: string) => string)
   listEl.innerHTML = sorted.map(session => sessionCard(session, colorOf(session.id), now)).join('');
 };
 
-/** Subscribes to the server's live session feed. */
+/** Subscribes to the server's live session feed; on another device with the shared address's key (server/share.ts). */
 export const connect = (onData: (snapshot: Snapshot) => void) => {
-  const events = new EventSource('/events');
+  const key = new URLSearchParams(location.search).get('key');
+  const events = new EventSource(key ? `/events?key=${encodeURIComponent(key)}` : '/events');
   events.onmessage = message => { onData(JSON.parse(message.data)); connEl.textContent = 'live · updated ' + new Date().toLocaleTimeString(); };
   events.onerror = () => { connEl.textContent = 'disconnected — reconnecting…'; };
   events.addEventListener('shutdown', () => {

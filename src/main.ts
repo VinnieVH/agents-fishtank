@@ -15,7 +15,7 @@ import { Food } from './scene/food';
 import { lightFor, locationFromParams, makeClock, sunPosition, type Light } from './sky';
 import { SpeciesStore } from './species';
 import { paintTexture } from './art/canvas';
-import { showSettings } from './settings';
+import { showSettings, showShare } from './settings';
 import { DEFAULT_SETTINGS, type Settings } from '../shared/settings';
 
 const params = new URLSearchParams(location.search);
@@ -186,6 +186,7 @@ reducedMotion.addEventListener('change', setMotion);
 
 const sync = (snapshot: Snapshot) => {
   applySettings(snapshot.settings ?? DEFAULT_SETTINGS, !!snapshot.desktop);
+  showShare(snapshot);
   sessions = new Map(snapshot.sessions.map(session => [session.id, session]));
   handOverFish(snapshot.sessions);
   const wanted = updateFish(snapshot.sessions);

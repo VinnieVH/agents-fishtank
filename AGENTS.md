@@ -62,7 +62,9 @@ to the repository's size for good.
    and the tests keep passing. If behaviour changes on purpose, say so.
 2. **Everything stays on the user's computer** (README "Privacy"). The server listens only on `127.0.0.1`, hooks are
    answered with an empty "OK" so the app can't change what an agent does, and the only request to the internet is
-   the update check. Don't add telemetry or other network calls.
+   the update check. Don't add telemetry or other network calls. The one exception is sharing on the network, which
+   the user turns on: a separate watch-only server (`server/share.ts`) that serves the page and, with its secret key,
+   the feed, and nothing else. Never add routes to it.
 3. **The app only reads the CLIs' own files.** It never writes into `~/.copilot` or `~/.claude`, except the hook and
    status line entries `electron/connect.ts` adds and removes, and the repair of files only an administrator may open
    (`electron/access.ts`), which the user confirms first. Session logs can be huge: read their tail, then only new lines
