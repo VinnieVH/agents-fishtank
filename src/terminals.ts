@@ -5,7 +5,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
-import type { Tab, TerminalKind, TerminalsApi } from '../shared/terminals';
+import { osc52Text, type Tab, type TerminalKind, type TerminalsApi } from '../shared/terminals';
 
 declare global {
   interface Window { fishtankTerminals?: TerminalsApi }
@@ -145,6 +145,8 @@ export async function startTerminals(api: TerminalsApi) {
     const term = new Terminal({
       fontFamily: "'Cascadia Mono', 'Cascadia Code', Consolas, Menlo, 'SF Mono', monospace", fontSize: 13, lineHeight: 1.1,
       cursorBlink: true, scrollback: 5000, theme: THEME, allowProposedApi: false,
+      // while a CLI has the mouse, Shift-drag (Option-drag on a Mac) still selects text the terminal's own way
+      macOptionClickForcesSelection: true,
       ...(/Windows/.test(navigator.userAgent) ? { windowsPty: { backend: 'conpty' as const } } : {}),
     });
     const fit = new FitAddon();
@@ -178,6 +180,11 @@ export async function startTerminals(api: TerminalsApi) {
       if (mod && key === 'c' && (isMac || e.shiftKey || term.hasSelection())) { e.preventDefault(); if (term.hasSelection()) copy(); return false; }
       if (mod && key === 'v') { e.preventDefault(); paste(); return false; }
       if (e.ctrlKey && e.key === 'Tab') { e.preventDefault(); cycle(e.shiftKey ? -1 : 1); return false; }
+      return true;
+    });
+    term.parser.registerOscHandler(52, data => {
+      const text = osc52Text(data);
+      if (text) api.copy(text);
       return true;
     });
     el.addEventListener('contextmenu', e => { e.preventDefault(); if (term.hasSelection()) copy(); else paste(); });
