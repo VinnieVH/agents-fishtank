@@ -7,6 +7,8 @@ import path from 'node:path';
 import { clipboard, dialog, ipcMain, type BrowserWindow, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron';
 import { spawn, type IPty } from 'node-pty';
 import type { Tab, TerminalKind, TerminalSetup } from '../shared/terminals.ts';
+import { lockedOut, repair, repairCommand } from './access.ts';
+import { places } from './connect.ts';
 
 const COMMANDS: Record<Exclude<TerminalKind, 'shell'>, { name: string; command: string }> = {
   claude: { name: 'Claude Code', command: 'claude' },
@@ -62,7 +64,10 @@ export class Terminals {
         tabs: [...this.ptys.values()].map(t => t.tab),
       };
     });
-    handle('term:create', (kind: TerminalKind, cols: number, rows: number) => this.create(kind, cols, rows));
+    handle('term:create', async (kind: TerminalKind, cols: number, rows: number) => {
+      if (kind === 'copilot') await this.checkAccess(places().copilotHome);
+      return this.create(kind, cols, rows);
+    });
     handle('term:pick-folder', async () => {
       const win = o.win(), options = { defaultPath: this.folder(), properties: ['openDirectory' as const] };
       const { canceled, filePaths } = await (win ? dialog.showOpenDialog(win, options) : dialog.showOpenDialog(options));
@@ -94,6 +99,30 @@ export class Terminals {
   private folder() {
     const f = this.o.remembered().folder;
     return f && fs.existsSync(f) ? f : os.homedir();
+  }
+
+  /** Offers to repair files in the CLI's folder that only an administrator may open (see electron/access.ts). */
+  private async checkAccess(dir: string) {
+    const files = lockedOut(dir);
+    if (!files.length) return;
+    const win = this.o.win(), canRepair = process.platform === 'win32';
+    const options = {
+      type: 'warning' as const,
+      title: 'Agent Fishtank',
+      message: 'The Copilot CLI won\'t work here until some of its files are repaired',
+      detail: `These files can only be opened by an administrator, probably because copilot once ran as administrator:\n\n${files.join('\n')}\n\n`
+        + (canRepair ? 'Repair asks for administrator rights once and gives them back to you.' : `Run this in a terminal to give them back to you:\n\n${repairCommand(files)}`),
+      buttons: canRepair ? ['Repair', 'Open Anyway'] : ['Copy Command', 'Open Anyway'],
+      defaultId: 0, cancelId: 1, noLink: true,
+    };
+    const { response } = await (win ? dialog.showMessageBox(win, options) : dialog.showMessageBox(options));
+    if (response !== 0) return;
+    if (!canRepair) { clipboard.writeText(repairCommand(files)); return; }
+    if (!await repair(files)) {
+      const failed = { type: 'error' as const, title: 'Agent Fishtank', message: 'The files couldn\'t be repaired',
+        detail: `Run this in PowerShell as administrator:\n\n${repairCommand(files)}` };
+      await (win ? dialog.showMessageBox(win, failed) : dialog.showMessageBox(failed));
+    }
   }
 
   /** Only the tank page itself, in this app's window. */
