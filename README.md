@@ -250,6 +250,7 @@ npm run app          # build and run the app from source (it can't be connected 
 npm start            # or run just the server and open http://localhost:4321 (FISHTANK_KEEP_ALIVE=1 keeps it up)
 npm run dev          # the page with hot reload on http://localhost:5173 (with npm start running)
 npm run typecheck    # TypeScript (page, server and app)
+npm run lint         # oxlint: the coding rules from AGENTS.md
 npm test             # unit tests (Vitest)
 npm run dist:dir     # package the app for this computer into release/ (unpacked, quick)
 npm run dist         # build the installers into release/

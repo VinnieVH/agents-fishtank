@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "oxc"],
+  "categories": {
+    "correctness": "error"
+  },
+  "ignorePatterns": ["dist/**", "dist-electron/**", "release/**", "site/**", "scripts/**"],
+  "rules": {
+    "complexity": ["error", { "max": 10 }],
+    "max-depth": ["error", { "max": 3 }],
+    "max-params": ["error", { "max": 3 }],
+    "max-nested-callbacks": ["error", { "max": 3 }],
+    "max-lines-per-function": ["error", { "max": 80, "skipBlankLines": true, "skipComments": true }],
+    "max-lines": ["error", { "max": 300, "skipBlankLines": true, "skipComments": true }],
+    "id-length": ["error", { "min": 2, "exceptionPatterns": ["^[xyzwhgt_]$", "^[A-Z]$"], "properties": "never" }],
+    "func-style": ["error", "expression"],
+    "prefer-arrow-callback": "error",
+    "no-var": "error",
+    "prefer-const": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/consistent-type-imports": "error"
+  }
+}

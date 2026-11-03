@@ -34,6 +34,7 @@ Run these before committing or releasing; all must pass:
 
 ```bash
 npm run typecheck    # page, server and app
+npm run lint         # oxlint with the rules below (.oxlintrc.json)
 npm test             # Vitest
 npm run build        # page + Electron bundles
 ```
@@ -71,7 +72,7 @@ to the repository's size for good.
    comes from the tank page (`allowed()` in `electron/terminals.ts`). Never expose terminals or files over the local
    HTTP server: any web page can send requests to localhost.
 5. **Session data is text.** Names, prompts and subagent descriptions come from the CLIs. Set them with
-   `textContent`, or pass them through `esc()` (`src/util.ts`) when building HTML strings. Never put them into HTML
+   `textContent`, or pass them through `escapeHtml()` (`src/util.ts`) when building HTML strings. Never put them into HTML
    or a shell command unescaped.
 6. **Windows and macOS both work.** Build paths with `path.join`, look up per-user folders through `places()`
    (`electron/connect.ts`), and keep platform-specific code behind a `process.platform` check, with the other
@@ -89,9 +90,9 @@ to the repository's size for good.
 
 ### DRY: don't repeat yourself (sensibly)
 
-- Before writing a helper, look in `src/util.ts` (`rng`, `hash`, `shade`, `esc`, `dur`, `smooth`),
-  `src/art/canvas.ts` (`makeCanvas`, `paintTexture`), `server/session.ts` (`toSession`, `pidAlive`, `titleFrom`) and
-  `shared/`.
+- Before writing a helper, look in `src/util.ts` (`rng`, `hash`, `shade`, `escapeHtml`, `formatDuration`, `smooth`),
+  `src/art/canvas.ts` (`makeCanvas`, `paintTexture`), `server/session.ts` (`toSession`, `pidAlive`, `titleFrom`,
+  `isRecord`, `parseJson`) and `shared/`.
 - When the same logic appears a **third** time, extract it. Two similar snippets are often fine; a premature
   abstraction is harder to undo than duplication.
 - Shared means shared: code used by one module lives in that module. Move it to `src/util.ts` or a `shared/` module
@@ -123,7 +124,7 @@ These apply to code you write or change. Don't restyle untouched code as a side 
 - Use descriptive, full-word names: `session`, `fish`, `event`, `folder`, `index`, `total`. No single letters or
   vowel-dropped abbreviations (`s`, `e`, `p`, `cnt`, `sess`). The only short names allowed are `x`/`y`/`z` for
   coordinates, `w`/`h` for sizes and `g` for a canvas 2D context in painters, `t` for animation time, and `_` for
-  unused values.
+  unused values. Type parameters may be a single capital letter (`T`, `K`).
 - Name for the domain, not the type: `waitingSessions`, not `list`; `lockFile`, not `str2`.
 - Booleans read as yes/no questions: `isWorking`, `hasLock`, `canRepair`.
 - Functions are verbs (`readTail`, `paintCoral`); classes and types are nouns in PascalCase; module constants are
@@ -142,10 +143,12 @@ These apply to code you write or change. Don't restyle untouched code as a side 
 | Lines per function                 | 80                             |
 | Lines per file                     | 300                            |
 
-There's no linter yet, so these are checked in review. When you hit a limit, split by responsibility: extract a pure
-helper, a lookup table or a smaller painter. Prefer early returns over nested `if`s, and lookups over nested
-ternaries. Some files are already over (`src/art/fishArt.ts`): when you add to one, split off the part you're working
-in rather than growing it.
+`npm run lint` (oxlint, `.oxlintrc.json`) enforces these, the short-name rule, arrow functions, `import type` and no
+`any`; CI fails on any problem. The lint config is the standard: change the code, not the rules. When you hit a limit,
+split by responsibility: extract a pure helper, a lookup table or a smaller painter. Prefer early returns over nested
+`if`s, and lookups over nested ternaries. The one exception is the parameter limit in code that runs many times every
+frame: an options object there allocates each call, so keep the positional parameters, say why in a comment and add
+`// oxlint-disable-next-line max-params`. No other disable comments.
 
 ### Comments
 
@@ -243,7 +246,7 @@ with `git push origin :refs/tags/vX.Y.Z` and `git tag -d vX.Y.Z`, but only if th
 
 ## Definition of done
 
-- `npm run typecheck`, `npm test` and `npm run build` pass.
+- `npm run typecheck`, `npm run lint`, `npm test` and `npm run build` pass, with no new disable comments.
 - New logic has tests; existing tests still pass.
 - Visible changes have been looked at in the tank, and terminal or connect changes tried in the app (on a scratch
   user data folder, see the rules above).
