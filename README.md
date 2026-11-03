@@ -170,10 +170,15 @@ are remembered.
 | **Open when a session starts** | Bring up the window when you start a session. Off: the fishtank runs in the background; open it from the Dock (Mac) or by starting Agent Fishtank again | On |
 | **Quit after the last session** | Off: the fishtank keeps running after your sessions end; closing the window only hides it. Quit from the menu | On |
 | **Start in the background when I log in** | Starts with your computer and keeps running, without opening the window | Off |
+| **Show the fishtank in the menu bar or system tray** | A dot in the menu bar (Mac) or system tray (Windows), coloured by the most urgent session: amber when one needs you, green while one works, grey when all are idle. Click it to open the tank. On Windows 11 it starts among the hidden icons (^); drag it onto the taskbar to keep it in sight | Off |
 | **Let other devices on my Wi-Fi watch the tank** | Shows an address (port `4322`, with a secret key) to open the tank in a browser on your phone, tablet or another computer on the same network. They can only watch: not open sessions, change settings or use the terminals. Windows may ask once to allow Agent Fishtank through the firewall on private networks | Off |
 
 Notifications don't appear while the fishtank window is in front either, and clicking one opens the tank. On a Mac, allow
 them the first time macOS asks (or later in **System Settings → Notifications → Agent Fishtank**).
+
+The number of sessions that need you is always shown as a red badge on the app's icon: on the Dock on a Mac, and on the
+taskbar button on Windows. Closing the window on Windows removes its taskbar button, so turn on the tray icon to keep
+an eye on the tank there.
 
 <details>
 <summary>Environment variables</summary>

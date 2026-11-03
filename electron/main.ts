@@ -9,6 +9,7 @@ import type { Session, Snapshot, State as SessionState } from '../shared/types.t
 import type { Settings } from '../shared/settings.ts';
 import { DEFAULT_PORT, startServer, type Fishtank } from '../server/server.ts';
 import { connect, connected, disconnect, installed, places, type Cli, type Launcher } from './connect.ts';
+import { createIndicators } from './indicators.ts';
 import { repoFrom } from './releases.ts';
 import { Terminals, type Remembered } from './terminals.ts';
 import { Updates } from './updates.ts';
@@ -66,6 +67,7 @@ const notify = (title: string, body: string) => {
 interface Watch { state: SessionState; since: number; from?: SessionState; done: boolean }
 
 let watched: Map<string, Watch> | null = null;
+const indicators = createIndicators({ window: () => tankWindow, show });
 
 /** The session's watch: the one before while its state stays, else a new one. */
 const watchOf = (session: Session, before: Map<string, Watch> | null, time: number): Watch => {
@@ -92,6 +94,7 @@ const isWindowInFront = () => !!tankWindow && tankWindow.isVisible() && tankWind
 const watchSessions = (snapshot: Snapshot) => {
   const settings = tank?.settings();
   if (!settings) return;
+  indicators.update(snapshot.sessions, settings.trayIcon);
   const before = watched;
   if (settings.openOnSession && isFirstSession(before, snapshot) && isWindowHidden()) show();
   const current = new Map<string, Watch>();
