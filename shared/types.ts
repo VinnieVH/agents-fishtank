@@ -31,8 +31,11 @@ export interface LimitWindow { usedPct: number; resetsAt: number } // resetsAt i
 /** Claude Pro/Max usage limits; a window is null when Claude Code didn't report it. */
 export interface ClaudeLimits { fiveHour: LimitWindow | null; sevenDay: LimitWindow | null; at: number }
 
-/** The tank shared on the local network: the addresses to open on another device, or why it couldn't start. */
-export interface Share { urls: string[]; error?: string }
+/**
+ * The tank shared on the local network: the addresses to open on another device (with the key in them), the code a
+ * device that opens the address without it can pair with, or why sharing couldn't start.
+ */
+export interface Share { urls: string[]; pairingCode?: string; error?: string }
 
 export interface Snapshot {
   time: number; sessions: Session[]; quota?: Quota | null; limits?: ClaudeLimits | null;

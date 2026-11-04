@@ -171,7 +171,7 @@ are remembered.
 | **Quit after the last session** | Off: the fishtank keeps running after your sessions end; closing the window only hides it. Quit from the menu | On |
 | **Start in the background when I log in** | Starts with your computer and keeps running, without opening the window | Off |
 | **Show the fishtank in the menu bar or system tray** | A dot in the menu bar (Mac) or system tray (Windows), coloured by the most urgent session: amber when one needs you, green while one works, grey when all are idle. Click it to open the tank. On Windows 11 it starts among the hidden icons (^); drag it onto the taskbar to keep it in sight | Off |
-| **Let other devices on my Wi-Fi watch the tank** | Shows an address (port `4322`, with a secret key) to open the tank in a browser on your phone, tablet or another computer on the same network. They can only watch: not open sessions, change settings or use the terminals. Windows may ask once to allow Agent Fishtank through the firewall on private networks | Off |
+| **Let other devices on my Wi-Fi watch the tank** | Shows a QR code and an address (port `4322`, with a secret key) to open the tank in a browser on your phone, tablet or another computer on the same network. On a TV, open the short address it shows (like `192.168.1.20:4322`) and type the 6-digit code from the settings; the device remembers it after that. Other devices can only watch: not open sessions, change settings or use the terminals. Windows may ask once to allow Agent Fishtank through the firewall on private networks | Off |
 
 Notifications don't appear while the fishtank window is in front either, and clicking one opens the tank. On a Mac, allow
 them the first time macOS asks (or later in **System Settings → Notifications → Agent Fishtank**).
@@ -199,8 +199,10 @@ never answers your agents' hooks with anything but an empty "OK", so it can't ch
 sends over the internet is the update check to GitHub.
 
 If you turn on **Let other devices on my Wi-Fi watch the tank**, the app also answers on your local network, but only
-to show the tank, and only to a browser that has the address with its secret key: anyone with that address sees your
-session names and prompts, so share it only with people who may. The key stays the same between restarts; it's kept
+to show the tank, and only to a browser that has the secret key: from the address (or its QR code), or by typing the
+6-digit code shown in the settings, which only works once, changes every few minutes and stops taking tries for a
+minute after five wrong ones. Anyone with the key sees your session names and prompts, so share it only with people
+who may. The key stays the same between restarts; it's kept
 in `agent-fishtank-share-key` in the app's data folder (delete it to get a new one).
 
 ---
@@ -239,9 +241,12 @@ in `agent-fishtank-share-key` in the app's data folder (delete it to get a new o
   sends them to the page with every update; the page's dialog posts changes to `/settings` (JSON from a localhost page
   only). The app itself acts on the notification and launch settings (`electron/main.ts`).
 - **Sharing on the network:** turned on in the settings, the server starts a second, watch-only server on all
-  interfaces at the next port (`server/share.ts`). It serves the page and `/events` (with the key from the shared
-  address) and refuses everything else, so settings, `/open`, hooks and terminals stay on `127.0.0.1`. Its feed
-  (`viewer`) has no session links or terminals, and the page hides the gear.
+  interfaces at the next port (`server/share.ts`). It serves the page, `/events` (with the key) and `POST /pair`, and
+  refuses everything else, so settings, `/open`, hooks and terminals stay on `127.0.0.1`. Its feed (`viewer`) has no
+  session links or terminals, and the page hides the gear. A device gets the key from the shared address (the
+  settings show it as a QR code, `src/qr.ts`) or by pairing: on the short address without a key, the page
+  (`src/viewer.ts`) asks for the 6-digit code from the settings and `/pair` answers with the key
+  (`server/pairing.ts`). The device keeps the key and takes it out of the address bar.
 - **Terminals:** the shells run in the app (`electron/terminals.ts`, with [node-pty](https://github.com/microsoft/node-pty),
   whose prebuilt binaries ship inside the app) and the page draws them with [xterm.js](https://xtermjs.org)
   (`src/terminals.ts`). They talk over Electron's IPC through `electron/preload.ts`, never through the local server:
@@ -295,6 +300,7 @@ Windows.
 | `src/scene/` | Fish, water, sky, visitors (whale, shark, orca, manta, dolphins, jellyfish, submarine, kraken), crab, fish food, credits gauge, air tanks |
 | `src/art/` | Canvas 2D painters for the fish (`fishArt.ts`), terrain (`terrain*.ts`), coral reef (`reef*.ts`), visitors and crab |
 | `src/panel.ts` | Side panel, Claude usage and the live `/events` connection |
+| `src/viewer.ts`, `src/qr.ts` | Watching from another device: the shared key, pairing with a code, and the QR code in the settings |
 | `src/settings.ts`, `shared/settings.ts` | The settings dialog; the settings, their defaults and validation |
 | `src/sky.ts`, `src/species.ts`, `src/credits.ts`, `src/limits.ts` | Sun and light, species and glow colour picker, Copilot credits, Claude usage |
 | `creatures.html` | Dev page to look at one creature at a time (`npm run dev`) |
@@ -304,6 +310,7 @@ Windows.
 | `server/desktop.ts` | Which Claude Code sessions run in the Claude desktop app, so clicking their fish opens them there |
 | `server/terminal.ts` | Brings a session's terminal tab to the front, or resumes a session in a new terminal window |
 | `server/logtail.ts` | Follows a growing log a few new lines at a time |
+| `server/share.ts`, `server/pairing.ts` | The watch-only server for other devices on the network, and its pairing codes |
 | `server/index.ts` | Runs the server on its own, for development |
 | `electron/main.ts` | The app: window, menu, connect dialog, notifications, start at login, quitting when idle |
 | `electron/terminals.ts`, `electron/preload.ts`, `src/terminals.ts`, `shared/terminals.ts` | The built-in terminals: the shells, the bridge to the page, the tabs |

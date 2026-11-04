@@ -1,5 +1,6 @@
 import { DEFAULT_SETTINGS, type Settings } from '../shared/settings';
 import type { Snapshot } from '../shared/types';
+import { qrCode } from './qr';
 
 // The settings dialog: opened with the gear in the panel, or from the app's menu (Settings…, which calls
 // window.openSettings). Every change is posted to the server right away; the server saves it and sends the new
@@ -64,8 +65,9 @@ gear.addEventListener('click', openSettings);
 const shareEl = dialog.querySelector<HTMLElement>('.share')!;
 let shareShown = '';
 
-const shareRow = (url: string) => {
+const addressRow = (url: string) => {
   const row = document.createElement('li');
+  const text = document.createElement('div');
   const address = document.createElement('code');
   address.textContent = url;
   const copy = document.createElement('button');
@@ -74,15 +76,40 @@ const shareRow = (url: string) => {
   copy.addEventListener('click', () => {
     void navigator.clipboard?.writeText(url).then(() => { copy.textContent = 'Copied'; }, () => {});
   });
-  row.append(address, copy);
+  text.append(address, copy);
+  row.append(text);
   return row;
+};
+
+const addressList = (urls: string[]) => {
+  const list = document.createElement('ul');
+  list.append(...urls.map(addressRow));
+  return list;
+};
+
+// a computer on more than one network (say Ethernet and Wi-Fi) has an address on each; the first gets the QR code
+const otherAddresses = (urls: string[]) => urls.length
+  ? [Object.assign(document.createElement('small'), { className: 'hint', textContent: 'Other addresses of this computer, if that one doesn\'t open:' }), addressList(urls)]
+  : [];
+
+// the address without the key, short enough to type with a remote; the device pairs with the code instead
+const shortAddress = (url: string) => new URL(url).host;
+
+const pairingLine = (url: string, pairingCode = '') => {
+  const line = document.createElement('p');
+  line.className = 'pair';
+  if (!pairingCode) return line;
+  const address = Object.assign(document.createElement('code'), { textContent: shortAddress(url) });
+  const code = Object.assign(document.createElement('b'), { textContent: `${pairingCode.slice(0, 3)} ${pairingCode.slice(3)}` });
+  line.append('On a TV or another device without a camera: open ', address, ' and enter ', code,
+    '. The code changes every few minutes and after each use.');
+  return line;
 };
 
 const shareHint = (share: NonNullable<Snapshot['share']>) => {
   if (share.error) return `Couldn't share the tank: ${share.error}`;
   if (!share.urls.length) return 'This computer isn\'t on a network right now.';
-  const which = share.urls.length > 1 ? 'one of these addresses (whichever is your Wi-Fi)' : 'this address';
-  return `Open ${which} in a browser on a phone or tablet on the same network. It has a secret key: only share it with people who may see your sessions.`;
+  return 'Scan this code with a phone or tablet on the same network, or open the address there. It has a secret key: only share it with people who may see your sessions.';
 };
 
 /** The shared addresses while sharing is on; on another device (a viewer), the gear goes, as it can only look. */
@@ -96,7 +123,9 @@ export const showShare = ({ share, viewer }: Pick<Snapshot, 'share' | 'viewer'>)
   const hint = document.createElement('small');
   hint.className = 'hint';
   hint.textContent = shareHint(share);
-  const list = document.createElement('ul');
-  list.append(...share.urls.map(shareRow));
-  shareEl.replaceChildren(hint, list);
+  const [first, ...others] = share.urls;
+  if (!first) { shareEl.replaceChildren(hint); return; }
+  const list = addressList([first]);
+  list.firstElementChild?.prepend(qrCode(first, 'QR code of this address'));
+  shareEl.replaceChildren(hint, list, pairingLine(first, share.pairingCode), ...otherAddresses(others));
 };

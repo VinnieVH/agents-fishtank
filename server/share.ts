@@ -1,13 +1,15 @@
 // Sharing the tank on the local network (Wi-Fi), when the user turns it on: a second server, apart from the one on
-// 127.0.0.1, that only shows the tank. It serves the page and the feed and answers nothing else, so another device
-// can't open sessions, change settings or reach the terminals. The feed is the user's session names and prompts, so
-// it needs the secret key that's in the shared address.
+// 127.0.0.1, that only shows the tank. It serves the page, the feed and the pairing route (server/pairing.ts) and
+// answers nothing else, so another device can't open sessions, change settings or reach the terminals. The feed is the
+// user's session names and prompts, so it needs the secret key that's in the shared address, or that a device gets by
+// pairing with the code shown in the settings.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import type { Share } from '../shared/types.ts';
+import { createPairing, type PairingOutcome } from './pairing.ts';
 
 type Request = http.IncomingMessage;
 type Response = http.ServerResponse;
@@ -60,11 +62,25 @@ export const hasShareKey = (requestUrl: string, key: string) => {
 
 const refuse = (response: Response, status: number) => { response.writeHead(status); response.end(); };
 
+const PAIR_STATUS: Record<PairingOutcome, number> = { paired: 200, wrong: 403, locked: 429 };
+
+const codeFrom = (requestUrl: string) => {
+  try { return new URL(requestUrl, 'http://share').searchParams.get('code') ?? ''; } catch { return ''; }
+};
+
 /** Starts and stops the shared server as the setting changes; `share()` is what the page shows about it. */
 export const createSharing = ({ port, keyFile, subscribe, serveFile, onChange }: SharingOptions) => {
   let server: http.Server | null = null, key = '', error = '';
+  const pairing = createPairing();
+  const pair = (request: Request, response: Response) => {
+    request.resume();
+    const outcome = pairing.tryCode(codeFrom(request.url || ''));
+    response.writeHead(PAIR_STATUS[outcome], { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    response.end(outcome === 'paired' ? JSON.stringify({ key }) : '{}');
+  };
   const handle = (request: Request, response: Response) => {
     const url = (request.url || '/').split('?')[0];
+    if (request.method === 'POST' && url === '/pair') { pair(request, response); return; }
     if (request.method !== 'GET') { refuse(response, 405); request.resume(); return; }
     if (url !== '/events') { serveFile(url, response); return; }
     if (hasShareKey(request.url || '', key)) subscribe(request, response);
@@ -94,7 +110,7 @@ export const createSharing = ({ port, keyFile, subscribe, serveFile, onChange }:
   };
   const share = (): Share | null => {
     if (error) return { urls: [], error };
-    return server?.listening ? { urls: shareUrls(lanAddresses(), port, key) } : null;
+    return server?.listening ? { urls: shareUrls(lanAddresses(), port, key), pairingCode: pairing.current().code } : null;
   };
   return { update, share, stop };
 };

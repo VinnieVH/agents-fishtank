@@ -2,6 +2,7 @@ import type { Session, Snapshot, Source, State, Subagent } from '../shared/types
 import type { Air, Tanks } from './limits';
 import type { Phase } from './sky';
 import { escapeHtml, formatDuration } from './util';
+import { forgetSharedKey, isSharedAddress, sharedKey, showPairing } from './viewer';
 
 export type { Session, Snapshot } from '../shared/types';
 
@@ -49,12 +50,20 @@ export const renderPanel = (snapshot: Snapshot, colorOf: (id: string) => string)
   listEl.innerHTML = sorted.map(session => sessionCard(session, colorOf(session.id), now)).join('');
 };
 
-/** Subscribes to the server's live session feed; on another device with the shared address's key (server/share.ts). */
+/**
+ * Subscribes to the server's live session feed; on another device with the shared key (server/share.ts), and without
+ * one, after pairing with the code shown on the computer.
+ */
 export const connect = (onData: (snapshot: Snapshot) => void) => {
-  const key = new URLSearchParams(location.search).get('key');
+  const key = isSharedAddress() ? sharedKey() : null;
+  if (isSharedAddress() && !key) { showPairing(() => connect(onData)); return; }
   const events = new EventSource(key ? `/events?key=${encodeURIComponent(key)}` : '/events');
   events.onmessage = message => { onData(JSON.parse(message.data)); connEl.textContent = 'live · updated ' + new Date().toLocaleTimeString(); };
-  events.onerror = () => { connEl.textContent = 'disconnected — reconnecting…'; };
+  events.onerror = () => {
+    connEl.textContent = 'disconnected — reconnecting…';
+    // a refused key closes the feed for good (a lost connection retries instead): pair again
+    if (key && events.readyState === EventSource.CLOSED) { forgetSharedKey(); showPairing(() => connect(onData)); }
+  };
   events.addEventListener('shutdown', () => {
     events.close();
     document.getElementById('closed')!.hidden = false;

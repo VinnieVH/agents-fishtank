@@ -98,4 +98,17 @@ describe('sharing the tank', () => {
     expect(own.viewer).toBeUndefined();
     expect(own.share.urls.every((url: string) => url.endsWith(`:${SHARE_PORT}/?key=${key}`))).toBe(true);
   });
+
+  it('hands the key to a device that pairs with the code shown on this computer, once', async () => {
+    const key = fs.readFileSync(await start(true), 'utf8');
+    const own = JSON.parse((await request(`http://127.0.0.1:${PORT}/events`)).firstData.replace(/^data: /, ''));
+    const code: string = own.share.pairingCode, pair = (tried: string) => fetch(`http://127.0.0.1:${SHARE_PORT}/pair?code=${tried}`, { method: 'POST' });
+    expect(code).toMatch(/^\d{6}$/);
+
+    expect((await pair(code === '000000' ? '000001' : '000000')).status).toBe(403);
+    const paired = await pair(code);
+    expect(paired.status).toBe(200);
+    expect(await paired.json()).toEqual({ key });
+    expect((await pair(code)).status).toBe(403); // used up: the computer shows a new one
+  });
 });
