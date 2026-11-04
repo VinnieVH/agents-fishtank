@@ -1,5 +1,11 @@
 export const TAU = Math.PI * 2;
 
+/**
+ * Under this width the tank is phone-sized: the panel moves to the bottom (the @media in style.css), and the air tanks
+ * and the gauge leave the water, as their numbers are in the panel.
+ */
+export const NARROW_WIDTH = 760;
+
 /** Small deterministic PRNG (mulberry32) so scenery looks the same on every load. */
 export const rng = (seed: number): () => number => () => {
   seed |= 0; seed = seed + 0x6D2B79F5 | 0;

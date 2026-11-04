@@ -1,7 +1,7 @@
 import { Container, Sprite, Texture } from 'pixi.js';
 import { paintTexture } from '../art/canvas';
 import type { Credits } from '../credits';
-import { nightTint, TAU } from '../util';
+import { NARROW_WIDTH, nightTint, TAU } from '../util';
 
 const INK = '#1d2a33', RED = '#c81f33', FONT = '"Segoe UI", system-ui, sans-serif';
 /** Dial angle for a value 0..100: 0 at lower-left, 50 straight up, 100 at lower-right (240° sweep). */
@@ -13,12 +13,12 @@ interface FaceArt extends DialArt { used: string; isRed: boolean }
 interface NeedleArt { x: number; hub: number; tip: number; tail: number }
 interface ToonStyle { fill: string; width: number; inside?: () => void }
 
+const RADIUS = 74, CENTER = RADIUS + 8;
+
 const gaugeLayout = (width: number, height: number) => {
-  const isMounted = width >= 760; // on narrow screens the panel sits at the bottom, so hang the gauge top-right
-  const radius = isMounted ? 74 : 54, center = radius + 8;
-  const centerY = isMounted ? height - radius - 52 : radius + 18, centerX = width - radius - (isMounted ? 44 : 18);
-  const stem = isMounted ? height + 4 - (centerY + radius) : 0; // runs off the bottom edge of the page
-  return { radius, center, left: centerX - center, top: centerY - center, stem };
+  const centerY = height - RADIUS - 52, centerX = width - RADIUS - 44;
+  const stem = height + 4 - (centerY + RADIUS); // runs off the bottom edge of the page
+  return { radius: RADIUS, center: CENTER, left: centerX - CENTER, top: centerY - CENTER, stem };
 };
 
 const usedText = (credits: Credits) => credits.unlimited ? '∞' : `${Math.floor(credits.usedPct)}%`;
@@ -50,9 +50,12 @@ export class Gauge extends Container {
     this.visible = false;
   }
 
-  set(credits: Credits | null) { this.credits = credits; this.visible = !!credits; this.paint(); }
+  set(credits: Credits | null) { this.credits = credits; this.showIfRoom(); this.paint(); }
 
-  layout(width: number, height: number) { this.tankWidth = width; this.tankHeight = height; this.paint(); }
+  // on a phone the panel covers the bottom, and has the numbers
+  layout(width: number, height: number) { this.tankWidth = width; this.tankHeight = height; this.showIfRoom(); this.paint(); }
+
+  private showIfRoom() { this.visible = !!this.credits && this.tankWidth >= NARROW_WIDTH; }
 
   update(t: number, deltaFrames: number, night: number) {
     if (!this.credits) return;

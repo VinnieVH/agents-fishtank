@@ -1,4 +1,5 @@
 import type { Session, Snapshot, Source, State, Subagent } from '../shared/types';
+import type { Credits } from './credits';
 import type { Air, Tanks } from './limits';
 import type { Phase } from './sky';
 import { escapeHtml, formatDuration } from './util';
@@ -74,20 +75,36 @@ export const connect = (onData: (snapshot: Snapshot) => void) => {
 const usageEl = document.getElementById('usage')!;
 let usageHtml = '';
 
+interface LimitRow { name: string; level: 'ok' | 'warn' | 'low'; left: number; text: string }
+
+const limitRow = ({ name, level, left, text }: LimitRow) =>
+  `<div class="limit"><span class="lname">${name}</span><span class="air"><i class="${level}" style="width:${left}%"></i></span>
+      <span class="lval">${text}</span></div>`;
+
 const usageRow = (name: string, air: Air | null) => {
   if (!air) return '';
-  const level = air.low ? 'low' : air.warn ? 'warn' : 'ok', left = Math.floor(air.left);
-  return `<div class="limit"><span class="lname">${name}</span><span class="air"><i class="${level}" style="width:${left}%"></i></span>
-      <span class="lval">${left}% left${air.refill ? ` · refills ${escapeHtml(air.refill)}` : ''}</span></div>`;
+  const left = Math.floor(air.left);
+  return limitRow({ name, level: air.low ? 'low' : air.warn ? 'warn' : 'ok', left, text: `${left}% left${air.refill ? ` · refills ${escapeHtml(air.refill)}` : ''}` });
 };
 
-/** Claude plan usage under the sessions: air left in the 5-hour and weekly tanks, and when they refill. */
-export const renderUsage = (tanks: Tanks | null) => {
-  const html = tanks ? `<div class="usage-title">Claude usage</div>${usageRow('5h', tanks.fiveHour)}${usageRow('Week', tanks.week)}` : '';
+const creditsRow = (credits: Credits) => {
+  if (credits.unlimited) return limitRow({ name: 'Month', level: 'ok', left: 100, text: 'unlimited' });
+  const left = Math.floor(100 - credits.usedPct);
+  const reset = credits.reset ? ` · resets ${credits.reset.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}` : '';
+  return limitRow({ name: 'Month', level: credits.low ? 'low' : left < 20 ? 'warn' : 'ok', left, text: `${left}% left${reset}` });
+};
+
+/**
+ * Plan usage under the sessions: the air left in Claude's 5-hour and weekly tanks and when they refill, and the
+ * Copilot credits left this month. On a phone the tank leaves out the air tanks and the gauge, so these are the numbers.
+ */
+export const renderUsage = (tanks: Tanks | null, credits: Credits | null) => {
+  const claude = tanks ? `<div class="usage-title">Claude usage</div>${usageRow('5h', tanks.fiveHour)}${usageRow('Week', tanks.week)}` : '';
+  const html = claude + (credits ? `<div class="usage-title">Copilot credits</div>${creditsRow(credits)}` : '');
   if (html === usageHtml) return;
   usageHtml = html;
   usageEl.innerHTML = html;
-  usageEl.hidden = !tanks;
+  usageEl.hidden = !html;
 };
 
 const skyEl = document.getElementById('sky')!;

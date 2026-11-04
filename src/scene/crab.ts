@@ -1,7 +1,7 @@
 import { type CanvasSource, Sprite, Texture } from 'pixi.js';
 import { canvasSource } from '../art/canvas';
 import { CRAB_BOX, paintCrab, type CrabPose } from '../art/crab';
-import { nightTint } from '../util';
+import { NARROW_WIDTH, nightTint } from '../util';
 
 type Mode = 'away' | 'walk' | 'pause' | 'leave';
 type Act = 'look' | 'snap' | 'dance';
@@ -50,7 +50,7 @@ export class Crab extends Sprite {
   update({ t, deltaFrames, width, height, calm, night }: CrabFrame) {
     const isCalm = calm || this.always;
     this.trackCalm(t, isCalm);
-    const length = width < 760 ? 56 : 80, margin = length * .8;
+    const length = width < NARROW_WIDTH ? 56 : 80, margin = length * .8;
 
     if (this.mode === 'away') {
       if (!isCalm || !this.comeOut(t, width, margin)) return;

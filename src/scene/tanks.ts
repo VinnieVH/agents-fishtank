@@ -2,7 +2,7 @@ import { Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { paintTexture } from '../art/canvas';
 import { sandLineFor } from '../art/terrain';
 import type { Air, Tanks } from '../limits';
-import { nightTint, TAU } from '../util';
+import { NARROW_WIDTH, nightTint, TAU } from '../util';
 
 // A diver's two scuba tanks standing forward on the sand by the rocks on the left, with Claude's plan usage as the air
 // left in them: the big yellow one for the 5-hour window, the slim coral one leaning on it for the week. An almost
@@ -44,16 +44,17 @@ export class AirTanks extends Container {
     this.visible = false;
   }
 
-  set(tanks: Tanks | null) { this.tanks = tanks; this.visible = !!tanks; this.paint(); }
+  set(tanks: Tanks | null) { this.tanks = tanks; this.showIfRoom(); this.paint(); }
 
+  // well forward on the sand by the rocks on the left; on a phone the panel covers the sand, and has the numbers
   layout(width: number, height: number) {
     this.tankWidth = width;
-    // well forward on the sand by the rocks on the left; on narrow screens the panel covers the bottom, so hang
-    // top-left (the gauge hangs top-right)
-    if (width >= 760) this.position.set(Math.max(16, width * .08 + 30 - CANVAS_WIDTH * SCALE / 2), sandLineFor(height) + 48 - BASE * SCALE);
-    else this.position.set(6, 12);
+    this.position.set(Math.max(16, width * .08 + 30 - CANVAS_WIDTH * SCALE / 2), sandLineFor(height) + 48 - BASE * SCALE);
+    this.showIfRoom();
     this.paint();
   }
+
+  private showIfRoom() { this.visible = !!this.tanks && this.tankWidth >= NARROW_WIDTH; }
 
   update(t: number, deltaFrames: number, night: number) {
     if (!this.tanks) return;

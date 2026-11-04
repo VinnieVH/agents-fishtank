@@ -2,7 +2,7 @@ import { Application, Container, Sprite, Texture } from 'pixi.js';
 import './style.css';
 import { FLOOR_REACH, paintFloor, paintTerrain, paintWater, sandLineFor } from './art/terrain';
 import { connect, renderPanel, renderUsage, setSky, type Session, type Snapshot } from './panel';
-import { credits } from './credits';
+import { credits, type Credits } from './credits';
 import { airTanks } from './limits';
 import { Fish, type Tank } from './scene/fish';
 import { SkyOverlay } from './scene/sky';
@@ -139,8 +139,7 @@ const updateFish = (snapshotSessions: Session[]) => {
 };
 
 /** The pressure gauge, and the gold and gems in the treasure chest (repainted only when they change). */
-const showCredits = (quota: Snapshot['quota']) => {
-  const chest = credits(quota);
+const showCredits = (chest: Credits | null) => {
   gauge.set(chest);
   const nextGold = chest ? chest.gold : 1, nextGems = chest ? chest.gems : 5;
   if (nextGold !== gold || nextGems !== gems) { gold = nextGold; gems = nextGems; paintFloorLayer(); }
@@ -193,11 +192,12 @@ const sync = (snapshot: Snapshot) => {
   for (const [key, fish] of allFish) if (!wanted.has(key)) { fish.destroy(); allFish.delete(key); }
   species.prune(new Set(snapshot.sessions.map(session => session.id)));
   renderPanel(snapshot, id => allFish.get(id)?.neon ?? '#fff');
-  showCredits(snapshot.quota);
-  // Claude plan usage: the diver's air tanks, and the numbers in the panel
+  const copilotCredits = credits(snapshot.quota);
+  showCredits(copilotCredits);
+  // Claude plan usage: the diver's air tanks, and the numbers in the panel (with Copilot's)
   const air = airTanks(snapshot.limits, snapshot.time);
   tanks.set(air);
-  renderUsage(air);
+  renderUsage(air, copilotCredits);
 };
 connect(sync);
 

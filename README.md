@@ -21,7 +21,7 @@ which session needs your attention.
 | 🐠 Little fish next to a big one | Subagents the session started |
 | 🤿 Two scuba tanks on the left | **Claude Code:** how much of your Pro/Max plan's 5-hour and weekly limits you have left (bubbles leak when it's nearly empty) |
 | 🧭 A pressure gauge on the right | **Copilot:** how much of your premium requests you've used this month; the gold in the treasure chest shrinks along with it |
-| 📋 The panel on the right | How many sessions there are and how many need you, then every session (those that need you on top) with its state, a Copilot/Claude badge, its subagents and, for Claude, your usage and when it refills |
+| 📋 The panel on the right | How many sessions there are and how many need you, then every session (those that need you on top) with its state, a Copilot/Claude badge and its subagents, and the exact numbers: your Claude usage and when it refills, and the Copilot credits left this month. On a phone-sized screen the panel moves to the bottom and the scuba tanks and gauge leave the water, so these are the numbers there |
 
 Each fish is named after its session: the name you gave it, Claude Code's title for it, or the start of your first
 prompt. Sessions get different creatures and glow colours, so no two look alike: a tropical fish, koi, sturgeon,
