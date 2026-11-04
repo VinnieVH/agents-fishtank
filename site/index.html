@@ -30,7 +30,7 @@
 <main>
   <figure class="shot">
     <video id="demo" src="demo.mp4" poster="poster.jpg" width="1920" height="1080" autoplay muted loop playsinline
-      aria-label="Demo: sessions swim as fish over a coral reef while dolphins pass by. The terminals open beside the tank: a Claude Code tab and a Copilot CLI tab each bring a new fish. When Claude Code asks permission its octopus gets a question mark and jumps to the top of the panel, and it gets back to work once you answer in its tab. Dragging the edge makes room for the tank, which shows the reef, a canyon and a shipwreck far off.">
+      aria-label="Demo: sessions swim as fish over a coral reef while dolphins pass by. The terminals open beside the tank: a Claude Code tab and a Copilot CLI tab each bring a new fish. When Claude Code asks permission its octopus gets a question mark; the window goes to the taskbar, where the app's icon shows a red 1. Back in the tank, sharing is turned on in the settings, which show a QR code and a six-digit code. A phone scans the QR code and shows the tank in its phone layout, and a TV is paired by typing the code, then shows the tank too.">
       <img src="screenshot.png" alt="The fishtank by day: fish for each session over a coral reef, and a side panel listing the sessions" width="1600" height="900">
     </video>
     <button id="sound" class="sound" type="button" aria-pressed="false" aria-label="Turn the sound on" title="Turn the sound on" hidden>
@@ -54,6 +54,17 @@
       canyon, an ocean current and an old shipwreck far off. The water follows the real time of day, with glowing
       plankton at night, a whale, an orca, a shark, a pod of dolphins, a manta ray or a school of jellyfish drifts by now
       and then, and you can click the water to feed the fish.</p>
+  </section>
+
+  <section>
+    <h2>Watch from the couch</h2>
+    <div class="cards">
+      <article><span class="emblem">📱</span><h3>On your phone</h3><p>Turn on sharing in the settings and scan the QR code. The tank gets its own phone layout, with the numbers in the panel.</p></article>
+      <article><span class="emblem">📺</span><h3>On your TV</h3><p>No camera? Open the short address on the TV and type the six-digit code from the settings.</p></article>
+      <article><span class="emblem">🔴</span><h3>In the taskbar</h3><p>Window hidden? The app's icon counts the sessions that need you, on the Dock or the taskbar.</p></article>
+    </div>
+    <p class="note">Other devices on your Wi-Fi can only watch: they can't open sessions, change settings or use the
+      terminals.</p>
   </section>
 
   <section>
@@ -93,8 +104,9 @@
     <details><summary>What can I change in the settings?</summary>
       <p>Click the gear in the panel. You can get a <b>notification</b> when a session needs you or is done (only after it
         has waited a while, so not for the session you're working in), keep the tank always day or night, make the
-        animation <b>calmer</b>, turn off the visitors, keep the fishtank running after your sessions, or start
-        it in the background when you log in.</p></details>
+        animation <b>calmer</b>, turn off the visitors, keep the fishtank running after your sessions, start
+        it in the background when you log in, show it in the <b>menu bar or system tray</b>, or <b>share</b> it with
+        other devices on your Wi-Fi.</p></details>
     <details><summary>Do I have to use the built-in terminals?</summary>
       <p>No. Sessions in your own terminal, editor or the Claude desktop app swim in the tank just the same, and clicking
         their fish brings you to them. The tabs are there for when you'd like your agents and the tank in one window.
@@ -104,7 +116,9 @@
         With an <code>ANTHROPIC_API_KEY</code> set, Claude Code uses that instead and has no plan usage to show.</p></details>
     <details><summary>Does it send my code anywhere?</summary>
       <p>No. It only reads your agents' local session files and listens on <code>127.0.0.1</code>. It never changes what
-        your agents do. The only internet request is the check for new versions on GitHub.</p></details>
+        your agents do. The only internet request is the check for new versions on GitHub. If you turn on sharing, it
+        also answers on your local network, but only shows the tank, and only to devices with its secret key or the
+        code from the settings.</p></details>
     <details><summary>How do I uninstall it?</summary>
       <p><b>Mac:</b> choose <b>Disconnect</b> in the Agent Fishtank menu, then drag the app to the Trash.
         <b>Windows:</b> uninstall it in Settings → Apps; that disconnects it for you.</p></details>
