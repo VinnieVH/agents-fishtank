@@ -4,14 +4,53 @@
 <meta charset="utf-8">
 <title>Agent Fishtank demo stage</title>
 <!-- The scene record.mjs films: the real tank (tank.html, driven by clock.js, its terminals by terminals.js) with
-     captions, a mouse pointer and the closing card on top. Everything is a function of the time t passed to
-     __frame(t), so frames can be rendered one by one. ?bare=1 leaves out all that's on top (for screenshots), ?clean=1 the terminals too,
-     ?night=1 films the tank at night and ?visitor=whale sends another visitor by. -->
+     captions, a mouse pointer and the closing card on top, and later the same tank watched from a phone and a TV (two
+     more tank.html, fed like another device on the Wi-Fi is). Everything is a function of the time t passed to
+     __frame(t), so frames can be rendered one by one. ?bare=1 leaves out all that's on top (for screenshots), ?clean=1
+     the terminals and the other devices too, ?night=1 films the tank at night and ?visitor=whale sends another
+     visitor by. -->
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; width: 1440px; height: 810px; overflow: hidden; background: #01101f; }
   body { font: 16px 'Segoe UI', system-ui, -apple-system, sans-serif; color: #d8ecff; }
-  iframe { position: absolute; inset: 0; width: 1440px; height: 810px; border: 0; }
+  iframe { display: block; border: 0; }
+  .desk { position: absolute; inset: 0; background: radial-gradient(ellipse at 30% 20%, #0d4f7c 0, #073354 40%, #021627 100%); }
+  .win { position: absolute; left: 0; top: 0; width: 1440px; height: 810px; overflow: hidden; transform-origin: 0 0;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, .55); }
+  .win iframe { width: 1440px; height: 810px; }
+
+  .taskbar { position: absolute; left: 0; right: 0; bottom: 0; height: 76px; display: flex; justify-content: center; align-items: center;
+    gap: 14px; background: rgba(14, 22, 34, .86); border-top: 1px solid rgba(255, 255, 255, .08); backdrop-filter: blur(16px); }
+  .taskbar span { position: relative; width: 58px; height: 58px; border-radius: 12px; display: grid; place-items: center; }
+  .taskbar span i { width: 34px; height: 34px; border-radius: 9px; background: rgba(170, 190, 215, .32); }
+  .taskbar .app { background: rgba(255, 255, 255, .08); }
+  .taskbar .app img { width: 44px; height: 44px; }
+  .taskbar .app::after { content: ''; position: absolute; bottom: 2px; left: 22px; width: 14px; height: 4px; border-radius: 2px; background: #8fb4d8; }
+  .badge { position: absolute; right: -6px; bottom: -4px; min-width: 28px; height: 28px; border-radius: 14px; padding: 0 7px;
+    font: 700 17px/28px 'Segoe UI', system-ui, sans-serif; text-align: center; color: #fff; background: #c42b1c; box-shadow: 0 0 0 3px #0e1622; }
+
+  .phone { position: absolute; left: 1166px; top: 236px; padding: 9px; border-radius: 38px; background: #0a0d13;
+    box-shadow: 0 0 0 2px #2a3240, 0 30px 70px rgba(0, 0, 0, .6); }
+  .phone .screen { position: relative; width: 217.5px; height: 471px; border-radius: 30px; overflow: hidden; background: #01101f; }
+  .phone iframe { width: 375px; height: 812px; transform: scale(.58); transform-origin: 0 0; }
+  .phone .notch { position: absolute; left: 50%; top: 8px; width: 64px; height: 18px; margin-left: -32px; border-radius: 10px; background: #0a0d13; }
+  .finder { position: absolute; inset: 0; display: grid; place-items: center; background: linear-gradient(#1b2330, #0d121a); }
+  .finder .frame { position: relative; width: 150px; height: 150px; display: grid; place-items: center; }
+  .finder .frame svg { width: 116px; height: 116px; }
+  .finder .frame b { position: absolute; width: 28px; height: 28px; border: 3px solid #fff; }
+  .finder .frame b:nth-child(2) { left: 0; top: 0; border-right: 0; border-bottom: 0; border-radius: 8px 0 0 0; }
+  .finder .frame b:nth-child(3) { right: 0; top: 0; border-left: 0; border-bottom: 0; border-radius: 0 8px 0 0; }
+  .finder .frame b:nth-child(4) { left: 0; bottom: 0; border-right: 0; border-top: 0; border-radius: 0 0 0 8px; }
+  .finder .frame b:nth-child(5) { right: 0; bottom: 0; border-left: 0; border-top: 0; border-radius: 0 0 8px 0; }
+  .finder .scan { position: absolute; left: 14px; right: 14px; height: 2px; background: #39ff88; box-shadow: 0 0 12px #39ff88; }
+
+  .tv { position: absolute; left: 690px; top: 84px; transform-origin: 50% 100%; }
+  .tv .screen { width: 548px; height: 317px; padding: 10px; border-radius: 10px; background: #05070b;
+    box-shadow: 0 0 0 1px #262d38, 0 30px 70px rgba(0, 0, 0, .55); }
+  .tv .glass { width: 528px; height: 297px; overflow: hidden; }
+  .tv iframe { width: 960px; height: 540px; transform: scale(.55); transform-origin: 0 0; }
+  .tv .stand { width: 120px; height: 14px; margin: 0 auto; background: linear-gradient(#1a2029, #0b0f15); border-radius: 0 0 4px 4px; }
+  .tv .stand + .stand { width: 220px; height: 6px; border-radius: 3px; }
 
   .caption {
     position: absolute; left: 50%; bottom: 34px; padding: 14px 30px 16px; border-radius: 18px; white-space: nowrap;
@@ -20,10 +59,6 @@
     backdrop-filter: blur(10px);
   }
   .caption b { color: #6fe3ff; font-weight: 700; }
-  .key {
-    position: absolute; padding: 9px 16px; border-radius: 10px; font: 700 20px 'Segoe UI', system-ui, sans-serif;
-    color: #14161c; background: #f2f4f8; box-shadow: 0 4px 0 #9aa3b2, 0 12px 30px rgba(0, 0, 0, .4);
-  }
   .cursor { position: absolute; left: 0; top: 0; width: 30px; height: 30px; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .5)); }
   .ripple { position: absolute; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%;
     border: 3px solid rgba(255, 255, 255, .9); }
@@ -36,34 +71,42 @@
   .outro h1 { margin: 14px 0 4px; font-size: 76px; letter-spacing: -1px; color: #fff; }
   .outro p { margin: 6px 0; font-size: 26px; color: #b9d6ee; }
   .outro .url { margin-top: 18px; font-size: 25px; font-weight: 600; color: #6fe3ff; }
-  [data-bare] .caption, [data-bare] .key, [data-bare] .cursor, [data-bare] .ripple, [data-bare] .outro, [data-bare] .fade { display: none; }
+  [data-bare] .caption, [data-bare] .cursor, [data-bare] .ripple, [data-bare] .outro, [data-bare] .fade,
+  [data-bare] .taskbar, [data-bare] .phone, [data-bare] .tv { display: none; }
 </style>
 </head>
 <body>
-<iframe id="tank"></iframe>
+<div class="desk"></div>
+<div id="win" class="win"><iframe id="tank"></iframe></div>
+<div id="taskbar" class="taskbar"><span><i></i></span><span><i></i></span><span id="dock" class="app"><img src="icon.png" alt="">
+  <b id="badge" class="badge">1</b></span><span><i></i></span><span><i></i></span></div>
+<div id="tv" class="tv"><div class="screen"><div class="glass"><iframe id="tvTank"></iframe></div></div><div class="stand"></div><div class="stand"></div></div>
+<div id="phone" class="phone"><div class="screen"><iframe id="phoneTank"></iframe>
+  <div id="finder" class="finder"><div class="frame"><span id="qr"></span><b></b><b></b><b></b><b></b></div><div id="scan" class="scan"></div></div>
+  <div class="notch"></div></div></div>
 <div id="caption" class="caption"></div>
-<div id="key" class="key">⏎ Enter</div>
 <div id="ripple" class="ripple"></div>
 <svg id="cursor" class="cursor" viewBox="0 0 24 24"><path d="M4 2 L4 20 L9 15.5 L12.5 22.5 L15.5 21 L12 14 L19 14 Z" fill="#fff" stroke="#111" stroke-width="1.4" stroke-linejoin="round"/></svg>
 <div id="outro" class="outro"><div id="card" class="card">
   <img src="icon.png" alt="">
   <h1>Agent Fishtank</h1>
-  <p>Your AI coding agents as fish, and their terminals right beside them.</p>
+  <p>Your AI coding agents as fish: on your desk, your phone and your TV.</p>
   <p>Free and open source · macOS and Windows</p>
   <div class="url">vinnievh.github.io/agents-fishtank</div>
 </div></div>
 <div id="fade" class="fade"></div>
 
 <script>
-const LENGTH = 22.5; // seconds: 9 bars at 96 BPM; every cut falls on a bar or half bar
-const params = new URLSearchParams(location.search), clean = params.has('clean');
-if (clean || params.has('bare')) document.body.dataset.bare = '';
+const LENGTH = 23.75; // seconds: 8 bars at 96 BPM and the last chord ringing out; every cut falls on a beat
+const params = new URLSearchParams(location.search), clean = params.has('clean'), bare = clean || params.has('bare');
+if (bare) document.body.dataset.bare = '';
 const $ = id => document.getElementById(id);
-const tank = $('tank');
+const tank = $('tank'), phoneTank = $('phoneTank'), tvTank = $('tvTank');
 const clamp = x => Math.min(1, Math.max(0, x));
 const ease = x => x < .5 ? 2 * x * x : 1 - (-2 * x + 2) ** 2 / 2;
 const ramp = (t, a, b) => clamp((t - a) / (b - a)); // 0 before a, 1 after b
 const win = () => tank.contentWindow, doc = () => tank.contentDocument;
+const viewers = () => bare ? [] : [phoneTank, tvTank];
 
 // ---- the sessions: some running elsewhere already, then one per tab started in the tank ----
 // [id, name, source, creature, glow, state]; the creatures and glows are set before the tank loads (its look memory)
@@ -84,20 +127,32 @@ localStorage.setItem('demo.terminals', JSON.stringify({
   folder: '~/code/shop', open: false, width: 600, tabs: [],
 }));
 const visitor = params.get('visitor') ?? (clean ? '' : 'dolphins'); // only common ones: the rare ones stay a surprise
-tank.src = `tank.html?time=${params.has('night') ? '23:10' : '14:20'}&seed=${SEED}${visitor ? '&' + visitor : ''}`;
+const daytime = params.has('night') ? '23:10' : '14:20';
+tank.src = `tank.html?time=${daytime}&seed=${SEED}${visitor ? '&' + visitor : ''}`;
+if (!bare) {
+  phoneTank.src = `tank.html?time=${daytime}&seed=${SEED + 2}&watch&manta`;
+  tvTank.src = `tank.html?time=${daytime}&seed=${SEED + 4}&watch&whale`;
+}
 
-const T = { open: 2.5, claude: 3.75, plus: 6.9, copilot: 7.5, asks: 10, back: 11.25, enter: 12.5, drag: [15.3, 16.6], outro: 18.75 };
+const T = {
+  open: 2.5, claude: 3.75, plus: 5, copilot: 5.625, asks: 7.5, minimize: [8.125, 8.75], restore: [10, 10.5],
+  gear: 10.625, check: 11.25, shared: 11.5, zoom: [11.875, 12.5], settle: [15, 15.6], scanned: 16.25,
+  tv: 17.5, code: 17.8125, paired: 18.75, outro: 20,
+};
+const CODE = '482913', SHARED = 'http://192.168.1.20:4322/?key=pR4c8mZtK2vXa9LqW1nEoY7s';
+const SETTINGS = { daylight: 'sun', location: null, visitors: true, crabAlways: false, motion: 'auto', notifyWaiting: true,
+  notifyFinished: false, notifyAfter: 60, openOnSession: true, quitWhenIdle: true, openAtLogin: false, shareOnNetwork: false, trayIcon: false };
+const WARM = 12; // seconds the tanks run before the first frame, so the fish (and the dolphins) are already swimming
 const clock = t => new Date(2026, 9, 28, 14, 20).getTime() + (t + WARM) * 1000;
-const WARM = 12; // seconds the tank runs before the first frame, so the fish (and the dolphins) are already swimming
 function sessions(t) {
   const now = clock(t), ms = s => clock(s);
   const out = [];
   CAST.forEach(([id, name, source, , , state], i) => {
     if (id === 'demo-tab-1') {
       if (t < T.claude + .9) return; // once its first prompt is sent
-      const s = t < T.asks ? 'working' : t < T.enter ? 'waiting' : 'working';
+      const s = t < T.asks ? 'working' : 'waiting'; // and then it waits for you, wherever you watch from
       out.push({ id, source, name, state: s, lastEvent: s === 'waiting' ? ms(T.asks) : now - (t % 2) * 1000,
-        subagents: t > 5 && t < 9 ? [{ id: 'a-explore', name: 'Explore', type: 'Explore', status: 'running', start: ms(5) }] : [] });
+        subagents: t > 5 && t < T.asks ? [{ id: 'a-explore', name: 'Explore', type: 'Explore', status: 'running', start: ms(5) }] : [] });
     } else if (id === 'demo-tab-7') {
       if (t < T.copilot + 1.1) return;
       out.push({ id, source, name, state: 'working', lastEvent: now - (t % 3) * 1000, subagents: [] });
@@ -116,6 +171,10 @@ function snapshot(t) {
     quota: { entitlement: 1500, used: 540, remainingPct: 64, unlimited: false, overage: 0, resetDate: '2026-11-01T00:00:00Z', at: now },
   };
 }
+// this computer's own page has the settings and the shared address; another device only gets to watch
+const own = t => ({ ...snapshot(t), settings: { ...SETTINGS, shareOnNetwork: t >= T.check },
+  share: t >= T.shared ? { urls: [SHARED], pairingCode: CODE } : undefined });
+const watching = t => ({ ...snapshot(t), viewer: true, desktop: false });
 
 // ---- what the shells print: [time, text]; a line with ⟨typed⟩ text is typed out over `type` seconds ----
 const ESC = '\x1b[', dim = s => `${ESC}2m${s}${ESC}0m`, bold = s => `${ESC}1m${s}${ESC}0m`;
@@ -132,24 +191,21 @@ const BOX = [ // Claude Code asking before it runs a command
 const SCRIPT = {
   claude: [
     [0, `${orange(bold('✻ Claude Code'))}  ${dim('~/code/shop')}\r\n\r\n`],
-    [.2, { typed: 'add a dark mode toggle to the settings page', type: .75, prompt: '> ' }],
-    [1.3, `\r\n\r\n${ok('⏺')} Read(src/settings/SettingsPage.tsx)\r\n${dim('  ⎿  Read 112 lines')}\r\n`],
-    [1.9, `\r\n${ok('⏺')} Read(src/theme/tokens.css)\r\n${dim('  ⎿  Read 48 lines')}\r\n`],
-    [2.6, `\r\n${ok('⏺')} A switch that follows the system theme by default,\r\n  with a light and a dark override.\r\n`],
-    [3.2, `\r\n${ok('⏺')} Update(src/settings/SettingsPage.tsx)\r\n${dim('  ⎿  Updated with 18 additions and 2 removals')}\r\n`],
-    [4.4, `\r\n${ok('⏺')} Update(src/theme/tokens.css)\r\n${dim('  ⎿  Updated with 24 additions')}\r\n`],
-    [T.asks - T.claude, '\r\n' + BOX.join('\r\n') + '\r\n'],
-    [T.enter - T.claude + .1, `${ESC}${BOX.length}A${ESC}J${ok('⏺')} Bash(npm test -- settings)\r\n${dim('  ⎿  ✓ 14 passed')}\r\n`],
-    [T.enter - T.claude + .9, `\r\n${ok('⏺')} Dark mode is in: Settings → Appearance.\r\n`],
-    [T.enter - T.claude + 1.4, `\r\n${rgb('#ffc94d', '✻ Checking the contrast of the dark colours…')}\r\n`],
+    [.2, { typed: 'add a dark mode toggle to the settings page', type: .7, prompt: '> ' }],
+    [1.1, `\r\n\r\n${ok('⏺')} Read(src/settings/SettingsPage.tsx)\r\n${dim('  ⎿  Read 112 lines')}\r\n`],
+    [1.5, `\r\n${ok('⏺')} Read(src/theme/tokens.css)\r\n${dim('  ⎿  Read 48 lines')}\r\n`],
+    [2.0, `\r\n${ok('⏺')} A switch that follows the system theme by default,\r\n  with a light and a dark override.\r\n`],
+    [2.6, `\r\n${ok('⏺')} Update(src/settings/SettingsPage.tsx)\r\n${dim('  ⎿  Updated with 18 additions and 2 removals')}\r\n`],
+    [3.1, `\r\n${ok('⏺')} Update(src/theme/tokens.css)\r\n${dim('  ⎿  Updated with 24 additions')}\r\n`],
+    [T.asks - T.claude - .1, '\r\n' + BOX.join('\r\n') + '\r\n'],
   ],
   copilot: [
     [0, `${violet(bold('● Copilot CLI'))}  ${dim('~/code/shop')}\r\n\r\n`],
-    [.25, { typed: 'speed up the CI by caching the dependencies', type: .75, prompt: '> ' }],
-    [1.4, `\r\n\r\n${violet('●')} Read .github/workflows/ci.yml\r\n`],
-    [2.0, `\r\n${violet('●')} The install step downloads everything on every run.\r\n  Caching ~/.npm keyed on package-lock.json.\r\n`],
-    [2.8, `\r\n${violet('●')} Edit .github/workflows/ci.yml ${ok('+6')} ${rgb('#ff5a6b', '-1')}\r\n`],
-    [3.4, `\r\n${violet('●')} Run npm ci && npm test\r\n`],
+    [.25, { typed: 'speed up the CI by caching the dependencies', type: .7, prompt: '> ' }],
+    [1.2, `\r\n\r\n${violet('●')} Read .github/workflows/ci.yml\r\n`],
+    [1.7, `\r\n${violet('●')} The install step downloads everything on every run.\r\n  Caching ~/.npm keyed on package-lock.json.\r\n`],
+    [2.3, `\r\n${violet('●')} Edit .github/workflows/ci.yml ${ok('+6')} ${rgb('#ff5a6b', '-1')}\r\n`],
+    [2.9, `\r\n${violet('●')} Run npm ci && npm test\r\n`],
   ],
 };
 const tabs = {}; // kind -> { id, start }
@@ -170,6 +226,26 @@ function print(t) {
   }
 }
 
+// ---- the window: full screen, sunk into the taskbar, pushed in on the QR code, then one screen among three ----
+const DOCK = [720, 772]; // the app's icon in the taskbar
+const FULL = { x: 0, y: 0, s: 1 }, SUNK = { x: DOCK[0] - 720 * .04, y: DOCK[1] - 405 * .04, s: .04 }, DESK = { x: 34, y: 286, s: .45 };
+let zoomed = null;
+const zoomPose = () => {
+  if (zoomed) return zoomed;
+  const r = doc().querySelector('#settings .share')?.getBoundingClientRect();
+  if (!r?.width) return FULL;
+  const s = 1.75, cx = r.left + r.width / 2, cy = r.top + r.height / 2 - 10;
+  return zoomed = { x: 720 - cx * s, y: 380 - cy * s, s };
+};
+const mix = (a, b, k) => ({ x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, s: a.s + (b.s - a.s) * k });
+function windowPose(t) {
+  if (t < T.minimize[0]) return FULL;
+  if (t < T.restore[0]) return mix(FULL, SUNK, ease(ramp(t, ...T.minimize)));
+  if (t < T.zoom[0]) return mix(SUNK, FULL, ease(ramp(t, ...T.restore)));
+  if (t < T.settle[0]) return mix(FULL, zoomPose(), ease(ramp(t, ...T.zoom)));
+  return mix(zoomPose(), DESK, ease(ramp(t, ...T.settle)));
+}
+
 // ---- the mouse: [time, where] waypoints, where is [x, y] or a selector in the tank; clicks: [time, selector] ----
 // a selector's spot is kept from the first time it's on screen, so the pointer doesn't jump when it goes away
 const spots = new Map();
@@ -178,18 +254,18 @@ const centre = sel => {
   if (r?.width && !spots.has(sel)) spots.set(sel, [r.left + r.width / 2, r.top + r.height / 2]);
   return spots.get(sel) ?? null;
 };
-const dragX = t => 600 + (340 - 600) * ease(ramp(t, ...T.drag));
+const KIND = '#term .start .kinds button', ADD = '#term .add', COPILOT = '.term-menu button:nth-child(2)';
+const GEAR = '#gear', SHARE = '#settings input[name=shareOnNetwork]';
 const PATH = [
-  [2.9, [1000, 560]], [3.55, '#term .start .kinds button'], [4.2, '#term .start .kinds button'], [6.6, [470, 330]],
-  [6.85, '#term .add'], [7.05, '#term .add'], [7.4, '.term-menu button:nth-child(2)'], [7.7, '.term-menu button:nth-child(2)'],
-  [9.6, [520, 390]], [11.05, '#term .tab'], [12.1, '#term .tab'], [13.2, [430, 520]], [15.05, () => [600, 470]],
-  [15.3, () => [600, 470]], [16.6, () => [340, 470]], [17.4, [520, 620]],
+  [2.9, [1000, 560]], [3.5, KIND], [3.95, KIND], [4.6, [470, 330]], [4.85, ADD], [5.15, ADD], [5.45, COPILOT], [5.8, COPILOT],
+  // the pointer keeps off the icon until it clicks it, so the badge can be read; it points from above
+  [6.8, [560, 430]], [8.1, [620, 520]], [9.35, [640, 600]], [9.85, [712, 762]], [10.1, [712, 762]], [10.45, GEAR], [10.75, GEAR],
+  [11.1, SHARE], [11.6, SHARE],
 ];
-const CLICKS = [[T.claude, '#term .start .kinds button'], [T.plus, '#term .add'], [T.copilot, '.term-menu button:nth-child(2)'], [T.back, '#term .tab']];
-const where = w => typeof w === 'function' ? w() : typeof w === 'string' ? centre(w) : w;
+const CLICKS = [[T.claude, KIND], [T.plus, ADD], [T.copilot, COPILOT], [T.restore[0], null], [T.gear, GEAR], [T.check, SHARE]];
+const where = w => typeof w === 'string' ? centre(w) : w;
 let last = [1000, 560];
 function cursorAt(t) {
-  if (t >= T.drag[0] && t <= T.drag[1]) return [dragX(t), 470];
   for (let i = 1; i < PATH.length; i++) {
     const [t1, w1] = PATH[i], [t0, w0] = PATH[i - 1];
     if (t <= t1) {
@@ -197,61 +273,91 @@ function cursorAt(t) {
       return last = [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
     }
   }
-  return where(PATH.at(-1)[1]);
+  return where(PATH.at(-1)[1]) ?? last;
 }
 const CAPTIONS = [
   [.3, 2.3, 'Every AI agent session is a <b>fish</b>.'],
-  [2.75, 4.85, 'Now with the <b>terminals</b> built in.'],
-  [5.25, 9.85, '<b>Claude Code</b>, <b>Copilot CLI</b> or a shell. Each tab is a fish.'],
-  [10.25, 14.85, 'See who <b>needs you</b>. Answer right beside the tank.'],
-  [15.25, 18.5, 'A brand-new <b>reef</b> to swim in.'],
+  [2.75, 7.2, 'Run <b>Claude Code</b>, <b>Copilot CLI</b> or a shell in tabs. Each one swims.'],
+  [7.75, 9.8, 'Step away: the <b>taskbar</b> counts who needs you.'],
+  [10.25, 14.7, 'Then share the tank on your <b>Wi-Fi</b>.'],
+  [15.25, 17.2, 'Scan the <b>QR code</b> to watch on your phone.'],
+  [17.75, 19.7, 'No camera? Type the <b>code</b> on your TV.'],
 ];
+
+// ---- the other devices: the phone scans the code, the TV is paired with it ----
+function devices(t) {
+  $('phone').style.transform = `translateY(${(1 - ease(ramp(t, T.settle[0], T.settle[1]))) * 620}px)`;
+  if (t >= T.settle[0] && !$('qr').firstChild) {
+    const code = doc().querySelector('#settings .share svg');
+    if (code) $('qr').append(code.cloneNode(true));
+  }
+  $('finder').style.opacity = 1 - ramp(t, T.scanned, T.scanned + .25);
+  $('scan').style.top = (167 + 136 * (((t - T.settle[1]) / .6) % 1)) + 'px'; // sweeping over the code in the frame
+  $('scan').style.opacity = t < T.scanned - .1 ? .9 : 0;
+
+  $('tv').style.opacity = ramp(t, T.tv, T.tv + .4);
+  $('tv').style.transform = `scale(${.96 + .04 * ease(ramp(t, T.tv, T.tv + .5))})`;
+  const pair = tvTank.contentDocument?.getElementById('pair'), input = pair?.querySelector('input');
+  if (!pair) return;
+  pair.hidden = t >= T.paired;
+  const typed = CODE.slice(0, Math.max(0, Math.min(6, Math.floor((t - T.code) / .15625) + 1)));
+  if (input.value !== typed) input.value = typed;
+  if (t >= T.tv - 1 && t < T.paired && tvTank.contentDocument.activeElement !== input) input.focus({ preventScroll: true });
+}
 
 let lastFeed = NaN, clicked = new Set(), opened = false;
 let now = -WARM;
 window.__frame = t => {
   now = t;
   win().__created ??= tab => { tabs[tab.kind] = { id: tab.id, start: now + .1 }; }; // printed once its tab is there
-  // the tank gets a snapshot every half second
+  // the tanks get a snapshot every half second
   const tick = Math.floor(t * 2);
-  if (tick !== lastFeed) { win().__feed(snapshot(tick / 2)); lastFeed = tick; }
+  if (tick !== lastFeed) {
+    win().__feed(own(tick / 2));
+    for (const viewer of viewers()) viewer.contentWindow.__feed(watching(tick / 2));
+    lastFeed = tick;
+  }
 
   if (!clean) {
-    for (const [ct, sel] of CLICKS) if (t >= ct && !clicked.has(ct)) { clicked.add(ct); doc().querySelector(sel)?.click(); }
-    const root = doc().documentElement, split = doc().getElementById('split');
+    for (const [ct, sel] of CLICKS) if (sel && t >= ct && !clicked.has(ct)) { clicked.add(ct); doc().querySelector(sel)?.click(); }
+    const root = doc().documentElement;
     // the terminal side slides in: shown at once by the app, then widened here as if dragged open
     if (t >= T.open && !opened) { opened = true; win().__toggleTerminals(); }
-    const sliding = t >= T.open && t < T.open + .7, dragging = t >= T.drag[0] && t <= T.drag[1];
-    if (sliding || dragging) {
-      root.style.setProperty('--tank-left', (sliding ? 600 * ease(ramp(t, T.open, T.open + .6)) : dragX(t)) + 'px');
+    if (t >= T.open && t < T.open + .7) {
+      root.style.setProperty('--tank-left', 600 * ease(ramp(t, T.open, T.open + .6)) + 'px');
       win().dispatchEvent(new Event('resize'));
     }
-    split?.classList.toggle('drag', dragging);
     print(t);
   }
   win().__advance((t + WARM) * 1000);
-  if (clean) return;
+  for (const viewer of viewers()) viewer.contentWindow.__advance((t + WARM) * 1000);
+  if (bare) return;
+
+  const pose = windowPose(t);
+  $('win').style.transform = `translate(${pose.x}px, ${pose.y}px) scale(${pose.s})`;
+  $('win').style.borderRadius = (pose.s < .999 ? Math.min(200, 14 / pose.s) : 0) + 'px';
+  $('win').style.opacity = t < T.restore[0] ? 1 - ramp(t, T.minimize[1] - .2, T.minimize[1]) : ramp(t, T.restore[0], T.restore[0] + .15);
+  $('taskbar').style.transform = `translateY(${(1 - ease(ramp(t, T.minimize[0] - .2, T.minimize[0] + .1)) + ease(ramp(t, T.restore[1], T.restore[1] + .3))) * 80}px)`;
+  const pop = ramp(t, T.minimize[1], T.minimize[1] + .25);
+  $('badge').style.transform = `scale(${t < T.minimize[1] ? 0 : pop < .6 ? pop / .6 * 1.3 : 1.3 - .3 * (pop - .6) / .4})`;
+  devices(t);
 
   const cap = CAPTIONS.find(([a, b]) => t >= a - .3 && t <= b + .3);
   $('caption').style.opacity = cap ? Math.min(ramp(t, cap[0] - .3, cap[0]), 1 - ramp(t, cap[1], cap[1] + .3)) : 0;
   if (cap) {
     if ($('caption').innerHTML !== cap[2]) $('caption').innerHTML = cap[2];
-    $('caption').style.transform = `translateX(-50%) translateY(${(1 - ease(ramp(t, cap[0] - .3, cap[0]))) * 14}px)`;
+    const lift = t >= T.minimize[0] && t < T.restore[1] + .3 ? 82 : 0; // above the taskbar while it's up
+    $('caption').style.transform = `translateX(-50%) translateY(${(1 - ease(ramp(t, cap[0] - .3, cap[0]))) * 14 - lift}px)`;
   }
 
-  $('key').style.opacity = Math.min(ramp(t, T.enter - .6, T.enter - .45), 1 - ramp(t, T.enter + .3, T.enter + .5));
-  const box = doc().querySelector('#term .views')?.getBoundingClientRect();
-  if (box) { $('key').style.left = (box.left + box.width / 2 - 50) + 'px'; $('key').style.top = (box.top + 560) + 'px'; }
-  $('key').style.transform = `translateY(${t > T.enter - .15 && t < T.enter + .1 ? 3 : 0}px)`;
-
   const [x, y] = cursorAt(t);
-  $('cursor').style.opacity = Math.min(ramp(t, 2.9, 3.1), 1 - ramp(t, 17.2, 17.5));
+  $('cursor').style.opacity = Math.min(ramp(t, 2.9, 3.1), 1 - ramp(t, 11.6, 11.85));
   $('cursor').style.transform = `translate(${x - 5}px, ${y - 3}px)`;
   const click = CLICKS.find(([ct]) => t >= ct && t < ct + .45);
   $('ripple').style.opacity = click ? 1 - ramp(t, click[0], click[0] + .45) : 0;
   if (click) { $('ripple').style.left = x + 'px'; $('ripple').style.top = y + 'px'; $('ripple').style.transform = `scale(${.4 + ramp(t, click[0], click[0] + .45)})`; }
 
-  // the closing card: the tank dips into the deep blue first, then the card comes in
+  // the closing card: the scene dips into the deep blue first, then the card comes in
   $('outro').style.opacity = ramp(t, T.outro, T.outro + .35);
   $('card').style.opacity = ramp(t, T.outro + .3, T.outro + .7);
   $('card').style.transform = `translateY(${(1 - ease(ramp(t, T.outro + .3, T.outro + .9))) * 18}px)`;
@@ -259,7 +365,8 @@ window.__frame = t => {
 };
 window.__warm = () => { for (let t = -WARM; t < 0; t += 1 / 30) window.__frame(t); };
 window.__length = LENGTH;
-window.__ready = () => !!win().__feed && !!doc()?.querySelector('canvas') && (clean || !!win().__toggleTerminals);
+const loaded = frame => !!frame.contentWindow?.__feed && !!frame.contentDocument?.querySelector('canvas');
+window.__ready = () => loaded(tank) && viewers().every(loaded) && (clean || !!win().__toggleTerminals);
 </script>
 </body>
 </html>

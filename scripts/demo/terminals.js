@@ -4,7 +4,7 @@
 // about every tab the page starts through __created(tab).
 (() => {
   const setup = JSON.parse(localStorage.getItem('demo.terminals') || 'null');
-  if (!setup) return;
+  if (!setup || new URLSearchParams(location.search).has('watch')) return; // a phone or TV watching has no terminals
   let print = () => {}, next = 1;
   window.fishtankTerminals = {
     setup: async () => setup,
