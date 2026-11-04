@@ -33,6 +33,15 @@ describe('share helpers', () => {
     })).toEqual(['192.168.1.20']);
   });
 
+  it('leaves out the networks of virtual machines and containers, which other devices can\'t reach', () => {
+    const at = (address: string) => [{ netmask: '', mac: '', cidr: null, address, family: 'IPv4' as const, internal: false }];
+    expect(lanAddresses({
+      'vEthernet (Default Switch)': at('172.18.144.1'), 'vEthernet (WSL)': at('172.20.0.1'), 'Ethernet 4': at('192.168.0.146'),
+      'VirtualBox Host-Only Network': at('192.168.56.1'), 'VMware Network Adapter VMnet8': at('192.168.80.1'),
+      bridge100: at('192.168.64.1'), docker0: at('172.17.0.1'), en0: at('10.0.0.12'),
+    })).toEqual(['192.168.0.146', '10.0.0.12']);
+  });
+
   it('puts the key in the shared address', () => {
     expect(shareUrls(['192.168.1.20'], 4322, 'abc-_1')).toEqual(['http://192.168.1.20:4322/?key=abc-_1']);
   });

@@ -37,9 +37,13 @@ export const readShareKey = (keyFile?: string) => {
   return key;
 };
 
-/** This computer's addresses on the local network (IPv4, not loopback). */
+// Networks that only exist inside this computer, for virtual machines and containers (Hyper-V and WSL, Docker,
+// VirtualBox, VMware, Parallels, libvirt): no phone or TV can reach the tank there.
+const VIRTUAL_ADAPTER = /^(vEthernet|VirtualBox|vboxnet|VMware|vmnet|vmenet|vnic|bridge\d|docker|br-|virbr|veth|lxcbr|lxdbr|podman|cni)/i;
+
+/** This computer's addresses on the local network (IPv4, not loopback, not a virtual machine's network). */
 export const lanAddresses = (interfaces: NodeJS.Dict<os.NetworkInterfaceInfo[]> = os.networkInterfaces()) =>
-  Object.values(interfaces).flatMap(addresses => addresses ?? [])
+  Object.entries(interfaces).filter(([name]) => !VIRTUAL_ADAPTER.test(name)).flatMap(([, addresses]) => addresses ?? [])
     .filter(address => address.family === 'IPv4' && !address.internal)
     .map(address => address.address);
 
