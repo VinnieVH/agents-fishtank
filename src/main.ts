@@ -1,5 +1,6 @@
 import { Application, Container, Sprite, Texture } from 'pixi.js';
 import './style.css';
+import './menu';
 import { FLOOR_REACH, paintFloor, paintTerrain, paintWater, sandLineFor } from './art/terrain';
 import { connect, renderPanel, renderUsage, setSky, type Session, type Snapshot } from './panel';
 import { credits, type Credits } from './credits';
@@ -19,6 +20,8 @@ import { SpeciesStore } from './species';
 import { paintTexture } from './art/canvas';
 import { GARLAND_HEIGHT, paintGarland } from './art/garland';
 import { hatTexture } from './art/hats';
+import { AchievementStore, BUSY_SESSIONS, Moment, seasonId, visitorId } from './achievements';
+import { startAchievementsPage } from './achievementsPage';
 import { showSettings, showShare } from './settings';
 import { DEFAULT_SETTINGS, type Settings } from '../shared/settings';
 
@@ -109,6 +112,13 @@ const resized = () => {
 };
 app.renderer.on('resize', resized);
 resize();
+
+const achievements = startAchievementsPage(new AchievementStore(localStorage));
+passersby.onVisit = name => achievements.earn(visitorId(name));
+crab.onAppear = () => achievements.add('crab');
+crab.onDance = () => achievements.earn(Moment.CrabDance);
+crab.onScare = () => achievements.earn(Moment.CrabScare);
+const earnSeason = () => { if (season && !params.has('season')) achievements.earn(seasonId(season.id)); }; // ?season= only previews one
 
 const allFish = new Map<string, Fish>();
 let sessions = new Map<string, Session>();
@@ -211,6 +221,9 @@ const sync = (snapshot: Snapshot) => {
   const wanted = updateFish(snapshot.sessions);
   for (const [key, fish] of allFish) if (!wanted.has(key)) { fish.destroy(); allFish.delete(key); }
   species.prune(new Set(snapshot.sessions.map(session => session.id)));
+  achievements.earnUpTo('fish', snapshot.sessions.length);
+  achievements.earnUpTo('subagent', [...allFish.values()].filter(fish => fish.small).length);
+  if (snapshot.sessions.filter(session => session.state === 'working').length >= BUSY_SESSIONS) achievements.earn(Moment.Busy);
   renderPanel(snapshot, id => allFish.get(id)?.neon ?? '#fff');
   const copilotCredits = credits(snapshot.quota);
   showCredits(copilotCredits);
@@ -233,6 +246,7 @@ const sessionAt = (x: number, y: number) => {
 
 /** Opens a session: in the Claude desktop app, or by bringing its terminal to the front. */
 const openSession = (session: Session) => {
+  achievements.earn(Moment.Opened);
   if (session.link) { location.href = session.link; return; } // the desktop app catches the navigation (electron/main.ts)
   void fetch('/open', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: session.id }) });
 };
@@ -252,6 +266,7 @@ app.canvas.addEventListener('pointerdown', event => {
   if (session) { openSession(session); return; }
   if (y > sandLineFor(tankHeight)) return; // not in the sand
   const pinch = food.drop(x, y);
+  achievements.add('feed');
   const eater = hungriestNear(x, y);
   if (eater) eater.meal = pinch;
 });
@@ -261,6 +276,7 @@ const refreshSeason = () => {
   const next = settings?.seasons === false ? null : currentSeason(params);
   if (next?.id === season?.id) return;
   season = next;
+  earnSeason();
   water.anemonesHidden = !!season;
   paintTerrainLayer();
   paintFloorLayer();
@@ -273,6 +289,8 @@ const updateLight = () => {
   const now = clock(), { elevation, hourAngle } = sunPosition(now, where);
   light = lightFor(elevation, hourAngle);
   refreshSeason();
+  if (light.phase === 'Night') achievements.earn(Moment.Night);
+  if (light.phase === 'Dawn') achievements.earn(Moment.Dawn);
   setSky(light.phase, now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
 };
 

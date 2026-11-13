@@ -25,11 +25,11 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #01101f; fon
 #panel h1 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: .3px; }
 #panel .title { display: flex; align-items: center; gap: 10px; }
 #panel h1 { flex: 1; }
-#gear, #term-btn { flex: none; width: 26px; height: 26px; padding: 4px; margin: -4px -6px -4px 0; border: 0; border-radius: 8px; cursor: pointer;
+#menu-btn, #term-btn { flex: none; width: 26px; height: 26px; padding: 4px; margin: -4px -6px -4px 0; border: 0; border-radius: 8px; cursor: pointer;
         color: #d8ecff; background: none; opacity: .6; }
 #term-btn { margin-right: -4px; }
-#gear:hover, #gear:focus-visible, #term-btn:hover, #term-btn:focus-visible { opacity: 1; background: rgba(255,255,255,.08); }
-#gear svg, #term-btn svg { width: 100%; height: 100%; fill: currentColor; }
+#menu-btn:hover, #menu-btn:focus-visible, #term-btn:hover, #term-btn:focus-visible { opacity: 1; background: rgba(255,255,255,.08); }
+#menu-btn svg, #term-btn svg { width: 100%; height: 100%; fill: currentColor; }
 #term-btn[hidden] { display: none; }
 #count { font-size: 12px; margin-top: 3px; opacity: .85; }
 #count b { color: #ff8a9c; font-weight: 600; }
@@ -183,3 +183,51 @@ body.still .dot { animation: none !important; }
 .term-menu button:hover, .term-menu button:focus-visible { background: rgba(255,255,255,.08); outline: none; }
 .term-menu hr { margin: 6px 4px; border: 0; border-top: 1px solid rgba(120,220,255,.12); }
 .term-menu .folder { font-size: 12px; opacity: .75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+
+
+/* the menu under the button, one button per option */
+#menu { width: min(260px, calc(100vw - 32px)); padding: 0; color: #d8ecff; background: rgba(4, 22, 42, .92);
+         border: 1px solid rgba(120, 220, 255, .22); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+#menu::backdrop { background: rgba(1, 12, 24, .45); backdrop-filter: blur(2px); }
+#menu h2 { margin: 0; padding: 16px 18px 6px; font-size: 17px; font-weight: 600; text-align: center; }
+#menu .options { display: flex; flex-direction: column; gap: 8px; padding: 10px 18px 18px; }
+#menu button { padding: 9px 12px; font: inherit; font-size: 13.5px; font-weight: 600; color: #d8ecff; cursor: pointer;
+               background: rgba(120, 220, 255, .08); border: 1px solid rgba(120, 220, 255, .22); border-radius: 8px; }
+#menu button:hover, #menu button:focus-visible { background: rgba(120, 220, 255, .2); border-color: rgba(120, 220, 255, .5); outline: none; }
+
+/* the page over the whole app */
+#achievements { position: fixed; inset: 0; width: 100vw; max-width: none; height: 100vh; max-height: none; margin: 0; padding: 0; border: 0;
+                color: #d8ecff; background: rgba(2, 20, 38, .94); overflow-y: auto; }
+#achievements::backdrop { background: rgba(1, 12, 24, .6); }
+#achievements header { display: flex; align-items: center; padding: 24px max(32px, calc((100% - 960px) / 2)) 8px; position: sticky; top: 0; background: rgba(2, 20, 38, .97); }
+#achievements header div { flex: 1; }
+#achievements h2 { margin: 0; font-size: 22px; font-weight: 600; }
+#achievements .summary { font-size: 12px; opacity: .6; }
+#achievements .close { border: 0; background: none; color: inherit; font-size: 18px; opacity: .6; cursor: pointer; padding: 6px 10px; border-radius: 8px; }
+#achievements .close:hover, #achievements .close:focus-visible { opacity: 1; background: rgba(255,255,255,.08); }
+#achievements .group { padding: 8px max(32px, calc((100% - 960px) / 2)) 24px; }
+#achievements h3 { margin: 10px 0 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; opacity: .55; }
+.cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+@media (max-width: 760px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+.cards li { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 24px 14px; min-height: 170px; justify-content: center; border-radius: 14px;
+            border: 1px solid rgba(120,220,255,.18); background: rgba(255,255,255,.04); }
+.cards li.earned { border-color: rgba(255,201,77,.5); background: rgba(255,201,77,.07); }
+.cards li.locked { opacity: .45; }
+.cards .icon { display: block; height: 72px; }
+.cards b { font-size: 15px; }
+.cards small { font-size: 12px; opacity: .7; }
+.cards .when { opacity: .45; }
+
+/* the card announcing a new achievement, at the top of the app (a popover, so it also shows above the pages): a pill with the picture in a disc */
+#toast { position: fixed; inset: 16px auto auto 50%; margin: 0; transform: translateX(-50%); width: max-content; max-width: calc(100vw - 32px);
+         display: none; align-items: center; gap: 16px; padding: 6px 36px 6px 6px; color: #e8f6ff; border-radius: 999px; border: 0;
+         background: linear-gradient(90deg, #0a4a73, #06324f); box-shadow: 0 10px 40px rgba(0,0,0,.5), 0 0 0 1px rgba(120,220,255,.25); }
+#toast:popover-open { display: flex; animation: toast-in .4s ease-out; }
+#toast .icon { flex: none; display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%;
+               background: radial-gradient(circle at 35% 30%, #ffe08a, #e0a526); box-shadow: inset 0 -4px 8px rgba(120,70,0,.35); }
+#toast .text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+#toast b { font-size: 18px; font-weight: 600; }
+#toast span { font-size: 14px; font-weight: 600; color: var(--amber); }
+#toast small { font-size: 12px; opacity: .75; }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, -20px); } }
+.cards .locked .icon { font-size: 48px; line-height: 72px; }

@@ -123,6 +123,9 @@ class Passerby {
     this.baseY = height * (DEPTH[0] + Math.random() * (DEPTH[1] - DEPTH[0]));
   }
 
+  /** True once its middle has swum into view. */
+  isOnScreen(width: number) { return this.x > 0 && this.x < width; }
+
   /** Returns false once it has left the screen. */
   update({ t, deltaFrames, width, night }: VisitorFrame) {
     const { length, direction, kind, body, glow, frame } = this, { glow: paintGlow } = kind;
@@ -161,10 +164,12 @@ export class Passersby extends Container {
   private all: Passerby[];
   private active: Passerby | null = null;
   private last = -1;
+  private isAnnounced = false;
   private next: number;
   private summon: Passerby | undefined;
   private readonly summonUntil: number;
   enabled = true;
+  onVisit: ((name: string) => void) | null = null;
   season: SeasonId | null = null; // the festive season going on, for the visitors that only come in one
 
   constructor(now: number, params: URLSearchParams, resolution: number) {
@@ -188,14 +193,23 @@ export class Passersby extends Container {
     return true;
   }
 
+  /** Tells onVisit once, when the visitor first swims into view. */
+  private announce(width: number) {
+    if (this.isAnnounced || !this.active?.isOnScreen(width)) return;
+    this.isAnnounced = true;
+    this.onVisit?.(this.active.kind.name);
+  }
+
   update(frame: VisitorFrame) {
     const t = frame.t;
     if (!this.active) {
       if (t < this.next || (!this.enabled && !this.summon) || this.summonOutOfSeason(t)) return;
       this.active = this.summon ?? this.all[pickVisitor(KINDS.map(kind => kind.season && kind.season !== this.season ? 0 : kind.weight), this.last)];
       this.summon = undefined;
+      this.isAnnounced = false;
       this.active.start(t, frame.width, frame.height);
     }
+    this.announce(frame.width);
     if (!this.active.update(frame)) {
       this.last = this.all.indexOf(this.active); this.active = null;
       this.next = t + 90000 + Math.random() * 120000;

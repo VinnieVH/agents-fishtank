@@ -168,7 +168,7 @@ only opened isn't shown yet); a Copilot session as soon as it writes to its log.
 
 ## Settings
 
-Click the **gear** at the top of the panel, or choose **Settings…** in the menu (**Agent Fishtank** menu on a Mac,
+Click the **menu** button at the top of the panel and pick **Settings**, or choose **Settings…** in the menu (**Agent Fishtank** menu on a Mac,
 **File** on Windows; press Alt to show it). Shortcut: ⌘, on a Mac, Ctrl+, on Windows. Changes apply right away and
 are remembered.
 
@@ -258,7 +258,7 @@ in `agent-fishtank-share-key` in the app's data folder (delete it to get a new o
 - **Sharing on the network:** turned on in the settings, the server starts a second, watch-only server on all
   interfaces at the next port (`server/share.ts`). It serves the page, `/events` (with the key) and `POST /pair`, and
   refuses everything else, so settings, `/open`, hooks and terminals stay on `127.0.0.1`. Its feed (`viewer`) has no
-  session links or terminals, and the page hides the gear. A device gets the key from the shared address (the
+  session links or terminals, and the page hides Settings from the menu. A device gets the key from the shared address (the
   settings show it as a QR code, `src/qr.ts`) or by pairing: on the short address without a key, the page
   (`src/viewer.ts`) asks for the 6-digit code from the settings and `/pair` answers with the key
   (`server/pairing.ts`). The device keeps the key and takes it out of the address bar.

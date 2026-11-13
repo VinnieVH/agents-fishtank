@@ -38,6 +38,10 @@ export class Crab extends Sprite {
   private aim: PoseAim = { open: 0, leftArm: 0, rightArm: 0, look: 0, brows: 0, fright: 0, sway: 0 };
   /** Out on the sand even while sessions are busy (the crabAlways setting, or ?crab). */
   always = false;
+  onAppear: (() => void) | null = null; // he walked into view
+  onDance: (() => void) | null = null;
+  onScare: (() => void) | null = null; // a new fish startled him while he was out
+  private isAnnounced = false;
 
   constructor(private resolution: number) {
     super();
@@ -69,6 +73,13 @@ export class Crab extends Sprite {
     this.position.set(this.sandX, height - 14 - this.hop(t, startle));
     this.rotation = this.sway;
     this.tint = nightTint(night); // he sits in front of the night overlay
+    this.announceVisit(width);
+  }
+
+  private announceVisit(width: number) {
+    if (this.isAnnounced || this.sandX < 0 || this.sandX > width) return;
+    this.isAnnounced = true;
+    this.onAppear?.();
   }
 
   private trackCalm(t: number, isCalm: boolean) {
@@ -81,6 +92,7 @@ export class Crab extends Sprite {
     if (t - this.calmSince < (this.always ? 300 : 8000) || t < this.nextVisit) return false;
     this.direction = Math.random() < .5 ? 1 : -1;
     this.sandX = this.direction > 0 ? -margin : width + margin;
+    this.isAnnounced = false;
     this.walk(t);
     return true;
   }
@@ -89,6 +101,7 @@ export class Crab extends Sprite {
   private startleIfNeeded(t: number, width: number, isCalm: boolean) {
     if ((isCalm && !this.isSpooked) || this.mode === 'leave') return;
     this.mode = 'leave'; this.scaredAt = t; this.direction = this.sandX < width / 2 ? -1 : 1;
+    if (this.isSpooked) this.onScare?.();
   }
 
   private startleProgress(t: number) {
@@ -104,6 +117,7 @@ export class Crab extends Sprite {
     if (this.mode === 'walk' && t > this.until && this.sandX > margin * 2 && this.sandX < width - margin * 2) {
       this.mode = 'pause'; this.until = t + 2500 + Math.random() * 3500;
       this.act = ACTS[Math.floor(Math.random() * ACTS.length)];
+      if (this.act === 'dance') this.onDance?.();
     } else if (this.mode === 'pause' && t > this.until) {
       if (Math.random() < .25) this.direction *= -1;
       this.walk(t);

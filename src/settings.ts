@@ -2,7 +2,7 @@ import { DEFAULT_SETTINGS, type Settings } from '../shared/settings';
 import type { Snapshot } from '../shared/types';
 import { qrCode } from './qr';
 
-// The settings dialog: opened with the gear in the panel, or from the app's menu (Settings…, which calls
+// The settings dialog: opened from the menu in the panel, or from the app's menu (Settings…, which calls
 // window.openSettings). Every change is posted to the server right away; the server saves it and sends the new
 // settings back with the next snapshot, which is what the tank applies.
 
@@ -57,8 +57,8 @@ form.addEventListener('change', event => {
 });
 
 const openSettings = () => { if (!dialog.open) dialog.showModal(); };
-const gear = document.getElementById('gear')!;
-gear.addEventListener('click', openSettings);
+const settingsItem = document.getElementById('menu-settings')!;
+settingsItem.addEventListener('click', openSettings);
 // the app's menu item (electron/main.ts)
 (window as unknown as { openSettings: () => void }).openSettings = openSettings;
 
@@ -112,9 +112,9 @@ const shareHint = (share: NonNullable<Snapshot['share']>) => {
   return 'Scan this code with a phone or tablet on the same network, or open the address there. It has a secret key: only share it with people who may see your sessions.';
 };
 
-/** The shared addresses while sharing is on; on another device (a viewer), the gear goes, as it can only look. */
+/** The shared addresses while sharing is on; on another device (a viewer), Settings leaves the menu, as it can only look. */
 export const showShare = ({ share, viewer }: Pick<Snapshot, 'share' | 'viewer'>) => {
-  gear.hidden = !!viewer;
+  settingsItem.hidden = !!viewer;
   const shown = JSON.stringify(share ?? null);
   if (shown === shareShown) return;
   shareShown = shown;
