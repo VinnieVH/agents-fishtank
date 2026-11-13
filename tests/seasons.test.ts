@@ -10,12 +10,12 @@ describe('seasonOn', () => {
     expect([on(3, 29), on(4, 5)]).toEqual(['spring', 'spring']);
     expect([on(6, 21), on(7, 5)]).toEqual(['midsummer', 'midsummer']);
     expect([on(9, 20), on(10, 6)]).toEqual(['brewfest', 'brewfest']);
-    expect([on(10, 19), on(11, 2)]).toEqual(['halloween', 'halloween']);
+    expect([on(10, 25), on(11, 2)]).toEqual(['halloween', 'halloween']);
     expect([on(11, 22), on(11, 29)]).toEqual(['thanksgiving', 'thanksgiving']);
   });
 
   it('is null between seasons', () => {
-    expect([on(1, 3), on(2, 23), on(4, 6), on(5, 11), on(8, 15), on(9, 19), on(12, 14)]).toEqual(Array(7).fill(null));
+    expect([on(1, 3), on(2, 23), on(4, 6), on(5, 5), on(8, 15), on(9, 14), on(9, 19), on(10, 24), on(12, 14)]).toEqual(Array(9).fill(null));
   });
 
   it('runs winter across New Year', () => {

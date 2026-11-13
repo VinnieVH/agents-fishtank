@@ -66,9 +66,9 @@
   // The page follows the same calendar as the tank (src/seasons.ts; tests/seasons.test.ts checks the two agree).
   // ?season=<id> tries one out. Only the winter holidays have a look so far: [data-season="winter"] in style.css.
   const SEASONS = [
-    ['lunar', [2, 2], [2, 16]], ['love', [2, 8], [2, 22]], ['spring', [3, 29], [4, 5]], ['children', [5, 3], [5, 10]],
-    ['midsummer', [6, 21], [7, 5]], ['harvest', [9, 11], [9, 18]], ['brewfest', [9, 20], [10, 6]],
-    ['halloween', [10, 19], [11, 2]], ['thanksgiving', [11, 22], [11, 29]], ['winter', [12, 15], [1, 2]],
+    ['lunar', [2, 2], [2, 16]], ['love', [2, 8], [2, 22]], ['spring', [3, 29], [4, 5]],
+    ['midsummer', [6, 21], [7, 5]], ['brewfest', [9, 20], [10, 6]],
+    ['halloween', [10, 25], [11, 2]], ['thanksgiving', [11, 22], [11, 29]], ['winter', [12, 15], [1, 2]],
   ];
   const now = new Date(), today = (now.getMonth() + 1) * 100 + now.getDate(), key = ([month, day]) => month * 100 + day;
   const going = SEASONS.filter(([, start, end]) => key(start) <= key(end)

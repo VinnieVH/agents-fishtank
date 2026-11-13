@@ -59,13 +59,6 @@ const lunar = () => {
   solid(poly([11.5, -4], [14.5, -4], [15.5, 7], [10.5, 7]), '#f5b82e');
 };
 
-const children = () => {
-  solid(poly([-10, -3], [0, -32], [10, -3]), '#3dc8ff');
-  g.save(); g.clip(poly([-10, -3], [0, -32], [10, -3]));
-  ['#ffd23d', '#ff4d8d', '#8f5cff'].forEach((color, index) => { g.fillStyle = color; g.fillRect(-12, -25 + index * 8, 24, 3.6); });
-  g.restore(); stroke(poly([-10, -3], [0, -32], [10, -3]), '#14506b', 1.6); dot(0, -33, 3.6, '#ffd23d');
-};
-
 const midsummer = () => {
   const colors = ['#ff6fa8', '#ffd23d', '#fff', '#b47cff', '#ff8a3d'];
   stroke(open([-14, -3], [[-9, -9], [9, -9], [14, -3]]), '#2d8a3a', 3);
@@ -75,13 +68,7 @@ const midsummer = () => {
   });
 };
 
-const harvest = () => {
-  solid(oval(0, -4, 20, 4.8), '#e8c45a'); solid(curve([-11, -5], [[-11, -22], [11, -22], [11, -5]]), '#f0d070');
-  solid(poly([-11.4, -10], [11.4, -10], [11, -5.5], [-11, -5.5]), '#a8552a');
-  
-};
-
-const HATS: Record<SeasonId, () => void> = { lunar, love, spring: bunny, children, midsummer, harvest, brewfest, halloween: witch, thanksgiving: pilgrim, winter: santa };
+const HATS: Record<SeasonId, () => void> = { lunar, love, spring: bunny, midsummer, brewfest, halloween: witch, thanksgiving: pilgrim, winter: santa };
 const cache = new Map<SeasonId, Texture>();
 
 /** Draws the season's hat with its bottom middle at the current origin, for a fish this big: HAT_FISH_SIZE. */

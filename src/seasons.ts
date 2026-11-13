@@ -1,6 +1,6 @@
 export const Season = {
-  Lunar: 'lunar', Love: 'love', Spring: 'spring', Children: 'children', Midsummer: 'midsummer',
-  Harvest: 'harvest', Brewfest: 'brewfest', Halloween: 'halloween', Thanksgiving: 'thanksgiving', Winter: 'winter',
+  Lunar: 'lunar', Love: 'love', Spring: 'spring', Midsummer: 'midsummer',
+  Brewfest: 'brewfest', Halloween: 'halloween', Thanksgiving: 'thanksgiving', Winter: 'winter',
 } as const;
 export type SeasonId = (typeof Season)[keyof typeof Season];
 
@@ -13,11 +13,9 @@ export const SEASONS: Festival[] = [
   { id: Season.Lunar, name: 'Lunar New Year', start: [2, 2], end: [2, 16] },
   { id: Season.Love, name: 'Valentine’s', start: [2, 8], end: [2, 22] },
   { id: Season.Spring, name: 'Spring egg hunt', start: [3, 29], end: [4, 5] },
-  { id: Season.Children, name: 'Children’s Week', start: [5, 3], end: [5, 10] },
-  { id: Season.Midsummer, name: 'Midsummer bonfires', start: [6, 21], end: [7, 5] },
-  { id: Season.Harvest, name: 'Harvest festival', start: [9, 11], end: [9, 18] },
+  { id: Season.Midsummer, name: 'Midsummer', start: [6, 21], end: [7, 5] },
   { id: Season.Brewfest, name: 'Brewfest', start: [9, 20], end: [10, 6] },
-  { id: Season.Halloween, name: 'Halloween', start: [10, 19], end: [11, 2] },
+  { id: Season.Halloween, name: 'Halloween', start: [10, 25], end: [11, 2] },
   { id: Season.Thanksgiving, name: 'Thanksgiving', start: [11, 22], end: [11, 29] },
   { id: Season.Winter, name: 'Winter holidays', start: [12, 15], end: [1, 2] },
 ];

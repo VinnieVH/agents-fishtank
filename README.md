@@ -49,11 +49,9 @@ Around these dates every year the fish get a hat, the sand gets decorated and th
 | `lunar` | Lunar New Year | 2 – 16 Feb |
 | `love` | Valentine's | 8 – 22 Feb |
 | `spring` | Spring egg hunt | 29 Mar – 5 Apr |
-| `children` | Children's Week | 3 – 10 May |
-| `midsummer` | Midsummer bonfires | 21 Jun – 5 Jul |
-| `harvest` | Harvest festival | 11 – 18 Sep |
+| `midsummer` | Midsummer | 21 Jun – 5 Jul |
 | `brewfest` | Brewfest | 20 Sep – 6 Oct |
-| `halloween` | Halloween | 19 Oct – 2 Nov |
+| `halloween` | Halloween | 25 Oct – 2 Nov |
 | `thanksgiving` | Thanksgiving | 22 – 29 Nov |
 | `winter` | Winter holidays | 15 Dec – 2 Jan |
 
