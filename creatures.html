@@ -32,9 +32,13 @@
 <div id="stills" class="stills"></div>
 <h2>Swimming: working · waiting · idle</h2>
 <div id="live"></div>
+<h2>Festive hats, by season</h2>
+<div id="seasons"></div>
 <script type="module">
 import { Application, Container } from 'pixi.js';
 import { paintFish, stillCanvas } from '/src/art/fishArt.ts';
+import { hatTexture } from '/src/art/hats.ts';
+import { SEASONS } from '/src/seasons.ts';
 import { ALL_SPECIES, NEON, SPECIES } from '/src/species.ts';
 import { Fish } from '/src/scene/fish.ts';
 
@@ -84,6 +88,33 @@ const fish = states.map((state, i) => {
 app.ticker.add(t => {
   const tank = { t: performance.now(), deltaFrames: Math.min(3, t.deltaMS / 16.7), right: W(), bottom: bottom(), night: night ? 1 : 0 };
   for (const { f, state } of fish) f.update(tank, state, undefined);
+});
+
+// seasons: the same creature in each festive season's hat (and without one), kept in place so only its tail moves
+const CELL_W = 190, CELL_H = 170, seasonBox = document.getElementById('seasons');
+const festive = [{ id: null, name: 'No season', dates: 'the rest of the year' }, ...SEASONS.map(({ id, name, start, end }) => ({ id, name, dates: `${start[1]}/${start[0]} – ${end[1]}/${end[0]}` }))];
+const columns = Math.max(1, Math.floor(seasonBox.clientWidth / CELL_W)), rows = Math.ceil(festive.length / columns);
+seasonBox.style.cssText = `position:relative;height:${rows * CELL_H}px;border-radius:14px;overflow:hidden;background:${night ? '#03152b' : '#0d4a78'}`;
+const seasonApp = new Application();
+await seasonApp.init({ width: seasonBox.clientWidth, height: rows * CELL_H, backgroundAlpha: 0, antialias: true, resolution: devicePixelRatio, autoDensity: true });
+seasonBox.append(seasonApp.canvas);
+const seasonBodies = new Container();
+seasonApp.stage.addChild(seasonBodies);
+const wearers = festive.map(({ id, name, dates }, index) => {
+  const x = (index % columns) * CELL_W + CELL_W / 2, y = Math.floor(index / columns) * CELL_H + CELL_H / 2 - 8;
+  const f = new Fish({ key: 'season-' + index, sessionId: 'season', small: false, look: { species, neon: NEON[0] }, tankWidth: 1000, bottom: 1000, resolution: devicePixelRatio });
+  f.setHat(id ? hatTexture(id, devicePixelRatio) : null);
+  seasonBodies.addChild(f.body);
+  seasonBox.insertAdjacentHTML('beforeend', `<div style="position:absolute;left:${x - CELL_W / 2}px;top:${y + 52}px;width:${CELL_W}px;text-align:center;font-size:12px;line-height:1.35"><b>${name}</b><br><span style="opacity:.6">${id ?? '–'} · ${dates}</span></div>`);
+  return { f, x, y };
+});
+seasonApp.ticker.add(t => {
+  const tank = { t: performance.now(), deltaFrames: Math.min(3, t.deltaMS / 16.7), right: 10000, bottom: 10000, night: night ? 1 : 0 };
+  for (const { f, x, y } of wearers) {
+    f.update(tank, 'working', undefined);
+    f.x = x; f.y = y; f.direction = f.face = 1; f.vy = 0;
+    f.body.position.set(x, y); f.body.scale.x = 1; f.body.rotation = 0;
+  }
 });
 </script>
 </body>
