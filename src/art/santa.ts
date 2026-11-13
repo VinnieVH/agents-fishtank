@@ -1,5 +1,6 @@
 import type { FishLook } from './fishLook';
 import { drawInto } from './fishPen';
+import { Season } from '../seasons';
 import { paintHat } from './hats';
 import { FESTIVE_SEAHORSE, ODD_FISH } from './oddFish';
 import { shade, TAU } from '../util';
@@ -84,7 +85,7 @@ const paintSanta = (g: Context, phase: number) => {
   arm([-5.2, -9.4], [-9.2 - wave * .8, -15.4 - wave * .6]); // his right arm, in front of the sack, waving
   paintFace(g);
   g.save(); g.translate(-1.8, -16.3); g.rotate(.12); g.scale(.2, .2); // the same Santa hat the fish wear
-  paintHat(g, 'winter');
+  paintHat(g, Season.Winter);
   g.restore();
 };
 

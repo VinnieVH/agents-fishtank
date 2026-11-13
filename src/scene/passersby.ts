@@ -9,7 +9,7 @@ import { paintShark } from '../art/shark';
 import { paintSantaGlow, paintSantaSleigh } from '../art/santa';
 import { paintSubmarine, paintSubmarineGlow } from '../art/submarine';
 import { paintWhale } from '../art/whale';
-import type { SeasonId } from '../seasons';
+import { Season, type SeasonId } from '../seasons';
 import { pickVisitor } from '../visitors';
 
 type Painter = (g: CanvasRenderingContext2D, length: number, phase: number) => void;
@@ -49,7 +49,7 @@ export const KINDS: Kind[] = [
   { name: 'jellyfish', paint: paintJellyfish, glow: paintJellyGlow, weight: 3, alpha: .75, length: width => Math.max(190, Math.min(320, width * .2)),
     box: { w: 1, h: .92, ox: .5, oy: .47 }, speed: .28, beat: .045, bob: 10, bobPeriod: 7000,     tilt: .02 },
   // the winter holidays' one: Santa in his sleigh, pulled by seahorses
-  { name: 'santa', paint: paintSantaSleigh, glow: paintSantaGlow, season: 'winter', weight: 4, alpha: 1, length: width => Math.max(300, Math.min(460, width * .33)),
+  { name: 'santa', paint: paintSantaSleigh, glow: paintSantaGlow, season: Season.Winter, weight: 4, alpha: 1, length: width => Math.max(300, Math.min(460, width * .33)),
     box: { w: 1.04, h: .5, ox: .52, oy: .27 }, speed: .6, beat: .05, bob: 6, bobPeriod: 5000, tilt: .02 },
   // the rare one
   { name: 'submarine', paint: paintSubmarine, glow: paintSubmarineGlow, weight: .6, alpha: 1, length: width => Math.max(300, Math.min(540, width * .36)),

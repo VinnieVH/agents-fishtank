@@ -14,7 +14,7 @@ import { AirTanks } from './scene/tanks';
 import { Crab, type CrabFrame } from './scene/crab';
 import { Food } from './scene/food';
 import { lightFor, locationFromParams, makeClock, sunPosition, type Light } from './sky';
-import { currentSeason, type Season } from './seasons';
+import { currentSeason, type Festival } from './seasons';
 import { SpeciesStore } from './species';
 import { paintTexture } from './art/canvas';
 import { GARLAND_HEIGHT, paintGarland } from './art/garland';
@@ -49,7 +49,7 @@ app.stage.addChild(sea, water.current, terrain, passersby, water.rays, water.shi
   sky, passersby.glows, water.anemoneTips, water.plankton, garland, drift, fishLayer, marksLayer, tanks, crab, gauge);
 
 let tankWidth = 0, tankHeight = 0, gold = 1, gems = 5;
-let season: Season | null = null; // the festive season going on, if any
+let season: Festival | null = null; // the festive season going on, if any
 
 /** The floor's things: on resize, and when the chest's gold changes. */
 const paintFloorLayer = () => {
