@@ -1,6 +1,6 @@
 import { TAU } from '../util';
 
-type Bend = (x: number, y: number) => [number, number];
+export type Bend = (x: number, y: number) => [number, number];
 
 // One fluke lobe seen flat from above, from its root out to the swept-back tip and in to the middle notch:
 // x back along the tail, z out to the side
@@ -24,7 +24,7 @@ const BELLY_CURVES = [
 ];
 
 /** The flukes, flat and horizontal, pitched up or down as the tail beats; origin at their root. */
-const paintFlukes = (g: CanvasRenderingContext2D, pitch: number) => {
+export const paintFlukes = (g: CanvasRenderingContext2D, pitch: number) => {
   const cos = Math.cos(pitch), sin = Math.sin(pitch);
   const project = ([x, z]: [number, number]): [number, number] => [x * cos, x * sin - z * FLUKE_TILT];
   const points = [...FLUKE.map(([x, z]) => project([x, z])), ...FLUKE.slice(0, -1).reverse().map(([x, z]) => project([x, -z]))];
@@ -37,7 +37,7 @@ const paintFlukes = (g: CanvasRenderingContext2D, pitch: number) => {
 };
 
 /** Bends everything behind `pivot` up or down as the tail beats, more the further back, up to `angle` at `length` back. */
-const makeBend = (pivot: number, length: number, angle: number): Bend => (x, y) => {
+export const makeBend = (pivot: number, length: number, angle: number): Bend => (x, y) => {
   if (x >= pivot) return [x, y];
   const bendAngle = angle * Math.min(1, (pivot - x) / length), cos = Math.cos(bendAngle), sin = Math.sin(bendAngle), dx = x - pivot;
   return [pivot + dx * cos - y * sin, dx * sin + y * cos];
