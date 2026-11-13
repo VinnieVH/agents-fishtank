@@ -42,7 +42,7 @@ are open, and doesn't quit by itself while they are.
 
 ### Seasons
 
-Around these dates every year the fish get a hat, the sand gets decorated and things drift through the water. The project website joins in for the winter holidays, with falling snow and a string of lights (`?season=winter` previews it there too). Turn it off in Settings (*Decorate the tank for festive seasons*), or preview one with `?season=<id>` on the tank's address.
+Around these dates every year the fish get a hat, the sand gets decorated and things drift through the water. Each season's hat, garland and drifting bits are listed in the [documentation](https://vinnievh.github.io/agents-fishtank/docs.html#seasons). The project website joins in for the winter holidays, with falling snow and a string of lights (`?season=winter` previews it there too). Turn it off in Settings (*Decorate the tank for festive seasons*), or preview one with `?season=<id>` on the tank's address.
 
 | `id` | Season | Dates |
 | --- | --- | --- |

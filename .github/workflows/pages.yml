@@ -5,7 +5,12 @@ name: Website
 on:
   push:
     branches: [main]
-    paths: ['site/**', 'docs/*.png', 'build/icon.png', '.github/workflows/pages.yml']
+    paths: ['site/**', 'docs/*.png', 'build/icon.png', 'scripts/changelog.mjs', '.github/workflows/pages.yml']
+  # a new release adds a section to the what's-new page; running after the Release workflow (always on main) also
+  # keeps the page from listing a version whose build failed, and avoids Pages' branch rules for the environment
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -19,17 +24,21 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the what's-new page is written from the tags and commits
       - name: Put the page and its images together
         run: |
           mkdir _site
           cp -r site/. _site/
           cp docs/screenshot.png docs/screenshot-night.png build/icon.png _site/
+          node scripts/changelog.mjs _site
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

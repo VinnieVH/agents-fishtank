@@ -132,3 +132,51 @@ footer {
 /* a thank-you at the end of the homepage */
 .coffee { text-align: center; margin-top: -24px; }
 .coffee p { color: var(--muted); margin: 0 0 14px; }
+
+/* the what's-new page (scripts/changelog.mjs writes it) */
+.changelog { max-width: 760px; }
+.release { margin: 0 0 20px; background: rgba(4, 22, 42, .62); border: 1px solid var(--line); border-radius: 16px; padding: 18px 24px 14px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.release h2 { text-align: left; margin: 0 0 10px; font-size: 1.5rem; }
+.release h2 small { font-size: .9rem; font-weight: 400; color: var(--muted); margin-left: 8px; }
+.release ul { margin: 0; padding-left: 20px; }
+.release li { margin: 4px 0; }
+.release b { font-size: .8rem; padding: 1px 7px; border-radius: 8px; margin-right: 4px; color: #06231a; background: var(--cyan); }
+.release b.fix { background: var(--amber); }
+.release .scope { color: var(--muted); font-size: .9rem; }
+.release .more { margin: 10px 0 0; font-size: .9rem; }
+.release .more a { color: var(--muted); }
+
+/* the documentation page: a sticky menu on the left, the text beside it */
+.docs { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 40px; max-width: 1180px; margin: 0 auto; padding-top: 32px; }
+.docs-nav {
+  position: sticky; top: 20px; align-self: start; max-height: calc(100vh - 40px); overflow-y: auto; padding: 18px 16px;
+  background: rgba(4, 22, 42, .62); border: 1px solid var(--line); border-radius: 16px;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.docs-nav a { display: block; padding: 5px 10px; border-radius: 8px; text-decoration: none; color: var(--muted); font-size: .95rem; }
+.docs-nav a:hover, .docs-nav a:focus-visible { color: var(--ink); background: rgba(255, 255, 255, .08); }
+.docs-nav .back { margin: 0 0 10px; color: var(--cyan); font-weight: 600; }
+.docs-title { margin: 0 10px 6px; font-weight: 800; font-size: 1.2rem; }
+.docs-nav h4 { margin: 16px 10px 4px; font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--cyan); }
+.docs-body { padding-bottom: 48px; }
+.docs-body h1 { margin: 0 0 8px; }
+.lead-left { font-size: 1.1rem; color: #e9f5ff; margin: 0 0 40px; }
+.docs-body section { margin: 0 0 52px; scroll-margin-top: 24px; }
+.docs-body h2 { text-align: left; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.docs-body h3 { margin: 22px 0 6px; }
+.docs-body p, .docs-body li { color: #cfe3f5; }
+.docs-body li { margin: 4px 0; }
+.docs-body table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: .95rem; background: rgba(4, 22, 42, .45); border-radius: 12px; overflow: hidden; }
+.docs-body th, .docs-body td { text-align: left; vertical-align: top; padding: 9px 14px; border-bottom: 1px solid var(--line); }
+.docs-body th { background: rgba(255, 255, 255, .06); font-size: .85rem; letter-spacing: .03em; }
+.docs-body td:first-child { white-space: nowrap; }
+.docs-body td:nth-child(2) { min-width: 0; }
+.docs-body pre { background: rgba(0, 0, 0, .35); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; overflow-x: auto; }
+.docs-body pre code { background: none; padding: 0; }
+.docs-body details { margin-bottom: 10px; }
+.docs-end { color: var(--muted); border-top: 1px solid var(--line); padding-top: 20px; }
+@media (max-width: 900px) {
+  .docs { grid-template-columns: 1fr; gap: 20px; }
+  .docs-nav { position: static; max-height: none; }
+  .docs-body td:first-child { white-space: normal; }
+}

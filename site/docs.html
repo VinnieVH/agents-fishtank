@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Documentation · Agent Fishtank</title>
+<meta name="description" content="How to install, connect and set up Agent Fishtank, what everything in the tank means, every setting, and what to do when something doesn't work.">
+<link rel="icon" href="icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="bubbles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+<div class="docs">
+  <nav class="docs-nav" aria-label="Documentation">
+    <a href="./" class="back">← Agent Fishtank</a>
+    <p class="docs-title">Documentation</p>
+    <h4>Getting started</h4>
+    <a href="#install">Install</a>
+    <a href="#connect">Connect to your agents</a>
+    <a href="#updates">Updates</a>
+    <a href="#uninstall">Uninstall</a>
+    <h4>Using it</h4>
+    <a href="#tank">What you see</a>
+    <a href="#terminals">Built-in terminals</a>
+    <a href="#seasons">Seasons</a>
+    <a href="#settings">Settings</a>
+    <a href="#sharing">Watching from other devices</a>
+    <a href="#variables">Environment variables</a>
+    <h4>Help</h4>
+    <a href="#troubleshooting">Troubleshooting</a>
+    <a href="#privacy">Privacy</a>
+    <h4>More</h4>
+    <a href="changelog.html">What's new</a>
+    <a href="creatures.html">The creatures</a>
+    <a href="https://github.com/VinnieVH/agents-fishtank#for-developers">For developers</a>
+  </nav>
+
+  <main class="docs-body">
+    <h1>Documentation</h1>
+    <p class="lead-left">Everything about Agent Fishtank: getting it running, what the tank shows, every setting, and what
+      to do when something doesn't work.</p>
+
+    <section id="install">
+      <h2>Install</h2>
+      <p>You need <b>Claude Code</b> and/or <b>GitHub Copilot CLI</b>. Nothing else, not even Node.js. Get the installer for
+        your computer from the <a href="https://github.com/VinnieVH/agents-fishtank/releases/latest">latest release</a>:</p>
+      <table>
+        <tr><th>Your computer</th><th>Download</th></tr>
+        <tr><td>Mac with Apple Silicon (M1 or newer)</td><td><a href="https://github.com/VinnieVH/agents-fishtank/releases/latest/download/Agent-Fishtank-arm64.dmg">Agent-Fishtank-arm64.dmg</a></td></tr>
+        <tr><td>Mac with Intel</td><td><a href="https://github.com/VinnieVH/agents-fishtank/releases/latest/download/Agent-Fishtank-x64.dmg">Agent-Fishtank-x64.dmg</a></td></tr>
+        <tr><td>Windows (also runs on Arm)</td><td><a href="https://github.com/VinnieVH/agents-fishtank/releases/latest/download/Agent-Fishtank-Setup.exe">Agent-Fishtank-Setup.exe</a></td></tr>
+      </table>
+      <h3>On a Mac</h3>
+      <ol>
+        <li>Open the <code>.dmg</code> and drag <b>Agent Fishtank</b> into <b>Applications</b>.</li>
+        <li>Open it from Applications. Because the app isn't signed by Apple yet, macOS blocks it the first time. Go to
+          <b>System Settings → Privacy &amp; Security</b>, scroll down to the message about Agent Fishtank and click
+          <b>Open Anyway</b>. (Or run <code>xattr -dr com.apple.quarantine "/Applications/Agent Fishtank.app"</code> in Terminal.)</li>
+      </ol>
+      <h3>On Windows</h3>
+      <ol>
+        <li>Run the installer. The app isn't signed yet, so Windows SmartScreen may warn you: click <b>More info → Run anyway</b>.</li>
+        <li>Agent Fishtank opens when the installer is done.</li>
+      </ol>
+      <h3>Build it yourself</h3>
+      <p>You need <a href="https://git-scm.com">Git</a> and <a href="https://nodejs.org">Node.js</a> 22.18 or newer.</p>
+      <pre><code>git clone https://github.com/VinnieVH/agents-fishtank.git
+cd agents-fishtank
+npm ci
+npm run dist</code></pre>
+      <p>This takes a few minutes and puts the installers in the <code>release</code> folder.</p>
+    </section>
+
+    <section id="connect">
+      <h2>Connect to your agents</h2>
+      <p>The first time Agent Fishtank starts, it asks to connect to the agents it finds on your computer. Click <b>Connect</b>.</p>
+      <p>From then on the fishtank <b>opens by itself when you start a session</b> and <b>closes after the last one ends</b>.
+        You can close the window any time; it comes back with your next session. Prefer it to stay open, or to start with
+        your computer? See <a href="#settings">Settings</a>.</p>
+      <p>To connect or disconnect later, use the menu: <b>Agent Fishtank</b> in the menu bar on a Mac, the <b>File</b> menu on
+        Windows (press Alt if you don't see it).</p>
+      <details><summary>What does connecting change?</summary>
+        <p><b>Claude Code:</b> adds hooks to <code>~/.claude/settings.json</code> that start the app and tell it what your
+          sessions are doing, and wraps your status line so the app learns your plan usage. Your own hooks and status line
+          keep working as before. A backup is kept as <code>settings.json.fishtank-backup</code>, and nothing is changed if the
+          file isn't valid JSON.</p>
+        <p><b>Copilot CLI:</b> adds one hook file, <code>~/.copilot/hooks/fishtank.json</code>, that starts the app.</p>
+        <p>Disconnecting removes exactly these again and puts your own status line back.</p></details>
+    </section>
+
+    <section id="updates">
+      <h2>Updates</h2>
+      <p>Agent Fishtank checks for a new version when it starts and every few hours. When one is out, it asks you whether to
+        <b>Download</b> it, do it <b>Later</b>, or <b>Skip This Version</b>.</p>
+      <p><b>Download</b> opens the installer for your computer. Quit Agent Fishtank, then install it like the first time: on a
+        Mac drag it into Applications and replace the old one, on Windows run the installer. Your connection and settings
+        stay as they are. You can also check yourself with <b>Check for Updates…</b> in the menu. See <a href="changelog.html">what's new</a>
+        in each version.</p>
+      <p>The check is a single request to GitHub's public release list. To turn it off, set <code>FISHTANK_NO_UPDATE_CHECK=1</code>.</p>
+    </section>
+
+    <section id="uninstall">
+      <h2>Uninstall</h2>
+      <p><b>On a Mac:</b> first choose <b>Disconnect</b> in the Agent Fishtank menu (for each agent), then drag the app to the
+        Trash. If you skip the disconnect, Claude Code keeps calling the removed app and shows hook errors; reinstall and
+        disconnect, or remove the fishtank entries from <code>~/.claude/settings.json</code>.</p>
+      <p><b>On Windows:</b> uninstall it in <b>Settings → Apps</b>. The uninstaller disconnects it for you.</p>
+    </section>
+
+    <section id="tank">
+      <h2>What you see</h2>
+      <table>
+        <tr><th>In the tank</th><th>What it means</th></tr>
+        <tr><td>A fish racing around</td><td>That session's agent is working</td></tr>
+        <tr><td>A slow fish with a question mark</td><td>It's waiting for you: a permission prompt or a question</td></tr>
+        <tr><td>A dozing fish (<code>zZ</code>)</td><td>The session is idle</td></tr>
+        <tr><td>Little fish next to a big one</td><td>Subagents the session started</td></tr>
+        <tr><td>Two scuba tanks on the left</td><td><b>Claude Code:</b> how much of your Pro/Max plan's 5-hour and weekly limits you have left (bubbles leak when it's nearly empty)</td></tr>
+        <tr><td>A pressure gauge on the right</td><td><b>Copilot:</b> how much of your premium requests you've used this month; the gold in the treasure chest shrinks along with it</td></tr>
+        <tr><td>The panel on the right</td><td>How many sessions there are and how many need you, then every session (those that need you on top) with its state, a Copilot/Claude badge and its subagents, and the exact numbers: your Claude usage and when it refills, and the Copilot credits left this month. On a phone-sized screen the panel moves to the bottom, and the scuba tanks and gauge leave the water, so these are the numbers there</td></tr>
+      </table>
+      <p>Each fish is named after its session: the name you gave it, Claude Code's title for it, or the start of your first
+        prompt. Sessions get different creatures and glow colours, so no two look alike
+        (<a href="creatures.html">meet them all</a>).</p>
+      <p><b>Click a fish</b> to jump to its session: the Claude desktop app opens it, iTerm or Terminal switches to its tab (other
+        terminals and editors come to the front), and a Copilot session that has ended is resumed in a new terminal window. If
+        you switched a Copilot CLI to another session with <code>/resume</code>, clicking the old session's fish brings that CLI
+        to the front. On a Mac, the first click asks to let Agent Fishtank control iTerm or Terminal; allow it (or later in
+        <b>System Settings → Privacy &amp; Security → Automation</b>).</p>
+      <p>And just for fun: the water follows the real time of day (with glowing plankton at night), a whale, an orca, a shark, a
+        pod of dolphins, a manta ray or a school of jellyfish drifts by now and then (and once in a while something rarer), a
+        crab comes out when everything is quiet, and you can <b>click the water to feed the fish</b>.</p>
+    </section>
+
+    <section id="terminals">
+      <h2>Built-in terminals</h2>
+      <p>The app has terminals of its own: click the terminal button in the panel (or press <code>Ctrl+\</code>, <code>⌘\</code> on
+        a Mac) and they open on the left, with the tank on the right.</p>
+      <ul>
+        <li>The <b>+</b> starts Claude Code, Copilot CLI or a plain shell (PowerShell on Windows, your login shell on a Mac) in
+          a tab, in the folder shown under it.</li>
+        <li>Drag the edge between the terminals and the tank to share the window.</li>
+        <li>A CLI that ends leaves you in the shell.</li>
+        <li>Copy with <code>Ctrl+C</code> while text is selected (<code>⌘C</code>), paste with <code>Ctrl+V</code> (<code>⌘V</code>) or a right click, and
+          switch tabs with <code>Ctrl+Tab</code>.</li>
+        <li>The app asks before quitting while terminals are open, and doesn't quit by itself while they are.</li>
+      </ul>
+    </section>
+
+    <section id="seasons">
+      <h2>Seasons</h2>
+      <p>Every year the tank dresses up for a handful of festive seasons: the fish get a hat, a garland goes up across the top
+        and things drift through the water.         A season starts and ends on the same days every year, and the
+                tank switches over by itself (by your computer's date; the first and last day both count). Where two seasons overlap (Lunar
+        New Year and Valentine's share 8 – 16 February), the later one in the list wins. Outside the dates the tank looks normal.</p>
+      <p><b>Winter</b> is the first with a full makeover: the sand turns to snow, with a big Christmas tree surrounded by gifts, a
+        snowman and the chest half buried in a snowdrift. The sea-floor decorations of the other seasons are still being
+        fine-tuned. This website joins in too, so far for the winter holidays, with falling snow and a string of lights.</p>
+      <p>Turn it off in Settings (<i>Decorate the tank for festive seasons</i>), or preview a season with
+        <code>?season=&lt;id&gt;</code> on the tank's address, for example <code>?season=halloween</code>.</p>
+      <table>
+        <tr><th>id</th><th>Season</th><th>Starts</th><th>Ends</th></tr>
+        <tr><td><code>lunar</code></td><td>Lunar New Year</td><td>2 Feb</td><td>16 Feb</td></tr>
+        <tr><td><code>love</code></td><td>Valentine's</td><td>8 Feb</td><td>22 Feb</td></tr>
+        <tr><td><code>spring</code></td><td>Spring egg hunt</td><td>29 Mar</td><td>5 Apr</td></tr>
+        <tr><td><code>children</code></td><td>Children's Week</td><td>3 May</td><td>10 May</td></tr>
+        <tr><td><code>midsummer</code></td><td>Midsummer bonfires</td><td>21 Jun</td><td>5 Jul</td></tr>
+        <tr><td><code>harvest</code></td><td>Harvest festival</td><td>11 Sep</td><td>18 Sep</td></tr>
+        <tr><td><code>brewfest</code></td><td>Brewfest</td><td>20 Sep</td><td>6 Oct</td></tr>
+        <tr><td><code>halloween</code></td><td>Halloween</td><td>19 Oct</td><td>2 Nov</td></tr>
+        <tr><td><code>thanksgiving</code></td><td>Thanksgiving</td><td>22 Nov</td><td>29 Nov</td></tr>
+        <tr><td><code>winter</code></td><td>Winter holidays</td><td>15 Dec</td><td>2 Jan (the next year)</td></tr>
+      </table>
+    </section>
+
+    <section id="settings">
+      <h2>Settings</h2>
+      <p>Click the <b>gear</b> at the top of the panel, or choose <b>Settings…</b> in the menu (<b>Agent Fishtank</b> menu on a Mac,
+        <b>File</b> on Windows; press Alt to show it). Shortcut: <code>⌘,</code> on a Mac, <code>Ctrl+,</code> on Windows. Changes apply
+        right away and are remembered.</p>
+      <table>
+        <tr><th>Setting</th><th>What it does</th><th>Default</th></tr>
+        <tr><td><b>Daylight</b></td><td>Follow the real sun, or keep the tank always day or always night</td><td>Follows the sun</td></tr>
+        <tr><td><b>Use my exact location</b></td><td>Latitude and longitude for sunrise and sunset, instead of a guess from your timezone</td><td>Off</td></tr>
+        <tr><td><b>Visitors</b></td><td>Lets the occasional whale, orca, shark, pod of dolphins, manta ray or school of jellyfish swim by, and now and then something rarer</td><td>On</td></tr>
+        <tr><td><b>Keep the crab out</b></td><td>The crab stays on the sand, not only when every session is idle</td><td>Off</td></tr>
+        <tr><td><b>Decorate the tank for festive seasons</b></td><td>Hats, decorations and drifting bits around the dates in <a href="#seasons">Seasons</a></td><td>On</td></tr>
+        <tr><td><b>Animation</b></td><td><b>Lively</b>, <b>Calm</b> (the water, light and fish move slower) or <b>Minimal</b> (barely moving, no visitors). <b>Automatic</b> is Lively, or Calm when your system is set to reduce motion</td><td>Automatic</td></tr>
+        <tr><td><b>Notify when a session needs you</b></td><td>A notification when a fish gets its <code>?</code>: a permission prompt or a question</td><td>On</td></tr>
+        <tr><td><b>Notify when a session finishes</b></td><td>A notification when an agent is done and waits for your next message</td><td>Off</td></tr>
+        <tr><td><b>Only after it has waited for</b></td><td>30 seconds, 1 minute or 5 minutes. A session you answer within that time doesn't notify, so you're not told about the one you're working in</td><td>1 minute</td></tr>
+        <tr><td><b>Open when a session starts</b></td><td>Bring up the window when you start a session. Off: the fishtank runs in the background; open it from the Dock (Mac) or by starting Agent Fishtank again</td><td>On</td></tr>
+        <tr><td><b>Quit after the last session</b></td><td>Off: the fishtank keeps running after your sessions end; closing the window only hides it. Quit from the menu</td><td>On</td></tr>
+        <tr><td><b>Start in the background when I log in</b></td><td>Starts with your computer and keeps running, without opening the window</td><td>Off</td></tr>
+        <tr><td><b>Show the fishtank in the menu bar or system tray</b></td><td>A dot in the menu bar (Mac) or system tray (Windows), coloured by the most urgent session: amber when one needs you, green while one works, grey when all are idle. Click it to open the tank. On Windows 11 it starts among the hidden icons (^); drag it onto the taskbar to keep it in sight</td><td>Off</td></tr>
+        <tr><td><b>Let other devices on my Wi-Fi watch the tank</b></td><td>See <a href="#sharing">Watching from other devices</a></td><td>Off</td></tr>
+      </table>
+      <p>Notifications don't appear while the fishtank window is in front, and clicking one opens the tank. On a Mac, allow
+        them the first time macOS asks (or later in <b>System Settings → Notifications → Agent Fishtank</b>).</p>
+      <p>The number of sessions that need you is always shown as a red badge on the app's icon: on the Dock on a Mac, and on the
+        taskbar button on Windows. Closing the window on Windows removes its taskbar button, so turn on the tray icon to keep an
+        eye on the tank there.</p>
+    </section>
+
+    <section id="sharing">
+      <h2>Watching from other devices</h2>
+      <p>With <b>Let other devices on my Wi-Fi watch the tank</b> on, the settings show a QR code and an address (port
+        <code>4322</code>, with a secret key). Scan the code or open the address in a browser on your phone, tablet or another
+        computer on the same network.</p>
+      <p>On a TV, open the short address the settings show (like <code>192.168.1.20:4322</code>) and type the 6-digit code from
+        the settings. The device remembers it after that.</p>
+      <p>Other devices can only watch: they can't open sessions, change settings or use the terminals. Windows may ask once to
+        allow Agent Fishtank through the firewall on private networks.</p>
+    </section>
+
+    <section id="variables">
+      <h2>Environment variables</h2>
+      <table>
+        <tr><th>Variable</th><th>Default</th><th>What it does</th></tr>
+        <tr><td><code>FISHTANK_PORT</code></td><td><code>4321</code></td><td>The local port the app listens on. Connect again after changing it. Sharing on your Wi-Fi uses the next port</td></tr>
+        <tr><td><code>FISHTANK_NO_UPDATE_CHECK</code></td><td>not set</td><td>Set to <code>1</code> to never check for updates</td></tr>
+        <tr><td><code>CLAUDE_CONFIG_DIR</code></td><td><code>~/.claude</code></td><td>Claude Code's settings folder</td></tr>
+        <tr><td><code>COPILOT_HOME</code></td><td><code>~/.copilot</code></td><td>Copilot CLI's folder</td></tr>
+        <tr><td><code>COPILOT_SESSION_DIR</code></td><td><code>$COPILOT_HOME/session-state</code></td><td>Where Copilot CLI keeps its session logs, if somewhere else</td></tr>
+      </table>
+    </section>
+
+    <section id="troubleshooting">
+      <h2>Troubleshooting</h2>
+      <details open><summary>The air tanks don't show up</summary>
+        <p>They need a Claude <b>Pro or Max</b> subscription, and appear after your first Claude reply in a terminal session. If an
+          <code>ANTHROPIC_API_KEY</code> is set in your environment, Claude Code uses that instead of your subscription, and there's no
+          plan usage to show. The Claude desktop app doesn't send usage either, so the tanks keep the last numbers from a terminal
+          session.</p></details>
+      <details open><summary>Claude Code shows "hook error" notices</summary>
+        <p>The app isn't running or was removed. Start Agent Fishtank, or disconnect it from the menu (see <a href="#uninstall">Uninstall</a>).</p></details>
+      <details open><summary>"Port 4321 is already in use."</summary>
+        <p>Another fishtank is running, often the old browser version. Close it (or restart your computer) and open Agent Fishtank again.</p></details>
+      <details open><summary>macOS says the app can't be opened, or Windows shows a SmartScreen warning</summary>
+        <p>The app isn't signed yet; see <a href="#install">Install</a> for the one-time step.</p></details>
+      <details open><summary>A session's fish doesn't show up</summary>
+        <p>The tank shows sessions that were active in the last hour. Check that the agent is connected (the menu says
+          <b>Disconnect from …</b> when it is). A new Claude Code session gets its fish with your first message (a session you've only
+          opened isn't shown yet); a Copilot session as soon as it writes to its log.</p></details>
+    </section>
+
+    <section id="privacy">
+      <h2>Privacy</h2>
+      <p>Everything stays on your computer. The app only listens on <code>127.0.0.1</code>, reads your agents' local session files,
+        and never answers your agents' hooks with anything but an empty "OK", so it can't change what they do. The only thing it
+        sends over the internet is the update check to GitHub.</p>
+      <p>If you turn on sharing, the app also answers on your local network, but only to show the tank, and only to a browser that
+        has the secret key: from the address (or its QR code), or by typing the 6-digit code shown in the settings, which only works
+        once, changes every few minutes and stops taking tries for a minute after five wrong ones. Anyone with the key sees your
+        session names and prompts, so share it only with people who may. The key stays the same between restarts; it's kept in
+        <code>agent-fishtank-share-key</code> in the app's data folder (delete it to get a new one).</p>
+    </section>
+
+    <p class="docs-end">Missing something? <a href="https://github.com/VinnieVH/agents-fishtank/issues">Open an issue</a> or read
+      <a href="https://github.com/VinnieVH/agents-fishtank#for-developers">how it works</a> for developers.</p>
+  </main>
+</div>
+</body>
+</html>

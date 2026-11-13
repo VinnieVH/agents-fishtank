@@ -45,8 +45,9 @@ To try the packaged app: `npm run dist:dir`, then `release/mac-arm64/Agent Fisht
 
 The project website is `site/` (plain HTML/CSS/JS, no build). `.github/workflows/pages.yml` publishes it to GitHub
 Pages (https://vinnievh.github.io/agents-fishtank/) with `docs/screenshot*.png` and `build/icon.png` whenever they
-change on `main`. Its download button links to `releases/latest/download/<installer>`, so releases need no website
-change.
+change on `main` and after every successful Release run. Its download button links to `releases/latest/download/<installer>`, so releases
+need no website change. The "What's new" page is written at publish time by `scripts/changelog.mjs` from the version
+tags and the commit titles between them, so write commit titles as sentences a user could read.
 
 The demo video on the website (`site/demo.mp4`) is recorded from the real tank by `npm run demo:record` (needs Google
 Chrome and ffmpeg; set `CHROME`/`FFMPEG` if they aren't in the usual place). The story (sessions, terminal and
@@ -212,31 +213,35 @@ Use this whenever the user asks to release, publish, ship or "push a new version
    git checkout main && git pull --ff-only && git status --short   # must print nothing
    ```
 2. **Run the checks** above. Stop if anything fails.
-3. **Choose the version bump** from the commits since the last release
+3. **Check there is something to release.** Only changes a user would notice are worth a release: `feat`, `fix` and
+   `perf`. If the commits since the last release are only `test`, `ci`, `docs`, `chore`, `refactor`, `style` or
+   `build`, don't release: tell the user, and let them wait for the next real change (those commits ship with it, and
+   the website's "What's new" page lists them all under that version).
+4. **Choose the version bump** from the commits since the last release
    (`git log --oneline $(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)..HEAD`):
    - any commit with `!` (breaking) → `major`
    - otherwise any `feat` → `minor`
-   - otherwise (`fix`, `docs`, `chore`, ...) → `patch`
+   - otherwise (`fix`, `perf`) → `patch`
 
    Tell the user which bump and the resulting version, and ask them to confirm before going on: publishing is public.
-4. **Bump, commit and tag** in one step (this updates `package.json` and `package-lock.json` and creates tag `vX.Y.Z`):
+5. **Bump, commit and tag** in one step (this updates `package.json` and `package-lock.json` and creates tag `vX.Y.Z`):
    ```bash
    npm version <major|minor|patch> -m "chore(release): %s"
    ```
-5. **Have the user push the commit and the tag.** The user pushes with GitKraken; agent sessions have no GitHub
+6. **Have the user push the commit and the tag.** The user pushes with GitKraken; agent sessions have no GitHub
    login, so don't try `git push`. Ask them to:
    - push `main` as usual, **and**
    - push the tag: in GitKraken's left panel under **Tags**, right-click **vX.Y.Z** → **Push vX.Y.Z to origin**.
      (Pushing the branch alone doesn't send the tag, and without the tag no release is built.)
 
    From a terminal with a GitHub login, `git push --follow-tags` does both.
-6. **Follow the build.** `.github/workflows/release.yml` checks the tag matches `package.json`, builds and
+7. **Follow the build.** `.github/workflows/release.yml` checks the tag matches `package.json`, builds and
    smoke-tests the app on macOS and Windows, then publishes the GitHub release with the installers and generated
    release notes. It takes about 10–15 minutes. Point the user to
    https://github.com/VinnieVH/agents-fishtank/actions, or check it with
    `curl -s https://api.github.com/repos/VinnieVH/agents-fishtank/actions/runs?per_page=1` (`gh run watch` if the
    GitHub CLI is installed).
-7. **Check the release** once the run is green: https://github.com/VinnieVH/agents-fishtank/releases/latest should
+8. **Check the release** once the run is green: https://github.com/VinnieVH/agents-fishtank/releases/latest should
    list `Agent-Fishtank-arm64.dmg`, `Agent-Fishtank-x64.dmg` and `Agent-Fishtank-Setup.exe`. (The names have no
    version on purpose: `releases/latest/download/<name>` links, used by the website and README, always give the newest.)
    Installed apps offer the update within six hours, or right away via **Check for Updates…**.
