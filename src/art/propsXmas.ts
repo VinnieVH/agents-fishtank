@@ -3,7 +3,7 @@ import { shade } from '../util';
 import type { Point } from './sceneryPen';
 import { smoothOutline } from './reefRock';
 import { circle, curve, dot, line, open, oval, shadow, solid, stroke } from './shapes';
-import { gift } from './propsWinter';
+import { candyCane, gift } from './propsWinter';
 
 // The winter holiday's big props, standing on the sand at (0, 0), up being negative y.
 
@@ -50,13 +50,6 @@ const bell = (x: number, y: number) => {
   dot(x, y + 5.4, 1.3, '#a0661a'); dot(x - 2, y - 6, 1.6, '#e8283f'); dot(x + 2, y - 6, 1.6, '#e8283f');
 };
 
-const miniCane = (x: number, y: number) => {
-  const hook = new Path2D(); hook.moveTo(x, y); hook.lineTo(x, y - 10); hook.arc(x - 3, y - 10, 3, 0, -Math.PI, true);
-  g.lineCap = 'round'; g.strokeStyle = '#6b1018'; g.lineWidth = 4.2; g.stroke(hook);
-  g.strokeStyle = '#fff'; g.lineWidth = 2.6; g.stroke(hook);
-  g.strokeStyle = '#e8283f'; g.setLineDash([1.8, 2.8]); g.stroke(hook); g.setLineDash([]);
-};
-
 const star = () => {
   const points = Array.from({ length: 10 }, (_, index): Point => {
     const radius = index % 2 ? 4.4 : 10, angle = -Math.PI / 2 + index * Math.PI / 5;
@@ -75,9 +68,8 @@ export const tree = () => {
     toon(path, { fill: GREEN, inkColor: shade(GREEN, -.7), width: 2 }, () => { shadeTier(tierShape); });
     ribbon(path, ribbons[index]);
   });
-  [[-28, -24, '#ff9bb4'], [26, -30, '#2fe6a0'], [-4, -38, '#ff7a8a'], [-18, -56, '#2fe6a0'], [16, -64, '#ff9bb4'], [-2, -76, '#ff7a8a'], [8, -96, '#ff9bb4'], [-6, -104, '#2fe6a0']]
+  [[-28, -24, '#e8283f'], [26, -30, '#4aa3ff'], [-4, -38, '#ffc83d'], [-18, -56, '#e8283f'], [16, -64, '#e8eef7'], [-2, -76, '#e8283f'], [8, -96, '#ffc83d'], [-6, -104, '#4aa3ff']]
     .forEach(([x, y, color]) => { bauble(Number(x), Number(y), String(color)); });
-  miniCane(-12, -22); miniCane(14, -50); miniCane(-4, -88);
   bell(-32, -18); bell(27, -50); bell(-17, -78);
   star();
 };
@@ -104,6 +96,17 @@ export const snowyTree = () => {
   snowDrift(48);
   giftsAt(GIFTS_FRONT);
   g.restore();
+};
+
+const CANE_TILTS = [-.22, .18, -.1, .26];
+
+/** A candy cane stuck in the snow: its index picks the lean (every other one faces the other way). */
+export const snowyCane = (index = 0) => {
+  g.save(); g.beginPath(); g.rect(-40, -100, 80, 108); g.clip();
+  g.translate(0, 10); g.scale(index % 2 ? -1 : 1, 1); g.rotate(CANE_TILTS[index % CANE_TILTS.length]);
+  candyCane();
+  g.restore();
+  snowDrift(8);
 };
 
 const ball = (x: number, y: number, radius: number) => {
