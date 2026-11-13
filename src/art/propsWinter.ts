@@ -25,9 +25,43 @@ export const gift = (index = 0) => {
   loop(-1); loop(1); dot(0, -h - 1.4, 2, ribbon);
 };
 
+const CANE_HOOK_RADIUS = 6, CANE_STRAIGHT = 30, CANE_WIDTH = 5;
+
+/** The cane's centre line (a straight pole and the hook over the top): the point `along` it, and the direction it runs in. */
+const caneAt = (along: number) => {
+  if (along <= CANE_STRAIGHT) return { x: 0, y: -along, tx: 0, ty: -1 };
+  const turn = (along - CANE_STRAIGHT) / CANE_HOOK_RADIUS;
+  return {
+    x: -CANE_HOOK_RADIUS + CANE_HOOK_RADIUS * Math.cos(turn), y: -CANE_STRAIGHT - CANE_HOOK_RADIUS * Math.sin(turn),
+    tx: -Math.sin(turn), ty: -Math.cos(turn),
+  };
+};
+
+/** The white band of the cane (without its round ends), to keep the stripes inside it. */
+const caneBand = () => {
+  const band = new Path2D(), half = CANE_WIDTH / 2, hook = CANE_HOOK_RADIUS;
+  band.moveTo(half, 0); band.lineTo(half, -CANE_STRAIGHT);
+  band.arc(-hook, -CANE_STRAIGHT, hook + half, 0, -Math.PI, true);
+  band.lineTo(-hook - (hook - half), -CANE_STRAIGHT);
+  band.arc(-hook, -CANE_STRAIGHT, hook - half, -Math.PI, 0, false);
+  band.lineTo(-half, 0); band.closePath();
+  return band;
+};
+
+/** A candy cane: a white cane with red stripes that wind round it, slanting across its width. */
 export const candyCane = () => {
-  shadow(8); const hook = new Path2D(); hook.moveTo(0, 0); hook.lineTo(0, -30); hook.arc(-6, -30, 6, 0, -Math.PI, true);
-  g.lineCap = 'round'; g.strokeStyle = '#6b1018'; g.lineWidth = 7.6; g.stroke(hook);
-  g.strokeStyle = '#fff'; g.lineWidth = 5; g.stroke(hook);
-  g.strokeStyle = '#e8283f'; g.lineWidth = 5; g.setLineDash([3.2, 5.2]); g.stroke(hook); g.setLineDash([]);
+  shadow(8); const hook = new Path2D(); hook.moveTo(0, 0); hook.lineTo(0, -CANE_STRAIGHT); hook.arc(-CANE_HOOK_RADIUS, -CANE_STRAIGHT, CANE_HOOK_RADIUS, 0, -Math.PI, true);
+  g.lineCap = 'round'; g.strokeStyle = '#6b1018'; g.lineWidth = CANE_WIDTH + 2.6; g.stroke(hook);
+  g.strokeStyle = '#fff'; g.lineWidth = CANE_WIDTH; g.stroke(hook);
+  g.save(); g.clip(caneBand());
+  g.strokeStyle = '#e8283f'; g.lineWidth = 1.8; g.lineCap = 'butt';
+  const half = CANE_WIDTH / 2 + 1, lean = 2.4;
+  for (let along = 1; along < CANE_STRAIGHT + Math.PI * CANE_HOOK_RADIUS + 2; along += 4.6) {
+    const { x, y, tx, ty } = caneAt(along);
+    g.beginPath();
+    g.moveTo(x - ty * half - tx * lean, y + tx * half - ty * lean);
+    g.lineTo(x + ty * half + tx * lean, y - tx * half + ty * lean);
+    g.stroke();
+  }
+  g.restore();
 };
