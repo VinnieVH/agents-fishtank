@@ -99,6 +99,7 @@ const paintFace = (g: CanvasRenderingContext2D) => {
 /** One bottlenose dolphin facing right, about 100 units long, origin mid-body. */
 const paintDolphin = (g: CanvasRenderingContext2D, phase: number) => {
   const beat = Math.sin(phase), angle = beat * .18, bend = makeBend(-24, 18, angle);
+  g.save(); g.scale(1, .78); // slimmer than the outline's natural build
 
   g.save(); g.translate(18, 6.5); g.rotate(-.15 + Math.sin(phase * .5 + 1) * .1); g.scale(.8, .8); paintFlipper(g, '#4b6982'); g.restore();
 
@@ -111,6 +112,7 @@ const paintDolphin = (g: CanvasRenderingContext2D, phase: number) => {
   paintFace(g);
 
   g.save(); g.translate(21, 8); g.rotate(Math.sin(phase * .5) * .1); paintFlipper(g, '#56768f'); g.restore();
+  g.restore();
 };
 
 // Draws a pod of dolphins heading right, each rising and dipping on its own, in units of length/100, origin mid-pod
