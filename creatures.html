@@ -11,6 +11,9 @@
   nav a { color: #d8ecff; text-decoration: none; padding: 5px 12px; border-radius: 999px; background: rgba(255,255,255,.08); }
   nav a.on { background: #39d98a; color: #06231a; font-weight: 700; }
   nav label { margin-left: auto; cursor: pointer; }
+  .tabs { display: flex; gap: 4px; margin: -20px -24px 18px; padding: 0 24px; background: rgba(1,16,31,.55); }
+  .tabs a { color: #d8ecff; text-decoration: none; padding: 12px 18px; opacity: .65; border-bottom: 3px solid transparent; }
+  .tabs a.on { opacity: 1; font-weight: 700; border-bottom-color: #39d98a; }
   h1 { margin: 0 0 4px; font-size: 26px; text-transform: capitalize; }
   .info { opacity: .7; margin: 0 0 16px; font-family: Menlo, Consolas, monospace; font-size: 12.5px; }
   h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .6px; opacity: .6; margin: 22px 0 8px; }
@@ -21,6 +24,7 @@
 </style>
 </head>
 <body>
+<div class="tabs"><a href="/creatures.html" class="on">Fish</a><a href="/visitors.html">Visitors</a></div>
 <nav id="nav"></nav>
 <h1 id="name"></h1>
 <p id="info" class="info"></p>
@@ -38,7 +42,7 @@ const params = new URLSearchParams(location.search);
 const species = ALL_SPECIES.includes(params.get('c')) ? params.get('c') : ALL_SPECIES[0];
 const night = params.has('night');
 const link = (c, extra = night ? '&night' : '') => `?c=${c}${extra}`;
-document.getElementById('nav').innerHTML = ALL_SPECIES.map(c => `<a href="${link(c)}" class="${c === species ? 'on' : ''}">${c}</a>`).join('')
+document.getElementById('nav').innerHTML = ALL_SPECIES.map(c => `<a href="${link(c)}" class="${c === species ? 'on' : ''}">${c}</a>`).join('')
   + `<label><input type="checkbox" ${night ? 'checked' : ''} onchange="location.search = '${link(species, '')}' + (this.checked ? '&night' : '')"> Night</label>`;
 document.getElementById('name').textContent = species;
 document.getElementById('info').textContent = JSON.stringify(SPECIES[species]);

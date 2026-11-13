@@ -84,12 +84,15 @@ const harvest = () => {
 const HATS: Record<SeasonId, () => void> = { lunar, love, spring: bunny, children, midsummer, harvest, brewfest, halloween: witch, thanksgiving: pilgrim, winter: santa };
 const cache = new Map<SeasonId, Texture>();
 
+/** Draws the season's hat with its bottom middle at the current origin, for a fish this big: HAT_FISH_SIZE. */
+export const paintHat = (context: CanvasRenderingContext2D, season: SeasonId) => { drawInto(context); HATS[season](); };
+
 /** The season's hat (its bottom middle is the texture's anchor, see Fish.setHat). Painted once, shared by every fish. */
 export const hatTexture = (season: SeasonId, resolution: number): Texture => {
   const cached = cache.get(season);
   if (cached) return cached;
   const texture = paintTexture({ w: BOX, h: BOX }, resolution * 2, context => {
-    drawInto(context); g.translate(BOX / 2, BOX - 8); HATS[season]();
+    context.translate(BOX / 2, BOX - 8); paintHat(context, season);
   });
   cache.set(season, texture);
   return texture;

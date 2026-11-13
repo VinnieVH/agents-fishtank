@@ -6,23 +6,28 @@ import { paintKraken, paintKrakenGlow } from '../art/kraken';
 import { paintManta } from '../art/manta';
 import { paintOrca } from '../art/orca';
 import { paintShark } from '../art/shark';
+import { paintSantaGlow, paintSantaSleigh } from '../art/santa';
 import { paintSubmarine, paintSubmarineGlow } from '../art/submarine';
 import { paintWhale } from '../art/whale';
+import type { SeasonId } from '../seasons';
 import { pickVisitor } from '../visitors';
 
 type Painter = (g: CanvasRenderingContext2D, length: number, phase: number) => void;
 
-interface Kind {
+export interface Kind {
   name: string;
   paint: Painter;
   glow?: Painter; // what shines at night, shown above the night overlay
   weight: number; // how often it comes compared with the others
+  season?: SeasonId; // only comes during this season
   alpha: number; // solid, except the jellyfish, which are see-through anyway: the haze (HAZE) puts them far off
   length: (width: number) => number;
   box: { w: number; h: number; ox: number; oy: number }; // canvas size and body origin, as fractions of its length
   speed: number; beat: number; bob: number; bobPeriod: number; tilt: number;
-  depth: [number, number]; // vertical range as fractions of the tank height
 }
+
+/** Every visitor passes at a random height within this range of the tank's height: the open water above the reef, never lower. */
+const DEPTH = [.08, .48];
 
 /** A canvas size and the point drawing starts from, which becomes the anchor. */
 interface Frame { w: number; h: number; originX: number; originY: number }
@@ -30,25 +35,28 @@ interface Frame { w: number; h: number; originX: number; originY: number }
 /** What the visitors need each frame; main.ts keeps one and refills it, so a frame allocates nothing. */
 export interface VisitorFrame { t: number; deltaFrames: number; width: number; height: number; night: number }
 
-const KINDS: Kind[] = [
+export const KINDS: Kind[] = [
   { name: 'whale', paint: paintWhale, weight: 3, alpha: 1, length: width => Math.max(260, Math.min(460, width * .3)),
-    box: { w: 1.2, h: .56, ox: .62, oy: .2 }, speed: .5, beat: .022, bob: 18, bobPeriod: 6000, tilt: .05, depth: [.14, .3] },
+    box: { w: 1.2, h: .56, ox: .62, oy: .2 }, speed: .5, beat: .022, bob: 18, bobPeriod: 6000, tilt: .05 },
   { name: 'shark', paint: paintShark, weight: 3, alpha: 1, length: width => Math.max(200, Math.min(360, width * .22)),
-    box: { w: 1.1, h: .5, ox: .54, oy: .27 }, speed: .8, beat: .06, bob: 8, bobPeriod: 4000, tilt: .025, depth: [.18, .36] },
+    box: { w: 1.1, h: .5, ox: .54, oy: .27 }, speed: .8, beat: .06, bob: 8, bobPeriod: 4000, tilt: .025 },
   { name: 'orca', paint: paintOrca, weight: 2, alpha: 1, length: width => Math.max(240, Math.min(420, width * .27)),
-    box: { w: 1.13, h: .6, ox: .61, oy: .4 }, speed: .7, beat: .05, bob: 10, bobPeriod: 5500, tilt: .03, depth: [.2, .36] },
+    box: { w: 1.13, h: .6, ox: .61, oy: .4 }, speed: .7, beat: .05, bob: 10, bobPeriod: 5500, tilt: .03 },
   { name: 'manta', paint: paintManta, weight: 2.5, alpha: 1, length: width => Math.max(280, Math.min(500, width * .34)),
-    box: { w: .92, h: .76, ox: .6, oy: .38 }, speed: .42, beat: .03, bob: 14, bobPeriod: 8000, tilt: .04, depth: [.22, .32] },
+    box: { w: .92, h: .76, ox: .6, oy: .38 }, speed: .42, beat: .03, bob: 14, bobPeriod: 8000, tilt: .04 },
   { name: 'dolphins', paint: paintDolphins, weight: 2.5, alpha: 1, length: width => Math.max(280, Math.min(480, width * .34)),
-    box: { w: 1.02, h: .5, ox: .51, oy: .3 }, speed: .95, beat: .08, bob: 6, bobPeriod: 5000, tilt: .02, depth: [.16, .3] },
+    box: { w: 1.02, h: .5, ox: .51, oy: .3 }, speed: .95, beat: .08, bob: 6, bobPeriod: 5000,     tilt: .02 },
   { name: 'jellyfish', paint: paintJellyfish, glow: paintJellyGlow, weight: 3, alpha: .75, length: width => Math.max(190, Math.min(320, width * .2)),
-    box: { w: 1, h: .92, ox: .5, oy: .47 }, speed: .28, beat: .045, bob: 10, bobPeriod: 7000, tilt: .02, depth: [.16, .3] },
+    box: { w: 1, h: .92, ox: .5, oy: .47 }, speed: .28, beat: .045, bob: 10, bobPeriod: 7000,     tilt: .02 },
+  // the winter holidays' one: Santa in his sleigh, pulled by seahorses
+  { name: 'santa', paint: paintSantaSleigh, glow: paintSantaGlow, season: 'winter', weight: 4, alpha: 1, length: width => Math.max(300, Math.min(460, width * .33)),
+    box: { w: 1.04, h: .5, ox: .52, oy: .27 }, speed: .6, beat: .05, bob: 6, bobPeriod: 5000, tilt: .02 },
   // the rare one
   { name: 'submarine', paint: paintSubmarine, glow: paintSubmarineGlow, weight: .6, alpha: 1, length: width => Math.max(300, Math.min(540, width * .36)),
-    box: { w: 1.16, h: .38, ox: .62, oy: .28 }, speed: .32, beat: .05, bob: 5, bobPeriod: 9000, tilt: .012, depth: [.2, .34] },
+    box: { w: 1.16, h: .38, ox: .62, oy: .28 }, speed: .32, beat: .05, bob: 5, bobPeriod: 9000, tilt: .012 },
   // and the legend: about one visitor in 170, so you may wait days to see it
   { name: 'kraken', paint: paintKraken, glow: paintKrakenGlow, weight: .1, alpha: 1, length: width => Math.max(380, Math.min(640, width * .5)),
-    box: { w: 1.48, h: .74, ox: .96, oy: .41 }, speed: .3, beat: .03, bob: 10, bobPeriod: 10000, tilt: .03, depth: [.3, .38] },
+    box: { w: 1.48, h: .74, ox: .96, oy: .41 }, speed: .3, beat: .03, bob: 10, bobPeriod: 10000, tilt: .03 },
 ];
 
 // Far off in the water things take on its colour and lose their contrast rather than turning see-through: the
@@ -112,7 +120,7 @@ class Passerby {
     this.phase = 0; this.startedAt = t;
     this.frame = { w: this.length * box.w, h: this.length * box.h, originX: this.length * box.ox, originY: this.length * box.oy };
     this.x = this.direction > 0 ? -this.length * box.ox : width + this.length * box.ox;
-    this.baseY = height * (kind.depth[0] + Math.random() * (kind.depth[1] - kind.depth[0]));
+    this.baseY = height * (DEPTH[0] + Math.random() * (DEPTH[1] - DEPTH[0]));
   }
 
   /** Returns false once it has left the screen. */
@@ -145,7 +153,7 @@ class Passerby {
 
 /**
  * Sends a visitor past now and then, one at a time: a whale, a great white, an orca, a manta ray, a pod of dolphins, a
- * school of jellyfish, rarely an old Soviet submarine and very rarely the kraken. Its name in the URL (`?manta`, `?kraken` ...) summons that one
+ * school of jellyfish, in the winter holidays Santa's sleigh, rarely an old Soviet submarine and very rarely the kraken. Its name in the URL (`?manta`, `?kraken` ...) summons that one
  * right away. With `enabled` off (the visitors setting) none come. Their night glow goes in `glows`, to sit above the night overlay.
  */
 export class Passersby extends Container {
@@ -155,7 +163,9 @@ export class Passersby extends Container {
   private last = -1;
   private next: number;
   private summon: Passerby | undefined;
+  private readonly summonUntil: number;
   enabled = true;
+  season: SeasonId | null = null; // the festive season going on, for the visitors that only come in one
 
   constructor(now: number, params: URLSearchParams, resolution: number) {
     super();
@@ -164,13 +174,25 @@ export class Passersby extends Container {
     this.glows.addChild(...this.all.flatMap(passerby => passerby.glow ?? []));
     this.summon = this.all.find(passerby => params.has(passerby.kind.name));
     this.next = now + (this.summon ? 500 : 25000 + Math.random() * 35000);
+    this.summonUntil = now + 6000;
+  }
+
+  /** True while a summoned seasonal visitor is out of season: the season arrives with the settings, so wait a moment, then give up. */
+  private summonOutOfSeason(t: number) {
+    const season = this.summon?.kind.season;
+    if (!season || season === this.season) return false;
+    if (t >= this.summonUntil) {
+      this.summon = undefined;
+      this.next = t + 25000 + Math.random() * 35000;
+    }
+    return true;
   }
 
   update(frame: VisitorFrame) {
     const t = frame.t;
     if (!this.active) {
-      if (t < this.next || (!this.enabled && !this.summon)) return;
-      this.active = this.summon ?? this.all[pickVisitor(KINDS.map(kind => kind.weight), this.last)];
+      if (t < this.next || (!this.enabled && !this.summon) || this.summonOutOfSeason(t)) return;
+      this.active = this.summon ?? this.all[pickVisitor(KINDS.map(kind => kind.season && kind.season !== this.season ? 0 : kind.weight), this.last)];
       this.summon = undefined;
       this.active.start(t, frame.width, frame.height);
     }

@@ -292,7 +292,7 @@ app.ticker.add(ticker => {
   const calm = [...sessions.values()].every(session => session.state === 'idle'); // also true with no sessions at all
 
   visitorFrame.t = t; visitorFrame.deltaFrames = dt * swimSpeed; visitorFrame.width = tankWidth; visitorFrame.height = tankHeight;
-  visitorFrame.night = light.night;
+  visitorFrame.night = light.night; passersby.season = season?.id ?? null;
   passersby.update(visitorFrame);
   gauge.update(t, dt, light.night);
   tanks.update(t, dt, light.night);

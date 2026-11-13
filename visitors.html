@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Visitors · Agent Fishtank</title>
+<!-- A dev page (npm run dev, then /visitors.html?v=santa) to judge one background visitor at a time: large and animated, and
+     as small and hazed as it passes in the tank. Not part of the app build. -->
+<style>
+  body { margin: 0; padding: 20px 24px 40px; background: #0b3a62; color: #d8ecff; font: 14px 'Segoe UI', system-ui, sans-serif; }
+  nav { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; align-items: center; }
+  nav a { color: #d8ecff; text-decoration: none; padding: 5px 12px; border-radius: 999px; background: rgba(255,255,255,.08); }
+  nav a.on { background: #39d98a; color: #06231a; font-weight: 700; }
+  nav label { margin-left: auto; cursor: pointer; }
+  .tabs { display: flex; gap: 4px; margin: -20px -24px 18px; padding: 0 24px; background: rgba(1,16,31,.55); }
+  .tabs a { color: #d8ecff; text-decoration: none; padding: 12px 18px; opacity: .65; border-bottom: 3px solid transparent; }
+  .tabs a.on { opacity: 1; font-weight: 700; border-bottom-color: #39d98a; }
+  h1 { margin: 0 0 4px; font-size: 26px; text-transform: capitalize; }
+  .info { opacity: .7; margin: 0 0 16px; font-family: Menlo, Consolas, monospace; font-size: 12.5px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .6px; opacity: .6; margin: 22px 0 8px; }
+  canvas { display: block; border-radius: 14px; background: #0d4a78; max-width: 100%; }
+  body.night canvas { background: #03152b; }
+</style>
+</head>
+<body>
+<div class="tabs"><a href="/creatures.html">Fish</a><a href="/visitors.html" class="on">Visitors</a></div>
+<nav id="nav"></nav>
+<h1 id="name"></h1>
+<p id="info" class="info"></p>
+<h2>Close up</h2>
+<canvas id="large"></canvas>
+<h2>As it passes in the tank (hazed, at the tank's width)</h2>
+<canvas id="small"></canvas>
+<script type="module">
+import { KINDS } from '/src/scene/passersby.ts';
+
+const params = new URLSearchParams(location.search);
+const kind = KINDS.find(candidate => candidate.name === params.get('v')) ?? KINDS[0];
+const night = params.has('night');
+const link = (name, extra = night ? '&night' : '') => `?v=${name}${extra}`;
+document.getElementById('nav').innerHTML = KINDS.map(({ name }) => `<a href="${link(name)}" class="${name === kind.name ? 'on' : ''}">${name}</a>`).join('')
+  + `<label><input type="checkbox" ${night ? 'checked' : ''} onchange="location.search = '${link(kind.name, '')}' + (this.checked ? '&night' : '')"> Night</label>`;
+document.getElementById('name').textContent = kind.name;
+document.getElementById('info').textContent = JSON.stringify({ weight: kind.weight, season: kind.season, speed: kind.speed, box: kind.box });
+document.body.classList.toggle('night', night);
+
+const HAZE = 'rgba(8,60,100,.58)', RATIO = devicePixelRatio;
+const views = [
+  { canvas: document.getElementById('large'), length: 700, haze: false },
+  { canvas: document.getElementById('small'), length: kind.length(1416), haze: true },
+].map(view => {
+  const width = Math.ceil(view.length * kind.box.w), height = Math.ceil(view.length * kind.box.h);
+  view.canvas.width = width * RATIO; view.canvas.height = height * RATIO;
+  view.canvas.style.width = width + 'px'; view.canvas.style.height = height + 'px';
+  return { ...view, width, height };
+});
+
+let phase = 0;
+const draw = ({ canvas, length, haze, width, height }) => {
+  const g = canvas.getContext('2d');
+  g.setTransform(RATIO, 0, 0, RATIO, 0, 0); g.clearRect(0, 0, width, height);
+  g.save(); g.translate(length * kind.box.ox, length * kind.box.oy); kind.paint(g, length, phase); g.restore();
+  if (haze) { g.globalCompositeOperation = 'source-atop'; g.fillStyle = HAZE; g.fillRect(0, 0, width, height); g.globalCompositeOperation = 'source-over'; }
+  if (night && kind.glow) {
+    g.globalCompositeOperation = 'lighter';
+    g.save(); g.translate(length * kind.box.ox, length * kind.box.oy); kind.glow(g, length, phase); g.restore();
+    g.globalCompositeOperation = 'source-over';
+  }
+};
+let last = performance.now();
+const frame = now => {
+  phase += kind.beat * Math.min(3, (now - last) / 16.7); last = now;
+  views.forEach(draw);
+  requestAnimationFrame(frame);
+};
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

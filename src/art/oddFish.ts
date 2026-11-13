@@ -158,6 +158,10 @@ const drawLion: Painter = (look, size) => {
 // eye, mouth, shading and glow are the same as the other creatures'. It swims with its back fin (a separate layer), not
 // its body.
 const SEAHORSE = ['#ff8a4c', '#ff7aa8', '#ffc94d', '#5fcfc0'];
+/** Variants from here on are Christmas colours (red, green, gold, silver), for Santa's team; fish only get 0 to 11. */
+export const FESTIVE_SEAHORSE = 12;
+const FESTIVE = ['#e8283f', '#2f9a4a', '#ffc83d', '#c9d6e6'];
+const seahorseColor = (variant: number) => variant >= FESTIVE_SEAHORSE ? FESTIVE[(variant - FESTIVE_SEAHORSE) % FESTIVE.length] : SEAHORSE[variant % SEAHORSE.length];
 /** The traced outline, as x, y pairs in thousandths of a body unit, head to the right. */
 const SEAHORSE_OUTLINE = [
   117,-1150, 104,-1150, 96,-1133, 122,-1111, 122,-1089, 109,-1072, 87,-1063, 57,-1067, 35,-1085, 13,-1107, -4,-1146, -17,-1150,
@@ -202,7 +206,7 @@ const paintSeahorseMarkings = (light: string, size: number) => {
   g.globalAlpha = 1;
 };
 const drawSeahorse: Painter = (look, size) => {
-  const base = SEAHORSE[look.variant % SEAHORSE.length], inkColor = shade(base, -.62), light = shade(base, .5);
+  const base = seahorseColor(look.variant), inkColor = shade(base, -.62), light = shade(base, .5);
   const pen = { color: inkColor, size };
   const fill = g.createLinearGradient(size * .45, 0, -size * .55, 0); // lit from the front, darker down the back
   fill.addColorStop(0, shade(base, .25)); fill.addColorStop(.5, base); fill.addColorStop(1, shade(base, -.2));
@@ -216,7 +220,7 @@ const drawSeahorse: Painter = (look, size) => {
   g.beginPath(); g.moveTo(size * .55, -size * .45); g.quadraticCurveTo(size * .6, -size * .42, size * .57, -size * .38); ink(pen, .85, .8); // its little mouth
 };
 const drawSeahorseFin: Painter = (look, size) => {
-  const base = SEAHORSE[look.variant % SEAHORSE.length], inkColor = shade(base, -.62);
+  const base = seahorseColor(look.variant), inkColor = shade(base, -.62);
   shape(() => seahorseFin(size), shade(base, .3), { color: inkColor, size });
   streaks(shade(base, -.3), size, [[0, -size * .18, -size * .22, -size * .2], [0, -size * .08, -size * .26, -size * .08], [0, size * .02, -size * .27, size * .04], [0, size * .12, -size * .24, size * .15], [0, size * .2, -size * .16, size * .24]]);
 };

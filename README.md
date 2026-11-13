@@ -42,7 +42,7 @@ are open, and doesn't quit by itself while they are.
 
 ### Seasons
 
-Around these dates every year the fish get a hat, the sand gets decorated and things drift through the water. Each season's hat, garland and drifting bits are listed in the [documentation](https://vinnievh.github.io/agents-fishtank/docs.html#seasons). The project website joins in for the winter holidays, with falling snow and a string of lights (`?season=winter` previews it there too). Turn it off in Settings (*Decorate the tank for festive seasons*), or preview one with `?season=<id>` on the tank's address.
+Around these dates every year the fish get a hat, the sand gets decorated and things drift through the water. Each season's hat, garland and drifting bits are listed in the [documentation](https://vinnievh.github.io/agents-fishtank/docs.html#seasons). The project website joins in for the winter holidays, with falling snow and a string of lights (`?season=winter` previews it there too). In winter Santa's sleigh, pulled by seahorses, also passes by in the distance (`?season=winter&santa`; `?santa` alone only works in the winter dates). Turn it off in Settings (*Decorate the tank for festive seasons*), or preview one with `?season=<id>` on the tank's address.
 
 | `id` | Season | Dates |
 | --- | --- | --- |
@@ -296,7 +296,10 @@ npm run dist         # build the installers into release/
 To work on a creature, run `npm run dev` and open http://localhost:5173/creatures.html?c=octopus: each species large
 in its colour variants, and swimming as a working, waiting and idle session (`&night` for the night tank). Its
 drawing is in `src/art/classicFish.ts`, `oddFish.ts` or `invertebrates.ts` (put together in `fishArt.ts`), its size
-and speed in `src/species.ts`; the page reloads as you change them.
+and speed in `src/species.ts`; the page reloads as you change them. The background visitors (whale, Santa...) have the same
+kind of page at http://localhost:5173/visitors.html?v=santa: large and animated, then small and hazed as they pass in the
+tank (`&night` for their night glow). Their drawings are in `src/art/`, their size, speed and weight in
+`src/scene/passersby.ts`.
 
 For screenshots and trying out the scenery, these options override the settings. In a browser (`npm start` /
 `npm run dev`) they're URL parameters: `?time=22:30&shark`. The app takes them as arguments:
@@ -321,6 +324,7 @@ Windows.
 | `src/settings.ts`, `shared/settings.ts` | The settings dialog; the settings, their defaults and validation |
 | `src/sky.ts`, `src/species.ts`, `src/credits.ts`, `src/limits.ts` | Sun and light, species and glow colour picker, Copilot credits, Claude usage |
 | `creatures.html` | Dev page to look at one creature at a time (`npm run dev`) |
+| `visitors.html` | Dev page to look at one background visitor at a time (`npm run dev`) |
 | `shared/types.ts` | The live feed's types, shared by the server and the page |
 | `server/server.ts` | HTTP server: `/events` feed, `/hook/claude`, `/statusline/claude`, `/settings`, the page, idle check |
 | `server/copilot.ts`, `server/claude.ts` | Session state from Copilot's logs and from Claude Code's hooks and files |
