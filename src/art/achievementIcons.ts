@@ -104,7 +104,7 @@ const ICONS: Record<string, IconPainter> = {
   'feed-1': foodIcon, 'feed-25': foodIcon, 'feed-100': foodIcon,
   'tank-night': moonIcon, 'tank-dawn': dawnIcon, 'tank-busy': fishIcon('angler'), 'tank-opened': fishIcon('octopus'),
   ...Object.fromEntries(Object.values(Season).map(season => [`season-${season}`, hatIcon(season)])),
-  ...Object.fromEntries(KINDS.map(kind => [`visitor-${kind.name}`, visitorIcon(kind.name)])),
+  ...Object.fromEntries(KINDS.flatMap(kind => ['', '-5', '-10'].map(suffix => [`visitor-${kind.name}${suffix}`, visitorIcon(kind.name)]))),
 };
 
 const cache = new Map<string, HTMLCanvasElement>();

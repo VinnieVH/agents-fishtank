@@ -51,10 +51,21 @@ const MILESTONES = {
   ] },
 } satisfies Record<string, Milestones>;
 
-export type MilestoneKind = keyof typeof MILESTONES;
+export type MilestoneKind = keyof typeof MILESTONES | `visitor-${string}`;
 
 export const seasonId = (season: string) => `season-${season}`;
-export const visitorId = (name: string) => `visitor-${name}`;
+export const visitorId = (name: string): `visitor-${string}` => `visitor-${name}`;
+
+/** How often a visitor has to swim past, on top of the first time, for its further achievements. */
+const VISITOR_VISITS = [5, 10];
+
+const VISITOR_MILESTONES: Record<string, Milestones> = Object.fromEntries(VISITORS.map(visitor => [visitorId(visitor.name), {
+  group: 'visitors',
+  steps: VISITOR_VISITS.map(count => ({
+    count, title: `${visitor.title} ×${count}`, description: `A ${visitor.name === 'santa' ? 'sleigh' : visitor.name} swam past the tank ${count} times.`,
+  })),
+}]));
+const ALL_MILESTONES: Record<string, Milestones> = { ...MILESTONES, ...VISITOR_MILESTONES };
 
 /** One-off achievements in the crab and tank groups, earned by id. */
 export const Moment = {
@@ -75,9 +86,11 @@ const MOMENTS: Achievement[] = [
 
 const milestoneId = (kind: MilestoneKind, count: number) => `${kind}-${count}`;
 
+const milestoneAchievements = (milestones: Record<string, Milestones>) => Object.entries(milestones).flatMap(([kind, { group, steps }]) =>
+  steps.map(step => ({ id: `${kind}-${step.count}`, group, title: step.title, description: step.description })));
+
 export const ACHIEVEMENTS: Achievement[] = [
-  ...(Object.entries(MILESTONES) as [MilestoneKind, Milestones][]).flatMap(([kind, { group, steps }]) =>
-    steps.map(step => ({ id: milestoneId(kind, step.count), group, title: step.title, description: step.description }))),
+  ...milestoneAchievements(MILESTONES),
   ...SEASONS.map(season => ({
     id: seasonId(season.id), group: 'seasons' as const, title: season.name,
     description: `You were here for ${season.name}.`,
@@ -86,6 +99,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     id: visitorId(visitor.name), group: 'visitors' as const, title: visitor.title,
     description: `A ${visitor.name === 'santa' ? 'sleigh' : visitor.name} swam past the tank.`,
   })),
+  ...VISITOR_VISITS.flatMap(count => milestoneAchievements(VISITOR_MILESTONES).filter(achievement => achievement.id.endsWith(`-${count}`))),
   ...MOMENTS,
 ];
 
@@ -121,7 +135,7 @@ export class AchievementStore {
   }
   /** Earns every milestone of this kind up to `count`, which is how many there are now. */
   earnUpTo(kind: MilestoneKind, count: number, now = Date.now()): Achievement[] {
-    return MILESTONES[kind].steps.filter(step => step.count <= count).flatMap(step => this.earn(milestoneId(kind, step.count), now) ?? []);
+    return ALL_MILESTONES[kind]?.steps.filter(step => step.count <= count).flatMap(step => this.earn(milestoneId(kind, step.count), now) ?? []) ?? [];
   }
   /** Counts one more of something that adds up over time (food dropped, crab visits) and earns what that reaches. */
   add(kind: MilestoneKind, now = Date.now()): Achievement[] {

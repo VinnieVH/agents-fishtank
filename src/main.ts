@@ -114,7 +114,7 @@ app.renderer.on('resize', resized);
 resize();
 
 const achievements = startAchievementsPage(new AchievementStore(localStorage));
-passersby.onVisit = name => achievements.earn(visitorId(name));
+passersby.onVisit = name => { achievements.earn(visitorId(name)); achievements.add(visitorId(name)); };
 crab.onAppear = () => achievements.add('crab');
 crab.onDance = () => achievements.earn(Moment.CrabDance);
 crab.onScare = () => achievements.earn(Moment.CrabScare);

@@ -41,4 +41,12 @@ describe('achievements', () => {
     for (let visit = 2; visit < 10; visit++) expect(store.add('crab')).toEqual([]);
     expect(ids(new AchievementStore(storage).add('crab'))).toEqual(['crab-10']);
   });
+
+  it('earns repeat visits of a visitor', () => {
+    const store = new AchievementStore(null), whale = visitorId('whale');
+    for (let visit = 1; visit < 5; visit++) expect(store.add(whale)).toEqual([]);
+    expect(ids(store.add(whale))).toEqual([`${whale}-5`]);
+    for (let visit = 6; visit < 10; visit++) store.add(whale);
+    expect(ids(store.add(whale))).toEqual([`${whale}-10`]);
+  });
 });
