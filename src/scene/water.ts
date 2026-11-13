@@ -129,6 +129,8 @@ export class Water {
   private drawn = new Map<number, { texture: Texture; x: number; y: number }>();
   private drawnFor = 0;
   private anemoneList: Anemone[] = [];
+  /** Hides the anemones on the sand: a season brings its own things. */
+  anemonesHidden = false;
   private planktonList: Plankton[] = [];
   private bubbleList: Bubble[] = [];
   private raySprites: Sprite[] = [];
@@ -323,6 +325,7 @@ export class Water {
 
   private drawAnemones(t: number) {
     const body = this.anemones.clear(), tips = this.anemoneTips.clear();
+    if (this.anemonesHidden) return;
     for (const anemone of this.anemoneList) {
       const ink = shade(anemone.color, -.75);
       for (let index = 0; index < anemone.tentacles; index++) {

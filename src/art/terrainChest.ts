@@ -1,5 +1,5 @@
 import { rng, shade, TAU } from '../util';
-import { ellipse, g, ink, toon } from './sceneryPen';
+import { ellipse, g, ink, poly, toon } from './sceneryPen';
 import type { Point } from './sceneryPen';
 
 // 3/4 view: front face, right side face and the open top, with the lid hinged at the back and tipped open
@@ -19,12 +19,6 @@ type Gem = typeof GEMS[number];
 const SPARKLES = [[.5, .7, 5], [.22, .4, 3.5]] as const;
 const SPILLED_COINS = [[RIGHT + 8, 4], [LEFT - 7, 5], [RIGHT + 17, 2], [6, 7]] as const;
 
-const poly = (...points: Point[]) => {
-  const path = new Path2D();
-  points.forEach(([x, y], index) => index ? path.lineTo(x, y) : path.moveTo(x, y));
-  path.closePath();
-  return path;
-};
 const band = (path: Path2D, width: number) => {
   ink(path, { color: INK, width: width + 2.6 }); ink(path, { color: BRASS, width }); ink(path, { color: BRASS_LIGHT, width: width * .3 });
 };
@@ -157,12 +151,12 @@ const traceDrift = (path: Path2D) => {
 };
 
 /** Sunk into the sand: a drift over the foot of its front and up its side to the back corner. */
-const paintDrift = () => {
+const paintDrift = (snow: boolean) => {
   const drift = traceDrift(new Path2D());
   drift.closePath();
-  g.fillStyle = '#e8cd96'; g.fill(drift);
-  ink(traceDrift(new Path2D()), { color: '#7a5726', width: 2 });
-  for (const [x, y] of [[LEFT - 4, 2], [WIDTH * .1, 3], [RIGHT + 6, 0], [RIGHT + DEPTH_X - 2, DEPTH_Y + 6]]) ellipse({ x, y, radiusX: 1.3, radiusY: 1, color: '#c9a66a' });
+  g.fillStyle = snow ? '#eef5fc' : '#e8cd96'; g.fill(drift);
+  ink(traceDrift(new Path2D()), { color: snow ? '#5f7fa3' : '#7a5726', width: 2 });
+  for (const [x, y] of [[LEFT - 4, 2], [WIDTH * .1, 3], [RIGHT + 6, 0], [RIGHT + DEPTH_X - 2, DEPTH_Y + 6]]) ellipse({ x, y, radiusX: 1.3, radiusY: 1, color: snow ? '#c3d4e8' : '#c9a66a' });
 };
 
 /** A few coins spilled on the sand when it's well filled. */
@@ -177,7 +171,8 @@ const paintSpill = (gold: number) => {
 };
 
 /** The treasure chest standing at `at`, holding `gold` (0..1) and `gems` precious stones. */
-export const paintChest = ([x, y]: Point, gold: number, gems: number) => {
+export const paintChest = ([x, y]: Point, gold: number, ...rest: [gems: number, snow?: boolean]) => {
+  const [gems, snow = false] = rest;
   g.save(); g.translate(x, y);
   paintShadow();
   paintLid();
@@ -185,7 +180,7 @@ export const paintChest = ([x, y]: Point, gold: number, gems: number) => {
   if (gold > 0) paintGold(gold);
   if (gems > 0) paintGems(gold, gems);
   paintBox();
-  paintDrift();
+  paintDrift(snow);
   paintSpill(gold);
   g.restore();
 };

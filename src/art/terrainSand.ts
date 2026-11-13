@@ -24,22 +24,22 @@ export const wavyEdge = ({ width, height }: Tank, step: number, edgeAt: (x: numb
 const PEBBLES = ['#efe6d8', '#e8c9c2', '#d9d3e8', '#f2dcc0', '#cfc6b8', '#e7b8a8', '#c9dce0'];
 const STARFISH = ['#ef4a2e', '#ff8a5c', '#ff6b8a'];
 
-export const paintDune = (tank: Tank, sandLine: number) => {
+export const paintDune = (tank: Tank, sandLine: number, snow = false) => {
   const dune = wavyEdge(tank, 15, x => sandLine - 25 - Math.sin(x / 160) * 18 - Math.sin(x / 53) * 5);
-  g.fillStyle = '#93794a'; g.fill(dune.fill);
-  ink(dune.top, { color: '#b39963', width: 5, alpha: .5 }); ink(dune.top, { color: '#3f2e12', width: 2, alpha: .7 });
+  g.fillStyle = snow ? '#dbe7f3' : '#93794a'; g.fill(dune.fill);
+  ink(dune.top, { color: snow ? '#ffffff' : '#b39963', width: 5, alpha: .5 }); ink(dune.top, { color: snow ? '#4b6a8f' : '#3f2e12', width: 2, alpha: .7 });
 };
 
-export const paintFrontSand = (tank: Tank, sandLine: number) => {
+export const paintFrontSand = (tank: Tank, sandLine: number, snow = false) => {
   const { width, height } = tank, sand = wavyEdge(tank, 12, x => sandTop(x, sandLine));
-  g.fillStyle = '#e8cd96'; g.fill(sand.fill);
-  g.save(); g.translate(0, 6); ink(sand.top, { color: '#f7e5b8', width: 6 }); g.restore();
-  ink(sand.top, { color: '#7a5726', width: 2.4 });
+  g.fillStyle = snow ? '#eef5fc' : '#e8cd96'; g.fill(sand.fill);
+  g.save(); g.translate(0, 6); ink(sand.top, { color: snow ? '#ffffff' : '#f7e5b8', width: 6 }); g.restore();
+  ink(sand.top, { color: snow ? '#5f7fa3' : '#7a5726', width: 2.4 });
   // speckles, as many as the width allows: with their own RNG, so the rest of the floor stays put as the width changes
   const random = rng(2024);
   for (let index = 0; index < width * .3; index++) {
     const radius = .8 + random() * 1.3;
-    ellipse({ x: random() * width, y: sandLine + 10 + random() * (height - sandLine), radiusX: radius, radiusY: radius * .8, color: random() < .55 ? '#c9a66a' : '#fbecc8' });
+    ellipse({ x: random() * width, y: sandLine + 10 + random() * (height - sandLine), radiusX: radius, radiusY: radius * .8, color: random() < .55 ? (snow ? '#c3d4e8' : '#c9a66a') : (snow ? '#ffffff' : '#fbecc8') });
   }
 };
 

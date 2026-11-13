@@ -9,7 +9,7 @@ import { qrCode } from './qr';
 const dialog = document.getElementById('settings') as HTMLDialogElement;
 const form = dialog.querySelector('form')!;
 const field = <T extends HTMLInputElement | HTMLSelectElement>(name: string) => form.elements.namedItem(name) as T;
-const FLAGS = ['visitors', 'crabAlways', 'notifyWaiting', 'notifyFinished', 'openOnSession', 'quitWhenIdle', 'openAtLogin', 'shareOnNetwork', 'trayIcon'] as const;
+const FLAGS = ['visitors', 'crabAlways', 'seasons', 'notifyWaiting', 'notifyFinished', 'openOnSession', 'quitWhenIdle', 'openAtLogin', 'shareOnNetwork', 'trayIcon'] as const;
 const LOCATION_FIELDS = ['customLocation', 'lat', 'lon'];
 
 let current: Settings = DEFAULT_SETTINGS;

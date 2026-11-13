@@ -1,4 +1,5 @@
-import { Container, MeshRope, Point, Sprite, Text } from 'pixi.js';
+import { Container, MeshRope, Point, Sprite, Text, type Texture } from 'pixi.js';
+import { HAT_ANCHOR, HAT_FISH_SIZE } from '../art/hats';
 import { paintFish, type FishLook, type FishTextures } from '../art/fishArt';
 import { SPECIES, type Look } from '../species';
 import { hash, rng, TAU } from '../util';
@@ -60,6 +61,7 @@ export class Fish {
   private rope: MeshRope;
   private halo: MeshRope;
   private fin: Sprite | null = null;
+  private hat: Sprite | null = null;
   private points: Point[] = [];
   private textures: FishTextures;
   private headX: number; private tailX: number; private baseY: number;
@@ -109,6 +111,16 @@ export class Fish {
 
   get neon() { return this.look.neon; }
   get species() { return this.look.species; }
+
+  /** Puts a festive hat on the fish's head, or takes it off (null). */
+  setHat(texture: Texture | null) {
+    this.hat?.destroy(); this.hat = null;
+    if (!texture) return;
+    const [x, y] = SPECIES[this.species].crown, hat = new Sprite(texture);
+    hat.anchor.set(HAT_ANCHOR.x, HAT_ANCHOR.y); hat.position.set(x * this.size, y * this.size);
+    hat.scale.set(this.size / HAT_FISH_SIZE); hat.rotation = .12;
+    this.body.addChild(hat); this.hat = hat;
+  }
 
   setLabel(text: string) { if (text !== this.label) this.labelText.text = this.label = text; }
 

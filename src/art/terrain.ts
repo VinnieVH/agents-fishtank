@@ -1,6 +1,9 @@
 import { rng } from '../util';
+import type { SeasonId } from '../seasons';
 import { paintReefs, paintRidge, reefLayout, sandGaps } from './reef';
+import { setSnowy } from './reefRock';
 import { drawInto, g } from './sceneryPen';
+import { paintSeasonFloor } from './seasonFloor';
 import { canyonMouth, paintCanyon } from './terrainCanyon';
 import { paintChest } from './terrainChest';
 import { paintHills } from './terrainHills';
@@ -23,7 +26,7 @@ export const currentAt = (distance: number, width: number, height: number) => {
 };
 
 /** How far above the sand line the floor's things reach: paintFloor paints from there down. */
-export const FLOOR_REACH = 300;
+export const FLOOR_REACH = 520;
 
 const landmarks = (width: number) => ({ chest: width * .2 });
 
@@ -46,14 +49,15 @@ export const paintWater = (context: CanvasRenderingContext2D, width: number, hei
 };
 
 /** The static backdrop in front of the open water (paintWater) and the current far off: hills, the wreck, sand, gravel, shells and starfish. Painted on resize. */
-export const paintTerrain = (context: CanvasRenderingContext2D, width: number, height: number) => {
+export const paintTerrain = (context: CanvasRenderingContext2D, { width, height, season = null }: { width: number; height: number; season?: SeasonId | null }) => {
   drawInto(context);
   const random = rng(1337), tank = { width, height };
   paintHills(tank);
   const sandLine = sandLineFor(height);
-  paintDune(tank, sandLine);
-  paintFrontSand(tank, sandLine);
-  paintRipples(tank, sandLine, random);
+  paintDune(tank, sandLine, season === 'winter');
+  paintFrontSand(tank, sandLine, season === 'winter');
+  if (season !== 'winter') paintRipples(tank, sandLine, random);
+  if (season) return; // a season brings its own things for the sand
   paintPebbles(tank, sandLine);
   paintShellsAndStarfish(tank, sandLine, random);
 };
@@ -64,14 +68,18 @@ export const paintTerrain = (context: CanvasRenderingContext2D, width: number, h
  * line down, on resize and when the gold level changes.
  */
 export const paintFloor = (
-  context: CanvasRenderingContext2D, { width, height }: { width: number; height: number }, { gold, gems }: { gold: number; gems: number },
+  context: CanvasRenderingContext2D, { width, height }: { width: number; height: number },
+  { gold, gems, season = null }: { gold: number; gems: number; season?: SeasonId | null },
 ) => {
   drawInto(context);
   const sandLine = sandLineFor(height), marks = landmarks(width), floorReefs = reefs(width, height);
   g.save(); g.translate(0, FLOOR_REACH - sandLine);
   const ground = (x: number) => sandTop(x, sandLine);
+  setSnowy(season === 'winter');
   paintRidge(g, { width, sandLine, ground, gaps: sandGaps(width) });
   paintReefs(g, floorReefs, ground);
-  paintChest([marks.chest, sandLine + 30], gold, gems); // well forward on the sand, in front of the reef
+  const chestAt: [number, number] = [marks.chest, sandLine + 30]; // well forward on the sand, in front of the reef
+  paintChest(chestAt, gold, gems, season === 'winter');
+  if (season) paintSeasonFloor({ width, sandLine }, season, keepClear(width));
   g.restore();
 };

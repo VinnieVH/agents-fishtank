@@ -8,13 +8,17 @@ import { Fish, type Tank } from './scene/fish';
 import { SkyOverlay } from './scene/sky';
 import { Water, type WaterFrame } from './scene/water';
 import { Passersby, type VisitorFrame } from './scene/passersby';
+import { Drift } from './scene/drift';
 import { Gauge } from './scene/gauge';
 import { AirTanks } from './scene/tanks';
 import { Crab, type CrabFrame } from './scene/crab';
 import { Food } from './scene/food';
 import { lightFor, locationFromParams, makeClock, sunPosition, type Light } from './sky';
+import { currentSeason, type Season } from './seasons';
 import { SpeciesStore } from './species';
 import { paintTexture } from './art/canvas';
+import { GARLAND_HEIGHT, paintGarland } from './art/garland';
+import { hatTexture } from './art/hats';
 import { showSettings, showShare } from './settings';
 import { DEFAULT_SETTINGS, type Settings } from '../shared/settings';
 
@@ -38,27 +42,39 @@ const marksLayer = new Container();
 const gauge = new Gauge(resolution);
 const crab = new Crab(resolution);
 const food = new Food(resolution);
+const garland = new Sprite(); // bunting or lights across the top, in a season
+const drift = new Drift(resolution); // what drifts by in a season: snow, hearts, leaves...
 const tanks = new AirTanks(resolution);
 app.stage.addChild(sea, water.current, terrain, passersby, water.rays, water.shimmer, water.softCorals, floor, water.anemones, water.bubbles, food,
-  sky, passersby.glows, water.anemoneTips, water.plankton, fishLayer, marksLayer, tanks, crab, gauge);
+  sky, passersby.glows, water.anemoneTips, water.plankton, garland, drift, fishLayer, marksLayer, tanks, crab, gauge);
 
 let tankWidth = 0, tankHeight = 0, gold = 1, gems = 5;
+let season: Season | null = null; // the festive season going on, if any
 
 /** The floor's things: on resize, and when the chest's gold changes. */
 const paintFloorLayer = () => {
   const old = floor.texture, top = sandLineFor(tankHeight) - FLOOR_REACH;
-  floor.texture = paintTexture({ w: tankWidth, h: tankHeight - top }, resolution, g => paintFloor(g, { width: tankWidth, height: tankHeight }, { gold, gems }));
+  floor.texture = paintTexture({ w: tankWidth, h: tankHeight - top }, resolution, g => paintFloor(g, { width: tankWidth, height: tankHeight }, { gold, gems, season: season?.id }));
   floor.y = top;
+  if (old !== Texture.EMPTY) old.destroy(true);
+};
+const paintGarlandLayer = () => {
+  const old = garland.texture;
+  garland.texture = season ? paintTexture({ w: tankWidth, h: GARLAND_HEIGHT }, resolution, g => paintGarland(g, { width: tankWidth, season: season!.id })) : Texture.EMPTY;
+  if (old !== Texture.EMPTY) old.destroy(true);
+};
+const paintTerrainLayer = () => {
+  const old = terrain.texture;
+  terrain.texture = paintTexture({ w: tankWidth, h: tankHeight }, resolution, g => paintTerrain(g, { width: tankWidth, height: tankHeight, season: season?.id }));
   if (old !== Texture.EMPTY) old.destroy(true);
 };
 const paintBackdrop = () => {
   const oldSea = sea.texture;
   sea.texture = paintTexture({ w: tankWidth, h: tankHeight }, resolution, g => paintWater(g, tankWidth, tankHeight));
   if (oldSea !== Texture.EMPTY) oldSea.destroy(true);
-  const old = terrain.texture;
-  terrain.texture = paintTexture({ w: tankWidth, h: tankHeight }, resolution, g => paintTerrain(g, tankWidth, tankHeight));
-  if (old !== Texture.EMPTY) old.destroy(true);
+  paintTerrainLayer();
   paintFloorLayer();
+  paintGarlandLayer();
 };
 const resize = () => {
   tankWidth = app.screen.width; tankHeight = app.screen.height;
@@ -67,6 +83,7 @@ const resize = () => {
   sky.resize(tankWidth, tankHeight);
   gauge.layout(tankWidth, tankHeight);
   tanks.layout(tankWidth, tankHeight);
+  drift.set(season?.id ?? null, tankWidth, tankHeight);
 };
 // repainting all of that takes a moment, too long to do for every step of a resize: the tank is covered while it's
 // being resized (and while the divider is held) and painted once, when it stops
@@ -98,7 +115,10 @@ let sessions = new Map<string, Session>();
 const species = new SpeciesStore(localStorage);
 const fishBottom = () => sandLineFor(tankHeight) - 40;
 
+const hatFor = () => season ? hatTexture(season.id, resolution) : null;
+
 const addFish = (fish: Fish) => {
+  fish.setHat(hatFor());
   allFish.set(fish.key, fish); fishLayer.addChild(fish.body); marksLayer.addChild(fish.marks);
   crab.scare();
   return fish;
@@ -236,9 +256,23 @@ app.canvas.addEventListener('pointerdown', event => {
   if (eater) eater.meal = pinch;
 });
 
+/** The festive decorations: on while a season is on (and the setting allows), changed when the season changes. */
+const refreshSeason = () => {
+  const next = settings?.seasons === false ? null : currentSeason(params);
+  if (next?.id === season?.id) return;
+  season = next;
+  water.anemonesHidden = !!season;
+  paintTerrainLayer();
+  paintFloorLayer();
+  paintGarlandLayer();
+  drift.set(season?.id ?? null, tankWidth, tankHeight);
+  for (const fish of allFish.values()) fish.setHat(hatFor());
+};
+
 const updateLight = () => {
   const now = clock(), { elevation, hourAngle } = sunPosition(now, where);
   light = lightFor(elevation, hourAngle);
+  refreshSeason();
   setSky(light.phase, now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
 };
 
@@ -269,6 +303,7 @@ app.ticker.add(ticker => {
   waterFrame.t = ambientT; waterFrame.deltaFrames = dt * ambientSpeed; waterFrame.isBusy = busy; waterFrame.day = light.day;
   waterFrame.night = light.night;
   water.update(waterFrame);
+  drift.update(ambientT, dt * ambientSpeed);
   tank.t = t; tank.deltaFrames = dt * swimSpeed; tank.right = tankWidth; tank.bottom = sandLineFor(tankHeight) - 40; tank.night = light.night;
   for (const fish of allFish.values()) fish.update(tank, sessions.get(fish.sessionId)?.state ?? 'idle', fish.small ? allFish.get(fish.sessionId) : undefined);
 });

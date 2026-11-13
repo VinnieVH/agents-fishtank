@@ -18,11 +18,23 @@ export const ink = (path: Path2D, { color, width, alpha = 1 }: Stroke) => {
   g.stroke(path); g.globalAlpha = 1;
 };
 
+/** How much big props are scaled up: their fine lines are thinned to match, so the outlines stay as fine as the rest of the tank's. */
+let penScale = 1;
+export const setPenScale = (scale: number) => { penScale = scale; };
+export const fine = (width: number) => penScale > 1 && width <= 3 ? Math.min(width, 2 / penScale) : width;
+
 /** Fill a shape, then paint shading inside it (clipped) and outline it. */
 export const toon = (path: Path2D, look: Look, paintInside?: () => void) => {
   g.fillStyle = look.fill; g.fill(path);
   if (paintInside) { g.save(); g.clip(path); paintInside(); g.restore(); }
-  ink(path, { color: look.inkColor, width: look.width });
+  ink(path, { color: look.inkColor, width: fine(look.width) });
+};
+
+export const poly = (...points: Point[]) => {
+  const path = new Path2D();
+  points.forEach(([x, y], index) => index ? path.lineTo(x, y) : path.moveTo(x, y));
+  path.closePath();
+  return path;
 };
 
 export const ellipse = ({ x, y, radiusX, radiusY, rotation = 0, color, alpha = 1 }: Oval) => {

@@ -11,6 +11,9 @@ export type Ground = (x: number) => number;
 export const ROCK: [string, string, string][] = [['#5c536c', '#3f384c', '#7a7088'], ['#776a86', '#544a63', '#988caa'], ['#85778f', '#5d5268', '#a598b0']];
 const CORALLINE = ['#c0679b', '#9a5fb8', '#d98aa0', '#7a5aa8', '#e0a0b8'];
 const SAND = '#e8cd96';
+let snowy = false;
+/** Paints the sand drifted over the rocks' feet as snow (winter), to match the front sand. */
+export const setSnowy = (on: boolean) => { snowy = on; };
 /** How wide a coral's foot is, for the rock that grows up around it. */
 const FOOT: Partial<Record<HardKind, (size: number) => number>> = { staghorn: size => size * .2, table: size => size * .13, leather: size => size * .22, brain: size => size * .55 };
 
@@ -47,7 +50,7 @@ const redrawSandEdge = (top: Point[], footY: number, ground: Ground) => {
   const paintRun = () => {
     if (run.length > 1) {
       const edge = new Path2D(); run.forEach(([x, y], index) => index ? edge.lineTo(x, y) : edge.moveTo(x, y));
-      g.save(); g.translate(0, 6); ink(edge, { color: '#f7e5b8', width: 6 }); g.restore(); ink(edge, { color: '#7a5726', width: 2.4 });
+      g.save(); g.translate(0, 6); ink(edge, { color: snowy ? '#ffffff' : '#f7e5b8', width: 6 }); g.restore(); ink(edge, { color: snowy ? '#5f7fa3' : '#7a5726', width: 2.4 });
     }
     run = [];
   };
@@ -66,10 +69,10 @@ export const sandOver = ([from, to]: [number, number], footY: number, ground: Gr
   const drift = new Path2D(); top.forEach(([x, y], index) => index ? drift.lineTo(x, y) : drift.moveTo(x, y));
   for (let index = top.length - 1; index >= 0; index--) drift.lineTo(top[index][0], top[index][1] + 18);
   drift.closePath();
-  g.fillStyle = SAND; g.fill(drift);
+  g.fillStyle = snowy ? '#eef5fc' : SAND; g.fill(drift);
   g.save(); g.clip(drift);
   for (const [x, y] of top) {
-    ellipse({ x: x + 2, y: y + 6, radiusX: 1.2, radiusY: .9, color: '#c9a66a' }); ellipse({ x: x - 1, y: y + 12, radiusX: 1, radiusY: .8, color: '#fbecc8' });
+    ellipse({ x: x + 2, y: y + 6, radiusX: 1.2, radiusY: .9, color: snowy ? '#c3d4e8' : '#c9a66a' }); ellipse({ x: x - 1, y: y + 12, radiusX: 1, radiusY: .8, color: snowy ? '#ffffff' : '#fbecc8' });
   }
   g.restore();
   redrawSandEdge(top, footY, ground);

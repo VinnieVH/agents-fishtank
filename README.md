@@ -40,6 +40,23 @@ to share the window. A CLI that ends leaves you in the shell. Copy with `Ctrl+C`
 with `Ctrl+V` (`⌘V`) or a right click, and switch tabs with `Ctrl+Tab`. The app asks before quitting while terminals
 are open, and doesn't quit by itself while they are.
 
+### Seasons
+
+Around these dates every year the fish get a hat, the sand gets decorated and things drift through the water. Turn it off in Settings (*Decorate the tank for festive seasons*), or preview one with `?season=<id>` on the tank's address.
+
+| `id` | Season | Dates |
+| --- | --- | --- |
+| `lunar` | Lunar New Year | 2 – 16 Feb |
+| `love` | Valentine's | 8 – 22 Feb |
+| `spring` | Spring egg hunt | 29 Mar – 5 Apr |
+| `children` | Children's Week | 3 – 10 May |
+| `midsummer` | Midsummer bonfires | 21 Jun – 5 Jul |
+| `harvest` | Harvest festival | 11 – 18 Sep |
+| `brewfest` | Brewfest | 20 Sep – 6 Oct |
+| `halloween` | Halloween | 19 Oct – 2 Nov |
+| `thanksgiving` | Thanksgiving | 22 – 29 Nov |
+| `winter` | Winter holidays | 15 Dec – 2 Jan |
+
 ## Install
 
 You need **Claude Code** and/or **GitHub Copilot CLI**. Nothing else; not even Node.js.

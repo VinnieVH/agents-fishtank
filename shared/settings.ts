@@ -13,6 +13,8 @@ export interface Settings {
   visitors: boolean;
   /** The crab stays out on the sand, not only when every session is idle. */
   crabAlways: boolean;
+  /** Festive decorations, hats and drifting bits while a season from src/seasons.ts is on. */
+  seasons: boolean;
   /** How much the scenery moves; auto is full, or calm when the system asks for reduced motion. */
   motion: Motion;
   /** Desktop notifications (the app only), once a session has been waiting or done for `notifyAfter` seconds. */
@@ -30,7 +32,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  daylight: 'sun', location: null, visitors: true, crabAlways: false, motion: 'auto',
+  daylight: 'sun', location: null, visitors: true, crabAlways: false, seasons: true, motion: 'auto',
   notifyWaiting: true, notifyFinished: false, notifyAfter: 60, openOnSession: true, quitWhenIdle: true, openAtLogin: false,
   shareOnNetwork: false, trayIcon: false,
 };
@@ -38,7 +40,7 @@ export const DEFAULT_SETTINGS: Settings = {
 const DAYLIGHT: Daylight[] = ['sun', 'day', 'night'];
 const MOTION: Motion[] = ['auto', 'full', 'calm', 'minimal'];
 export const NOTIFY_AFTER = [30, 60, 300];
-const FLAGS = ['visitors', 'crabAlways', 'notifyWaiting', 'notifyFinished', 'openOnSession', 'quitWhenIdle', 'openAtLogin', 'shareOnNetwork', 'trayIcon'] as const;
+const FLAGS = ['visitors', 'crabAlways', 'seasons', 'notifyWaiting', 'notifyFinished', 'openOnSession', 'quitWhenIdle', 'openAtLogin', 'shareOnNetwork', 'trayIcon'] as const;
 
 const isOneOf = <T>(options: readonly T[], candidate: unknown): candidate is T => options.includes(candidate as T);
 
