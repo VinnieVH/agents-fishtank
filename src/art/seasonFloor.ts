@@ -9,7 +9,7 @@ const place = (prop: Placement['prop'], at: number, ...rest: [index?: number, sc
 
 /** What stands on the sand in each season, left to right as a share of the tank's width; things are drawn in this order. */
 const SCENES: Partial<Record<SeasonId, Placement[]>> = {
-  winter: [place(snowySnowman, .1, 0, 2), place(snowyTree, .7, 0, 3.2)],
+  winter: [place(snowySnowman, .36, 0, 2), place(snowyTree, .7, 0, 3.2)],
 };
 
 /** The season's things on the sand, in front of the reefs; `clear` are stretches of x to leave free (the chest). */
