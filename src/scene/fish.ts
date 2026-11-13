@@ -28,8 +28,10 @@ const spotsFor = (sessionHash: number) => Array.from({ length: 6 }, (_, index) =
   return { x: random() * 1.5 - .85, y: random() * .6 - .35, rx: .12 + random() * .14, ry: .08 + random() * .1, rot: random() * 3 };
 });
 
+// Outlined in deep water blue so the titles stay readable on every part of the water
 const makeLabel = (isSmall: boolean, neon: string) => new Text({ text: '', anchor: { x: .5, y: .8 }, style: {
   fontFamily: LABEL_FONT, fontSize: isSmall ? 10 : 11.5, fill: neon,
+  stroke: { color: '#021a30', width: 3, join: 'round' },
   dropShadow: { color: '#000000', alpha: .45, blur: 0, distance: 1.4, angle: Math.PI / 4 },
 } });
 

@@ -45,9 +45,9 @@ export const pickSpecies = (sessionId: string, inTank: Iterable<Species>): Speci
   return options[hash(sessionId + ':species') % options.length];
 };
 
-/** Neon glow colours, far enough apart to tell sessions apart (also in the panel's swatches). */
-export const NEON = ['#39ff14', '#00f0ff', '#ff00e6', '#fff200', '#ff6a00', '#b026ff', '#00ffb3', '#ff2e63',
-  '#3d8bff', '#b6ff00', '#ff9ad5', '#ffb000', '#7a5cff', '#00c2a8', '#ff4040', '#e8f4ff'];
+/** Neon glow colours, far enough apart to tell sessions apart (also in the panel's swatches). All are light enough to read as titles on the water (contrast of 4.1 or more against its lightest part). */
+export const NEON = ['#39ff14', '#00f0ff', '#fff200', '#00ffb3', '#b6ff00', '#e8f4ff', '#ffd1f0', '#ffd9a0',
+  '#e6d6ff', '#ffd6c4', '#a0ffe0', '#d4f0a0', '#cfe0ff', '#ffd6e8', '#ffeaa0', '#f2f2f2'];
 
 /** A session's species and glow colour. */
 export interface Look { species: Species; neon: string }
