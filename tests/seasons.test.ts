@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { currentSeason, seasonOn } from '../src/seasons';
+import { currentSeason, SEASONS, seasonOn } from '../src/seasons';
 
 const on = (month: number, day: number) => seasonOn(new Date(2027, month - 1, day))?.id ?? null;
 
@@ -41,5 +42,14 @@ describe('currentSeason', () => {
   it('lets ?season choose one to look at', () => {
     expect(currentSeason(new URLSearchParams('season=halloween'), summer)?.id).toBe('halloween');
     expect(currentSeason(new URLSearchParams('season=nope'), summer)).toBeNull();
+  });
+});
+
+describe('the website', () => {
+  it('has the same calendar as the tank', () => {
+    const page = readFileSync('site/site.js', 'utf8');
+    const listed = [...page.matchAll(/\['(\w+)', \[(\d+), (\d+)\], \[(\d+), (\d+)\]\]/g)]
+      .map(([, id, ...days]) => `${id} ${days.join(' ')}`);
+    expect(listed).toEqual(SEASONS.map(({ id, start, end }) => `${id} ${[...start, ...end].join(' ')}`));
   });
 });

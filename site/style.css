@@ -102,6 +102,19 @@ footer {
 @keyframes blink { 50% { opacity: .25; } }
 @media (prefers-reduced-motion: reduce) { .bubbles { display: none; } .dot { animation: none !important; } }
 
+/* the winter holidays (see site.js): snow falling instead of bubbles, and a string of lights across the top */
+.snow { position: fixed; inset: 0; pointer-events: none; z-index: -1; overflow: hidden; }
+.snow i {
+  position: absolute; top: -12px; width: var(--size); height: var(--size); border-radius: 50%;
+  background: #fff; opacity: .85; animation: fall linear infinite;
+}
+.lights { position: absolute; top: 0; left: 0; right: 0; height: 60px; pointer-events: none; z-index: 1; overflow: hidden; }
+.lights svg { display: block; animation: twinkle 1.6s ease-in-out infinite alternate; }
+[data-season="winter"] .bubbles { display: none; }
+@keyframes fall { to { transform: translate(var(--drift), 108vh); } }
+@keyframes twinkle { to { opacity: .75; } }
+@media (prefers-reduced-motion: reduce) { .snow { display: none; } .lights svg { animation: none; } }
+
 /* the creatures page */
 .small-hero { padding: 40px 0 24px; }
 .back { display: inline-block; margin-bottom: 18px; text-decoration: none; font-weight: 600; }
