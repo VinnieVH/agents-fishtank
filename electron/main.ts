@@ -296,6 +296,11 @@ const startTank = () => startServer({
   desktop: true,
   onSettings: applySettings,
   onSnapshot: watchSessions,
+  showInApp: ancestors => {
+    if (!terminals?.reveal(ancestors)) return false;
+    show();
+    return true;
+  },
 });
 
 const main = async () => {

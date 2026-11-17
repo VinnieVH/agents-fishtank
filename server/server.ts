@@ -12,7 +12,7 @@ import { Copilot } from './copilot.ts';
 import { DesktopSessions } from './desktop.ts';
 import { isRecord } from './session.ts';
 import { createSharing } from './share.ts';
-import { focusTerminal, resumeInTerminal } from './terminal.ts';
+import { ancestorsOf, focusTerminal, resumeInTerminal } from './terminal.ts';
 
 const IDLE_GRACE_MS = 15 * 1000;         // idle once no agent CLI process has been running this long
 const MAX_HOOK_BYTES = 16 * 1024 * 1024; // hook payloads include tool input, e.g. a whole file being written
@@ -52,6 +52,8 @@ export interface ServerOptions {
   desktop?: boolean;
   /** Called with the settings at the start and after every change. */
   onSettings?: (settings: Settings) => void;
+  /** Called with the process ids of a clicked session's process and its parents: true if one of the app's own terminal tabs runs it and was shown. */
+  showInApp?: (ancestors: number[]) => boolean;
   /** Called with every snapshot sent to the page (once a second). */
   onSnapshot?: (snapshot: Snapshot) => void;
 }
@@ -148,11 +150,15 @@ const idFrom = (body: unknown) => isRecord(body) && typeof body.id === 'string' 
 const resumeCopilot = (copilot: Copilot, id: string) =>
   copilot.has(id) && SESSION_ID.test(id) ? resumeInTerminal(['copilot', '--resume', id], copilot.cwdOf(id)) : Promise.resolve(false);
 
-/** Brings the terminal of the session { id } to the front; a Copilot session that has ended is resumed in a new one. */
-const openSession = async ({ claude, copilot }: { claude: Claude; copilot: Copilot }, body: unknown) => {
+/**
+ * Brings the terminal of the session { id } to the front, in the app's own terminals first (`showInApp`); a Copilot
+ * session that has ended is resumed in a new one. Works for any tool whose session has a process id.
+ */
+const openSession = async ({ claude, copilot, showInApp }: { claude: Claude; copilot: Copilot; showInApp?: ServerOptions['showInApp'] }, body: unknown) => {
   const id = idFrom(body);
   const pid = claude.pidOf(id) ?? copilot.pidOf(id);
-  const isOpened = pid ? await focusTerminal(pid) : await resumeCopilot(copilot, id);
+  const isInApp = !!pid && !!showInApp?.(await ancestorsOf(pid));
+  const isOpened = isInApp || (pid ? await focusTerminal(pid) : await resumeCopilot(copilot, id));
   if (!isOpened) throw new Error('No terminal found for this session');
 };
 
@@ -267,7 +273,7 @@ export const startServer = (options: ServerOptions): Promise<Fishtank> => {
       if (update) { limits = update; saveLimits(update); }
     }),
     '/settings': (request, response) => fromPage(request, response, changeSettings),
-    '/open': (request, response) => fromPage(request, response, body => openSession({ claude, copilot }, body)),
+    '/open': (request, response) => fromPage(request, response, body => openSession({ claude, copilot, showInApp: options.showInApp }, body)),
   };
   const server = http.createServer((request, response) => {
     const url = (request.url || '/').split('?')[0];

@@ -107,6 +107,14 @@ export class Terminals {
   /** Shows or hides the terminal side (View > Terminal). */
   toggle() { this.options.window()?.webContents.send('term:toggle'); }
 
+  /** Shows the tab whose shell is one of `ancestors` (a session's process and its parents); false if there is none. */
+  reveal(ancestors: number[]) {
+    const running = [...this.ptys.values()].find(({ pty }) => ancestors.includes(pty.pid));
+    if (!running) return false;
+    this.options.window()?.webContents.send('term:select', running.tab.id);
+    return true;
+  }
+
   killAll() {
     for (const running of this.ptys.values()) { try { running.pty.kill(); } catch { /* already gone */ } }
     this.ptys.clear();

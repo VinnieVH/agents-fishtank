@@ -16,6 +16,7 @@ const api: TerminalsApi = {
   onData: listener => { ipcRenderer.on('term:data', (_e, id, data) => listener(id, data)); },
   onExit: listener => { ipcRenderer.on('term:exit', (_e, id) => listener(id)); },
   onToggle: listener => { ipcRenderer.on('term:toggle', () => listener()); },
+  onSelect: listener => { ipcRenderer.on('term:select', (_e, id) => listener(id)); },
 };
 
 contextBridge.exposeInMainWorld('fishtankTerminals', api);

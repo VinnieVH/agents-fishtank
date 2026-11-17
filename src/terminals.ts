@@ -268,6 +268,7 @@ export const startTerminals = async (api: TerminalsApi) => {
 
   api.onData((id, data) => ui.views.get(id)?.terminal.write(data));
   api.onExit(id => { const view = ui.views.get(id); if (view) remove(ui, view, false); });
+  api.onSelect(id => { const view = ui.views.get(id); if (view) { show(ui, true); select(ui, view); } });
 
   // the tabs still running from before a reload, then the side as it was left
   for (const tab of setup.tabs) attach(ui, tab);

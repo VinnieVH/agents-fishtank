@@ -15,6 +15,7 @@
     onData: l => { print = l; },
     onExit() {},
     onToggle: l => { window.__toggleTerminals = l; },
+    onSelect: () => {},
   };
   window.__term = (id, text) => print(id, text);
 })();

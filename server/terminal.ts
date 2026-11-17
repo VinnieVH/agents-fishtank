@@ -32,6 +32,28 @@ export const terminalOf = (ps: string, pid: number): Terminal => {
   return { tty };
 };
 
+/** `pid` and the processes above it, from "pid ppid" lines (the process list of this computer). */
+export const ancestorChain = (listing: string, pid: number): number[] => {
+  const parents = new Map<number, number>();
+  for (const line of listing.split('\n')) {
+    const match = /^\s*(\d+)\s+(\d+)\s*$/.exec(line);
+    if (match) parents.set(Number(match[1]), Number(match[2]));
+  }
+  const chain = [pid];
+  for (let parent = parents.get(pid); parent && parent > 1 && !chain.includes(parent) && chain.length < 50; parent = parents.get(parent)) chain.push(parent);
+  return chain;
+};
+
+/** A process and its parents, to tell which terminal it runs in; just the process if the list can't be read. */
+export const ancestorsOf = async (pid: number): Promise<number[]> => {
+  try {
+    const listing = process.platform === 'win32'
+      ? await run('powershell', ['-NoProfile', '-NonInteractive', '-Command', 'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId)" }'])
+      : await run('ps', ['-axo', 'pid=,ppid=']);
+    return ancestorChain(listing, pid);
+  } catch { return [pid]; }
+};
+
 // The tty is passed as an argument, never put into the script.
 const ITERM = `on run argv
   tell application "iTerm2"

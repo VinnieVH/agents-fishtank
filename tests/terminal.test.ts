@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { terminalOf } from '../server/terminal.ts';
+import { ancestorChain, terminalOf } from '../server/terminal.ts';
+
+describe('finding the processes above a session', () => {
+  it('lists the process and its parents, stopping at the root and at loops', () => {
+    expect(ancestorChain('4 0\n20 4\n30 20\n40 30\n', 40)).toEqual([40, 30, 20, 4]);
+    expect(ancestorChain('5 6\n6 5\n', 5)).toEqual([5, 6]);
+    expect(ancestorChain('', 7)).toEqual([7]);
+  });
+});
 
 describe('finding the terminal of a session', () => {
   it('finds iTerm and the tty from the process tree', () => {

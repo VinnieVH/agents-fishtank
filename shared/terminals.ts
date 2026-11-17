@@ -35,6 +35,8 @@ export interface TerminalsApi {
   onExit(listener: (id: number) => void): void;
   /** View > Terminal in the app's menu. */
   onToggle(listener: () => void): void;
+  /** A clicked fish's session runs in this tab: show it. */
+  onSelect(listener: (id: number) => void): void;
 }
 
 /**
