@@ -3,6 +3,7 @@ import { HAT_ANCHOR, HAT_FISH_SIZE } from '../art/hats';
 import { paintFish, type FishLook, type FishTextures } from '../art/fishArt';
 import { SPECIES, type Look } from '../species';
 import { hash, rng, TAU } from '../util';
+import { Bonk } from './bonk';
 import type { State, WaitKind } from '../../shared/types';
 import type { Flake, Pinch } from './food';
 
@@ -40,6 +41,9 @@ const WAIT_MARKS: Record<WaitKind, { glyph: string; color: string }> = {
   question: { glyph: '?', color: '#ffc94d' }, permission: { glyph: '!', color: '#ff7a59' }, plan: { glyph: '📜', color: '#ffc94d' },
 };
 const URGENT_AFTER_MS = 60_000, URGENT_RAMP_MS = 240_000;
+const GLASS_GROWTH = .5, GLASS_Z = 10_000;
+const urgencyOf = (waiting: Waiting | undefined) =>
+  Math.min(1, Math.max(0, ((waiting?.ms ?? 0) - URGENT_AFTER_MS) / URGENT_RAMP_MS));
 
 /** How a waiting session waits: the reason (if known) and for how long. */
 export interface Waiting { kind?: WaitKind; ms: number }
@@ -59,6 +63,7 @@ export class Fish {
   label = '';
   x: number; y: number;
   direction: number; face: number; vy = 0; speed = .3;
+  glass = 0; nearness = 1; centreDx = 0;
   readonly size: number;
   readonly look: FishLook;
   phase = Math.random() * TAU;
@@ -78,6 +83,7 @@ export class Fish {
   private headX: number; private tailX: number; private baseY: number;
 
   readonly marks = new Container();
+  private readonly bonk = new Bonk();
   private labelText: Text;
   private mark: Text;
   private sleepZs: Text[];
@@ -112,12 +118,12 @@ export class Fish {
       this.body.addChild(this.fin);
     }
     this.body.addChild(this.rope);
-    this.body.zIndex = this.size;
+    this.body.zIndex = this.size; this.marks.zIndex = this.size + .5;
 
     this.labelText = makeLabel(small, this.look.neon);
     this.mark = makeMark(this.size);
     this.sleepZs = [0, 1, 2].map(() => makeSleepZ(this.size));
-    this.marks.addChild(this.labelText, this.mark, ...this.sleepZs);
+    this.marks.addChild(this.labelText, this.mark, ...this.sleepZs, this.bonk.view);
   }
 
   get neon() { return this.look.neon; }
@@ -171,6 +177,7 @@ export class Fish {
     if (food) this.chase(food, gap, t);
     else this.turnAround(tank, parent, leashX);
     this.settle(tank, food);
+    this.approachGlass(tank, state, waiting);
     this.bendBody();
     this.shine(t, state, tank.night);
     this.updateMarks(t, state, waiting);
@@ -178,11 +185,13 @@ export class Fish {
 
   /** Subagents stay on a short leash and sprint to catch up when they fall behind. */
   private cruiseSpeed(state: State, leashX: number) {
+    if (this.glass > .3) return Math.min(1.5, Math.abs(this.centreDx) * .02) * SPECIES[this.species].speed; // heading for the middle
     return SPEED[state] * SPECIES[this.species].speed * (this.small ? (Math.abs(leashX) > LEASH ? 1.7 : 1.2) : 1);
   }
 
   private pickTargetY(tank: Tank, parent: Fish | undefined, food: Flake | null) {
     if (food) { this.targetY = food.y; return; }
+    if (this.glass > .3) { this.targetY = tank.bottom * .5; return; }
     if (parent) { this.followParentDepth(tank.deltaFrames, parent); return; }
     if (Math.random() < .01 * tank.deltaFrames) this.targetY = 70 + Math.random() * (tank.bottom - 120);
   }
@@ -214,11 +223,16 @@ export class Fish {
   private turnAround(tank: Tank, parent: Fish | undefined, leashX: number) {
     const { t, deltaFrames } = tank, wall = this.wallAhead(tank.right);
     if (wall) { this.turn(-wall, t); return; }
+    if (this.glass > .3) { this.faceCentre(t); return; }
     if (parent && Math.abs(leashX) > LEASH && Math.sign(leashX) !== this.direction) { this.turn(-this.direction, t); return; }
     if (t - this.lastTurn > TURN_COOLDOWN_MS && Math.random() < .01 * deltaFrames) {
       this.turn(-this.direction, t);
       if (!this.small) this.targetY = 70 + Math.random() * (tank.bottom - 120);
     }
+  }
+
+  private faceCentre(t: number) {
+    if (Math.abs(this.centreDx) > 20 && Math.sign(this.centreDx) !== this.direction) this.turn(-this.direction, t);
   }
 
   /** 1 when it is swimming into the right wall, -1 into the left one, else 0. */
@@ -251,7 +265,7 @@ export class Fish {
       point.y = this.baseY + amplitude * along * along * Math.sin(this.phase + (1 - along) * .9);
     }
     this.body.position.set(this.x, this.y);
-    this.body.scale.x = this.face;
+    this.body.scale.set(this.face * this.nearness, this.nearness);
     this.body.rotation = Math.max(-.35, Math.min(.35, this.vy * .09)) * Math.sign(this.face || 1);
   }
 
@@ -271,17 +285,32 @@ export class Fish {
       this.mark.style.dropShadow = { color, alpha: 1, blur: 12, distance: 0, angle: 0 };
     }
     // the longer it waits, the bigger and livelier the mark
-    const urgency = Math.min(1, Math.max(0, ((waiting?.ms ?? 0) - URGENT_AFTER_MS) / URGENT_RAMP_MS));
+    const urgency = urgencyOf(waiting);
     this.mark.scale.set(1 + urgency * .8);
     this.mark.position.set(this.x, this.y - height + Math.sin(t / (300 - urgency * 150)) * (4 + urgency * 6));
   }
 
+  /** A fish that waits long enough swims up to the front glass: it grows, passes in front of the others and bonks it. */
+  private approachGlass(tank: Tank, state: State, waiting: Waiting | undefined) {
+    const { deltaFrames } = tank;
+    this.centreDx = tank.right / 2 - this.x;
+    const goal = state === 'waiting' && !this.small && urgencyOf(waiting) >= 1 ? 1 : 0; // only once the mark is fully grown
+    this.glass += (goal - this.glass) * .02 * deltaFrames;
+    this.nearness = 1 + this.glass * GLASS_GROWTH + this.bonk.hit * .12; // each bonk lunges at the viewer
+    this.body.zIndex = this.size + (this.glass > .05 ? GLASS_Z : 0);
+    this.marks.zIndex = this.body.zIndex + .5; // labels sit just above their own fish, behind fish in front
+  }
+
   private updateMarks(t: number, state: State, waiting: Waiting | undefined) {
-    const size = this.size, { labelY, markY } = SPECIES[this.species];
+    const size = this.size * this.nearness, { labelY, markY } = SPECIES[this.species];
     this.labelText.visible = !!this.label;
     this.labelText.position.set(this.x, this.y + size * labelY);
     this.mark.visible = !this.small && state === 'waiting';
     if (this.mark.visible) this.poseMark(t, size * markY, waiting);
+    const bonk = this.bonk;
+    bonk.x = this.x + (this.direction > 0 ? 1 : -1) * SPECIES[this.species].bounds[2] * size * .95; bonk.y = this.y;
+    bonk.size = size * .75;
+    bonk.update(t, Math.max(0, (this.glass - .85) / .15));
     const isSleeping = !this.small && state === 'idle' && !this.meal, shownZs = (t / 1200) % 3;
     this.sleepZs.forEach((letter, index) => {
       letter.visible = isSleeping && shownZs > index;

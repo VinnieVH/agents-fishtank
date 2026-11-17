@@ -47,7 +47,6 @@ const passersby = new Passersby(performance.now(), params, resolution);
 const water = new Water();
 const sky = new SkyOverlay();
 const fishLayer = new Container({ sortableChildren: true });
-const marksLayer = new Container();
 const gauge = new Gauge(resolution);
 const crab = new Crab(resolution);
 const food = new Food(resolution);
@@ -55,7 +54,7 @@ const garland = new Sprite(); // bunting or lights across the top, in a season
 const drift = new Drift(resolution); // what drifts by in a season: snow, hearts, leaves...
 const tanks = new AirTanks(resolution);
 app.stage.addChild(sea, water.current, terrain, passersby, water.rays, water.shimmer, water.softCorals, floor, treasure.sprite, water.anemones, water.bubbles, food,
-  sky, passersby.glows, water.anemoneTips, water.plankton, garland, drift, fishLayer, marksLayer, tanks, crab, gauge);
+  sky, passersby.glows, water.anemoneTips, water.plankton, garland, drift, fishLayer, tanks, crab, gauge);
 
 let tankWidth = 0, tankHeight = 0, gold = 1, gems = 5;
 let season: Festival | null = null; // the festive season going on, if any
@@ -136,7 +135,7 @@ const hatFor = () => season ? hatTexture(season.id, resolution) : null;
 
 const addFish = (fish: Fish) => {
   fish.setHat(hatFor());
-  allFish.set(fish.key, fish); fishLayer.addChild(fish.body); marksLayer.addChild(fish.marks);
+  allFish.set(fish.key, fish); fishLayer.addChild(fish.body, fish.marks);
   crab.scare();
   return fish;
 };

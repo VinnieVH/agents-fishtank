@@ -30,7 +30,7 @@
 <p id="info" class="info"></p>
 <h2>Colour variants</h2>
 <div id="stills" class="stills"></div>
-<h2>Swimming: working · waiting · idle</h2>
+<h2>Swimming: working · waiting · idle · waiting 3 min · knocking on the glass</h2>
 <div id="live"></div>
 <h2>Festive hats, by season</h2>
 <div id="seasons"></div>
@@ -75,19 +75,23 @@ for (let v = 0; v < 4; v++) {
 
 // live: three of them swimming in a small tank, as the real tank animates them
 
-const bodies = new Container({ sortableChildren: true }), marks = new Container();
-app.stage.addChild(bodies, marks);
-const states = ['working', 'waiting', 'idle'];
+const bodies = new Container({ sortableChildren: true });
+app.stage.addChild(bodies);
+const states = [
+  { state: 'working' }, { state: 'waiting' }, { state: 'idle' },
+  { state: 'waiting', label: 'waiting 3 min', waiting: { kind: 'permission', ms: 180_000 } },
+  { state: 'waiting', label: 'knocking on the glass', waiting: { kind: 'question', ms: 300_000 } },
+];
 const W = () => app.screen.width, bottom = () => app.screen.height - 30;
-const fish = states.map((state, i) => {
-  const f = new Fish({ key: 'live-' + i, sessionId: 'live-' + i, small: false, look: { species, neon: NEON[i * 5] }, tankWidth: W(), bottom: bottom(), resolution: devicePixelRatio });
-  f.setLabel(state);
-  bodies.addChild(f.body); marks.addChild(f.marks);
-  return { f, state };
+const fish = states.map(({ state, label, waiting }, i) => {
+  const f = new Fish({ key: 'live-' + i, sessionId: 'live-' + i, small: false, look: { species, neon: NEON[i * 3] }, tankWidth: W(), bottom: bottom(), resolution: devicePixelRatio });
+  f.setLabel(label ?? state);
+  bodies.addChild(f.body, f.marks);
+  return { f, state, waiting };
 });
 app.ticker.add(t => {
   const tank = { t: performance.now(), deltaFrames: Math.min(3, t.deltaMS / 16.7), right: W(), bottom: bottom(), night: night ? 1 : 0 };
-  for (const { f, state } of fish) f.update(tank, state, undefined);
+  for (const { f, state, waiting } of fish) f.update(tank, state, undefined, waiting);
 });
 
 // seasons: the same creature in each festive season's hat (and without one), kept in place so only its tail moves
