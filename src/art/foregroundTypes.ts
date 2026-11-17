@@ -16,4 +16,6 @@ export interface ForegroundArt {
   hasAnemones: boolean;
   container?: Container;
   occupied?: (width: number) => [number, number][];
+  /** Small things on the sand (urchins, eelgrass): nothing is scattered or stood next to them. */
+  underfoot?: (width: number) => [number, number][];
 }

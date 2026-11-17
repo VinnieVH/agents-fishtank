@@ -123,7 +123,7 @@ resize();
 
 const achievements = startAchievementsPage(new AchievementStore(localStorage));
 startForegroundPage({
-  store: foregroundStore, renderer: app.renderer,
+  store: foregroundStore,
   onPick: id => { foreground = id; water.foreground = id; paintTerrainLayer(); paintFloorLayer(); water.build(tankWidth, tankHeight, app.renderer); },
 });
 passersby.onVisit = name => { achievements.earn(visitorId(name)); achievements.add(visitorId(name)); };

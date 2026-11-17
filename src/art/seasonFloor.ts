@@ -13,14 +13,15 @@ const SCENES: Partial<Record<SeasonId, Placement[]>> = {
     place(snowyCane, .55, 0, 2), place(snowyCane, .61, 1, 1.3), place(snowyTree, .7, 0, 3.2), place(snowyCane, .84, 2, 1.7), place(snowyCane, .9, 3, 1.3), place(snowyCane, .96, 1, 1.6)],
 };
 
-/** The season's things on the sand, in front of the reefs; `clear` are stretches of x to leave free (the chest). */
+/** The season's things on the sand, in front of the reefs; `clear` are stretches of x to leave free (the chest), `underfoot` those with small things on the sand that a candy cane would hide or float beside. */
 export const paintSeasonFloor = (
-  { width, sandLine }: { width: number; sandLine: number }, season: SeasonId, clear: [number, number][],
+  { width, sandLine }: { width: number; sandLine: number }, season: SeasonId, { clear, underfoot }: { clear: [number, number][]; underfoot: [number, number][] },
 ) => {
   const fit = Math.min(1, sandLine / 650); // smaller tanks get smaller props, so the big ones still fit
   for (const { at, prop, index = 0, scale = 1 } of SCENES[season] ?? []) {
     const x = at * width;
     if (clear.some(([from, to]) => x > from && x < to)) continue;
+    if (prop === snowyCane && underfoot.some(([from, to]) => x > from - 14 * scale && x < to + 14 * scale)) continue;
     g.save(); g.translate(x, sandTop(x, sandLine) + 14); g.scale(scale * fit, scale * fit); setPenScale(scale * fit); prop(index); setPenScale(1); g.restore();
   }
 };

@@ -69,10 +69,13 @@ const paintUrchin = ([x, y]: Point, color: string) => {
   toon(body, { fill: color, inkColor: shade(color, -.7), width: 1.4 }, () => ellipse({ x: x - 2.4, y: y - 2.4, radiusX: 2.4, radiusY: 1.4, rotation: -.5, color: shade(color, .5) }));
 };
 
+const urchinX = (width: number, index: number) => (.19 + index * GOLDEN) % 1 * width;
+const urchinCount = (width: number) => Math.max(3, Math.round(width / 260));
+
 const paintUrchins = ({ width, sandLine, ground }: Setting) => {
   const clear = keepClear(width), random = rng(8800);
-  for (let index = 0; index < Math.max(3, Math.round(width / 260)); index++) {
-    const x = (.19 + index * GOLDEN) % 1 * width, y = ground(x) + 16 + random() * 26;
+  for (let index = 0; index < urchinCount(width); index++) {
+    const x = urchinX(width, index), y = ground(x) + 16 + random() * 26;
     if (isClear(clear, x - 14, x + 14)) paintUrchin([x, Math.max(y, sandLine + 12)], URCHIN_COLORS[index % 3]);
   }
 };
@@ -105,6 +108,12 @@ const swayers = (width: number, height: number): Swayer[] => {
   return [...plants, ...understory(stands)];
 };
 
+/** Where the urchins and the eelgrass stand (the x they cover), for nothing to be put in front of them. */
+const underfoot = (width: number): [number, number][] => [
+  ...Array.from({ length: urchinCount(width) }, (_, index): [number, number] => [urchinX(width, index) - 18, urchinX(width, index) + 18]),
+  ...swayers(width, 700).filter(plant => plant.kind !== 'kelp').map((plant): [number, number] => [plant.x - 30, plant.x + 30]),
+];
+
 /** The kelp forest: mossy boulders, tall swaying kelp and eelgrass, sea urchins on the sand. */
 export const kelpForeground: ForegroundArt = {
   paint: setting => {
@@ -114,4 +123,5 @@ export const kelpForeground: ForegroundArt = {
   swayers,
   hasAnemones: false,
   container: 'clam',
+  underfoot,
 };

@@ -50,7 +50,7 @@ export const paintTerrain = (context: CanvasRenderingContext2D, { width, height,
   const sandLine = sandLineFor(height);
   paintDune(tank, sandLine, season === Season.Winter);
   paintFrontSand(tank, sandLine, season === Season.Winter);
-  const spots = [...keepClear(width), ...(FOREGROUND_ART[foreground].occupied?.(width) ?? [])], taken = (x: number) => spots.some(([from, to]) => x > from - 34 && x < to + 34);
+  const art = FOREGROUND_ART[foreground], spots = [...keepClear(width), ...(art.occupied?.(width) ?? []), ...(art.underfoot?.(width) ?? [])], taken = (x: number) => spots.some(([from, to]) => x > from - 34 && x < to + 34);
   if (season !== Season.Winter) paintRipples(tank, sandLine, random, taken);
   if (season) return; // a season brings its own things for the sand
   paintPebbles(tank, sandLine, taken);
@@ -85,6 +85,6 @@ export const paintFloor = (
   setSnowy(season === Season.Winter);
   FOREGROUND_ART[foreground].paint({ width, height, sandLine, ground: x => sandTop(x, sandLine) });
   if (withContainer) paintContainer(FOREGROUND_ART[foreground].container ?? 'chest', containerSpot(width, sandLine), gold, gems, season === Season.Winter);
-  if (season) paintSeasonFloor({ width, sandLine }, season, keepClear(width));
+  if (season) paintSeasonFloor({ width, sandLine }, season, { clear: keepClear(width), underfoot: FOREGROUND_ART[foreground].underfoot?.(width) ?? [] });
   g.restore();
 };
