@@ -43,19 +43,25 @@ export const paintFrontSand = (tank: Tank, sandLine: number, snow = false) => {
   }
 };
 
-export const paintRipples = ({ width, height }: Tank, sandLine: number, random: () => number) => {
+/** Where the sand is taken by something standing on it, so nothing is scattered there. */
+export type Taken = (x: number) => boolean;
+
+export const paintRipples = ({ width, height }: Tank, sandLine: number, ...rest: [random: () => number, taken?: Taken]) => {
+  const [random, taken = () => false] = rest;
   g.strokeStyle = '#c29d5f'; g.lineWidth = 2; g.lineCap = 'round';
   for (let index = 0; index < 22; index++) {
     const x = random() * width, y = sandLine + 14 + random() * (height - sandLine - 18), w = 24 + random() * 40;
+    if (taken(x) || taken(x + w)) continue;
     g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + w / 2, y - 5, x + w, y); g.stroke();
   }
 };
 
-export const paintPebbles = ({ width, height }: Tank, sandLine: number) => {
+export const paintPebbles = ({ width, height }: Tank, sandLine: number, taken: Taken = () => false) => {
   const random = rng(555); // own RNG and a fixed number, so they stay put as the width changes
   for (let index = 0; index < 70; index++) {
     const x = random() * width, y = sandLine + 16 + random() * (height - sandLine - 20), radius = 2.4 + random() * 3.2;
     const color = PEBBLES[Math.floor(random() * PEBBLES.length)];
+    if (taken(x)) continue;
     const pebble = new Path2D(); pebble.ellipse(x, y, radius * 1.25, radius * .85, random() - .5, 0, TAU);
     toon(pebble, { fill: color, inkColor: shade(color, -.7), width: 1.1 }, () =>
       ellipse({ x: x - radius * .35, y: y - radius * .35, radiusX: radius * .4, radiusY: radius * .22, rotation: -.4, color: shade(color, .5) }));
@@ -85,9 +91,11 @@ const paintShell = ([x, y]: Point) => {
   });
 };
 
-export const paintShellsAndStarfish = ({ width, height }: Tank, sandLine: number, random: () => number) => {
+export const paintShellsAndStarfish = ({ width, height }: Tank, sandLine: number, ...rest: [random: () => number, taken?: Taken]) => {
+  const [random, taken = () => false] = rest;
   for (let index = 0; index < 7; index++) {
     const x = random() * width, y = sandLine + 18 + random() * (height - sandLine - 26);
+    if (taken(x)) continue;
     if (random() < .5) paintStarfish([x, y], STARFISH[index % 3], random() * TAU);
     else paintShell([x, y]);
   }

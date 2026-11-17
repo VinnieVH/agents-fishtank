@@ -32,12 +32,17 @@
   <h2 id="menu-title">Menu</h2>
   <div class="options">
     <button id="menu-achievements" type="button">Achievements</button>
+    <button id="menu-foreground" type="button">Scenery</button>
     <button id="menu-settings" type="button">Settings</button>
   </div>
 </dialog>
 <dialog id="achievements" aria-labelledby="achievements-title">
   <header><div><h2 id="achievements-title">Achievements</h2><span class="summary"></span></div><button class="close" type="button" aria-label="Close">✕</button></header>
   <div class="groups"></div>
+</dialog>
+<dialog id="foreground" aria-labelledby="foreground-title">
+  <header><div><h2 id="foreground-title">Scenery</h2><span class="summary">Pick the look of the tank's foreground.</span></div><button class="close" type="button" aria-label="Close">✕</button></header>
+  <ul class="choices"></ul>
 </dialog>
 <dialog id="settings" aria-labelledby="settings-title">
   <form method="dialog">

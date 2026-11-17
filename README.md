@@ -20,7 +20,7 @@ which session needs your attention.
 | 💤 A dozing fish | The session is idle |
 | 🐠 Little fish next to a big one | Subagents the session started |
 | 🤿 Two scuba tanks on the left | **Claude Code:** how much of your Pro/Max plan's 5-hour and weekly limits you have left (bubbles leak when it's nearly empty) |
-| 🧭 A pressure gauge on the right | **Copilot:** how much of your premium requests you've used this month; the gold in the treasure chest shrinks along with it |
+| 🧭 A pressure gauge on the right | **Copilot:** how much of your premium requests you've used this month; the treasure in the tank's foreground shrinks along with it (gold in a chest, pearls in a clam, scrolls in a coffer; see [Scenery](#scenery)) |
 | 📋 The panel on the right | How many sessions there are and how many need you, then every session (those that need you on top) with its state, a Copilot/Claude badge and its subagents, and the exact numbers: your Claude usage and when it refills, and the Copilot credits left this month. On a phone-sized screen the panel moves to the bottom and the scuba tanks and gauge leave the water, so these are the numbers there |
 
 Each fish is named after its session: the name you gave it, Claude Code's title for it, or the start of your first
@@ -30,7 +30,7 @@ angelfish, pufferfish, squid, shrimp, lobster, anglerfish, lionfish, octopus or 
 Claude desktop app opens it, iTerm or Terminal switches to its tab (other terminals and editors come to the front),
 and a Copilot session that has ended is resumed in a new terminal window. If you switched a Copilot CLI to another
 session with `/resume`, clicking the old session's fish brings that CLI to the front, so you can switch back there. On a Mac, the first click asks to let Agent Fishtank
-control iTerm or Terminal; allow it (or later in **System Settings → Privacy & Security → Automation**). And just for fun: the fish swim over a coral reef, with a canyon, an ocean current and an old shipwreck far off, the water follows the real time of day (with glowing plankton at night), a whale, an orca, a
+control iTerm or Terminal; allow it (or later in **System Settings → Privacy & Security → Automation**). And just for fun: the fish swim over a coral reef (or a kelp forest, or sunken ruins: see [Scenery](#scenery)), with a canyon, an ocean current and an old shipwreck far off, the water follows the real time of day (with glowing plankton at night), a whale, an orca, a
 shark, a pod of dolphins, a manta ray or a school of jellyfish drifts by now and then (and once in a while something rarer), a crab comes out when everything is quiet, and you can click the water to feed the fish.
 
 The app also has terminals of its own: click the terminal button in the panel (or press `Ctrl+\``, `⌘\`` on a Mac)
@@ -39,6 +39,18 @@ and they open on the left, with the tank on the right. The **+** starts Claude C
 to share the window. A CLI that ends leaves you in the shell. Copy with `Ctrl+C` while text is selected (`⌘C`), paste
 with `Ctrl+V` (`⌘V`) or a right click, and switch tabs with `Ctrl+Tab`. The app asks before quitting while terminals
 are open, and doesn't quit by itself while they are.
+
+### Scenery
+
+Choose **Scenery** in the menu to pick the foreground of the tank. The page shows a live picture of each one, with your choice marked, and it is remembered.
+
+| Scenery | What you get | Your Copilot credits |
+| --- | --- | --- |
+| Coral reef (default) | Rocky outcrops with coral and an old treasure chest in the sand | Gold and gems in the chest shrink |
+| Kelp forest | Tall swaying kelp, soft plants and mossy rocks around a giant clam that slowly opens and closes | One of its five pearls disappears for every 20% used |
+| Sunken ruins | Broken columns, amphorae and a half-buried temple around a Roman stone coffer | One of its five scrolls disappears for every 20% used |
+
+Pebbles, shells and starfish are kept away from whatever stands on the sand, and winter's snow works on all three.
 
 ### Seasons
 
@@ -316,7 +328,7 @@ Windows.
 | --- | --- |
 | `src/main.ts` | Sets up the Pixi app, the layers, the session → fish sync and the loop |
 | `src/scene/` | Fish, water, sky, visitors (whale, shark, orca, manta, dolphins, jellyfish, submarine, kraken), crab, fish food, credits gauge, air tanks |
-| `src/art/` | Canvas 2D painters for the fish (`fishArt.ts`), terrain (`terrain*.ts`), coral reef (`reef*.ts`), visitors and crab |
+| `src/art/` | Canvas 2D painters for the fish (`fishArt.ts`), terrain (`terrain*.ts`), the scenery (`foreground*.ts`, `ruins*.ts`, the chest, clam and coffer in `terrain{Chest,Clam,Coffer}.ts`), coral reef (`reef*.ts`), visitors and crab |
 | `src/panel.ts` | Side panel, Claude usage and the live `/events` connection |
 | `src/viewer.ts`, `src/qr.ts` | Watching from another device: the shared key, pairing with a code, and the QR code in the settings |
 | `src/settings.ts`, `shared/settings.ts` | The settings dialog; the settings, their defaults and validation |

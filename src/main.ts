@@ -13,6 +13,7 @@ import { Drift } from './scene/drift';
 import { Gauge } from './scene/gauge';
 import { AirTanks } from './scene/tanks';
 import { Crab, type CrabFrame } from './scene/crab';
+import { Treasure } from './scene/treasure';
 import { Food } from './scene/food';
 import { lightFor, locationFromParams, makeClock, sunPosition, type Light } from './sky';
 import { currentSeason, type Festival } from './seasons';
@@ -22,6 +23,8 @@ import { GARLAND_HEIGHT, paintGarland } from './art/garland';
 import { hatTexture } from './art/hats';
 import { AchievementStore, BUSY_SESSIONS, Moment, seasonId, visitorId } from './achievements';
 import { startAchievementsPage } from './achievementsPage';
+import { startForegroundPage } from './foregroundPage';
+import { ForegroundStore } from './foregrounds';
 import { showSettings, showShare } from './settings';
 import { DEFAULT_SETTINGS, type Settings } from '../shared/settings';
 
@@ -36,7 +39,8 @@ tankEl.append(app.canvas);
 // layers, back to front
 const sea = new Sprite(); // the open water and the canyon far off, behind the current; the hills and the wreck are in front of it
 const terrain = new Sprite();
-const floor = new Sprite(); // the reef and the chest: in front of the soft corals
+const floor = new Sprite(); // the reef and the like: in front of the soft corals
+const treasure = new Treasure(resolution); // the chest, clam or coffer, on top of the floor
 const passersby = new Passersby(performance.now(), params, resolution);
 const water = new Water();
 const sky = new SkyOverlay();
@@ -48,17 +52,21 @@ const food = new Food(resolution);
 const garland = new Sprite(); // bunting or lights across the top, in a season
 const drift = new Drift(resolution); // what drifts by in a season: snow, hearts, leaves...
 const tanks = new AirTanks(resolution);
-app.stage.addChild(sea, water.current, terrain, passersby, water.rays, water.shimmer, water.softCorals, floor, water.anemones, water.bubbles, food,
+app.stage.addChild(sea, water.current, terrain, passersby, water.rays, water.shimmer, water.softCorals, floor, treasure.sprite, water.anemones, water.bubbles, food,
   sky, passersby.glows, water.anemoneTips, water.plankton, garland, drift, fishLayer, marksLayer, tanks, crab, gauge);
 
 let tankWidth = 0, tankHeight = 0, gold = 1, gems = 5;
 let season: Festival | null = null; // the festive season going on, if any
+const foregroundStore = new ForegroundStore(localStorage);
+let foreground = foregroundStore.get();
+water.foreground = foreground;
 
 /** The floor's things: on resize, and when the chest's gold changes. */
 const paintFloorLayer = () => {
   const old = floor.texture, top = sandLineFor(tankHeight) - FLOOR_REACH;
-  floor.texture = paintTexture({ w: tankWidth, h: tankHeight - top }, resolution, g => paintFloor(g, { width: tankWidth, height: tankHeight }, { gold, gems, season: season?.id }));
+  floor.texture = paintTexture({ w: tankWidth, h: tankHeight - top }, resolution, g => paintFloor(g, { width: tankWidth, height: tankHeight }, { gold, gems, season: season?.id, foreground, withContainer: false }));
   floor.y = top;
+  treasure.set({ width: tankWidth, height: tankHeight, gold, gems, season: season?.id, foreground });
   if (old !== Texture.EMPTY) old.destroy(true);
 };
 const paintGarlandLayer = () => {
@@ -68,7 +76,7 @@ const paintGarlandLayer = () => {
 };
 const paintTerrainLayer = () => {
   const old = terrain.texture;
-  terrain.texture = paintTexture({ w: tankWidth, h: tankHeight }, resolution, g => paintTerrain(g, { width: tankWidth, height: tankHeight, season: season?.id }));
+  terrain.texture = paintTexture({ w: tankWidth, h: tankHeight }, resolution, g => paintTerrain(g, { width: tankWidth, height: tankHeight, season: season?.id, foreground }));
   if (old !== Texture.EMPTY) old.destroy(true);
 };
 const paintBackdrop = () => {
@@ -114,6 +122,10 @@ app.renderer.on('resize', resized);
 resize();
 
 const achievements = startAchievementsPage(new AchievementStore(localStorage));
+startForegroundPage({
+  store: foregroundStore, renderer: app.renderer,
+  onPick: id => { foreground = id; water.foreground = id; paintTerrainLayer(); paintFloorLayer(); water.build(tankWidth, tankHeight, app.renderer); },
+});
 passersby.onVisit = name => { achievements.earn(visitorId(name)); achievements.add(visitorId(name)); };
 crab.onAppear = () => achievements.add('crab');
 crab.onDance = () => achievements.earn(Moment.CrabDance);
@@ -321,6 +333,7 @@ app.ticker.add(ticker => {
   waterFrame.t = ambientT; waterFrame.deltaFrames = dt * ambientSpeed; waterFrame.isBusy = busy; waterFrame.day = light.day;
   waterFrame.night = light.night;
   water.update(waterFrame);
+  treasure.update(ambientT);
   drift.update(ambientT, dt * ambientSpeed);
   tank.t = t; tank.deltaFrames = dt * swimSpeed; tank.right = tankWidth; tank.bottom = sandLineFor(tankHeight) - 40; tank.night = light.night;
   for (const fish of allFish.values()) fish.update(tank, sessions.get(fish.sessionId)?.state ?? 'idle', fish.small ? allFish.get(fish.sessionId) : undefined);

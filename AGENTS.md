@@ -18,7 +18,7 @@ Three parts in TypeScript, no UI framework:
 ```
 src/main.ts         Pixi app, layers, session → fish sync, the frame loop
 src/scene/          things that move in the tank (Pixi display objects)
-src/art/            Canvas 2D painters: fish, terrain, reef, visitors
+src/art/            Canvas 2D painters: fish, terrain, scenery (foreground*, ruins*), reef, visitors
 src/*.ts            panel, settings dialog, terminals UI, sky, species, small helpers (util.ts)
 shared/             types and pure logic used by more than one part (feed, settings, terminals)
 server/             HTTP server, Copilot and Claude session parsers, log tailing, terminal focus

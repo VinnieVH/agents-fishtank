@@ -8,14 +8,14 @@ const LID_HEIGHT = 30, LID_TILT = 7;
 const BACK = TOP + DEPTH_Y; // back rim / hinge line
 const INK = '#2a1405', BRASS = '#e0ac35', BRASS_LIGHT = '#ffe08a', GOLD_INK = '#7a4f00';
 
-const GEMS = [
+export const GEMS = [
   { across: .5, back: .55, color: '#e6fbff', inkColor: '#3d7591', glow: '#bff4ff' }, // diamond
   { across: .26, back: .45, color: '#ff2d55', inkColor: '#6b0016', glow: '#ff6b88' }, // ruby
   { across: .74, back: .5, color: '#2f6bff', inkColor: '#0a1f66', glow: '#6f9bff' }, // sapphire
   { across: .38, back: .85, color: '#ff2d55', inkColor: '#6b0016', glow: '#ff6b88' }, // ruby
   { across: .64, back: .85, color: '#2f6bff', inkColor: '#0a1f66', glow: '#6f9bff' }, // sapphire
 ];
-type Gem = typeof GEMS[number];
+export type Gem = typeof GEMS[number];
 const SPARKLES = [[.5, .7, 5], [.22, .4, 3.5]] as const;
 const SPILLED_COINS = [[RIGHT + 8, 4], [LEFT - 7, 5], [RIGHT + 17, 2], [6, 7]] as const;
 
@@ -25,6 +25,14 @@ const band = (path: Path2D, width: number) => {
 const line = ([fromX, fromY]: Point, [toX, toY]: Point) => {
   const path = new Path2D(); path.moveTo(fromX, fromY); path.lineTo(toX, toY);
   return path;
+};
+
+/** A single gold coin lying at (x, y). */
+export const paintCoin = ([x, y]: Point, radius: number) => {
+  const coin = new Path2D(); coin.ellipse(x, y, radius, radius * .58, 0, 0, TAU);
+  toon(coin, { fill: '#ffe27a', inkColor: GOLD_INK, width: 1.1 }, () => {
+    ellipse({ x, y: y + radius * .26, radiusX: radius, radiusY: radius * .28, color: '#e0a91c' }); ellipse({ x: x - radius * .3, y: y - radius * .16, radiusX: radius * .33, radiusY: radius * .14, color: '#fffbe0' });
+  });
 };
 
 const paintShadow = () => {
@@ -99,7 +107,7 @@ const paintGold = (gold: number) => {
   g.restore();
 };
 
-const paintGem = (gem: Gem, [x, y]: Point) => {
+export const paintGem = (gem: Gem, [x, y]: Point) => {
   const size = 5.5;
   const cut = poly([x - size, y - size * .2], [x - size * .55, y - size * .75], [x + size * .55, y - size * .75], [x + size, y - size * .2], [x, y + size]);
   g.save(); g.shadowColor = gem.glow; g.shadowBlur = 8; g.fillStyle = gem.color; g.fill(cut); g.restore();

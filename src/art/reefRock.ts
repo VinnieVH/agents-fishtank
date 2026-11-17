@@ -13,6 +13,7 @@ const CORALLINE = ['#c0679b', '#9a5fb8', '#d98aa0', '#7a5aa8', '#e0a0b8'];
 const SAND = '#e8cd96';
 let snowy = false;
 /** Paints the sand drifted over the rocks' feet as snow (winter), to match the front sand. */
+export const isSnowy = () => snowy;
 export const setSnowy = (on: boolean) => { snowy = on; };
 /** How wide a coral's foot is, for the rock that grows up around it. */
 const FOOT: Partial<Record<HardKind, (size: number) => number>> = { staghorn: size => size * .2, table: size => size * .13, leather: size => size * .22, brain: size => size * .55 };

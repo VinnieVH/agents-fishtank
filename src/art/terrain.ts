@@ -1,11 +1,13 @@
 import { rng } from '../util';
+import { DEFAULT_FOREGROUND, type ForegroundId } from '../foregrounds';
 import { Season, type SeasonId } from '../seasons';
-import { paintReefs, paintRidge, reefLayout, sandGaps } from './reef';
+import { chestSpot, keepClear } from './chestSpot';
+import { FOREGROUND_ART } from './foreground';
 import { setSnowy } from './reefRock';
 import { drawInto, g } from './sceneryPen';
 import { paintSeasonFloor } from './seasonFloor';
 import { canyonMouth, paintCanyon } from './terrainCanyon';
-import { paintChest } from './terrainChest';
+import { paintContainer } from './terrainContainers';
 import { paintHills } from './terrainHills';
 import { paintDune, paintFrontSand, paintPebbles, paintRipples, paintShellsAndStarfish, sandTop } from './terrainSand';
 
@@ -28,16 +30,8 @@ export const currentAt = (distance: number, width: number, height: number) => {
 /** How far above the sand line the floor's things reach: paintFloor paints from there down. */
 export const FLOOR_REACH = 520;
 
-const landmarks = (width: number) => ({ chest: width * .2 });
-
-/** The stretches of the floor kept free of reefs in front (art/reef.ts), so the chest (the Copilot credits) stays in sight. */
-export const keepClear = (width: number): [number, number][] => {
-  const { chest } = landmarks(width);
-  return [[chest - 52, chest + 74]];
-};
-
-/** The reefs in a tank W x H (art/reef.ts): the floor layer paints them, scene/water.ts adds their soft corals. */
-export const reefs = (width: number, height: number) => reefLayout(width, height, keepClear(width));
+export { keepClear } from './chestSpot';
+export { reefs } from './foregroundReef';
 
 /** The open water at the very back, from light at the top to deep blue, and the canyon far away in it. Behind the current (scene/water.ts). */
 export const paintWater = (context: CanvasRenderingContext2D, width: number, height: number) => {
@@ -49,37 +43,48 @@ export const paintWater = (context: CanvasRenderingContext2D, width: number, hei
 };
 
 /** The static backdrop in front of the open water (paintWater) and the current far off: hills, the wreck, sand, gravel, shells and starfish. Painted on resize. */
-export const paintTerrain = (context: CanvasRenderingContext2D, { width, height, season = null }: { width: number; height: number; season?: SeasonId | null }) => {
+export const paintTerrain = (context: CanvasRenderingContext2D, { width, height, season = null, foreground = DEFAULT_FOREGROUND }: { width: number; height: number; season?: SeasonId | null; foreground?: ForegroundId }) => {
   drawInto(context);
   const random = rng(1337), tank = { width, height };
   paintHills(tank);
   const sandLine = sandLineFor(height);
   paintDune(tank, sandLine, season === Season.Winter);
   paintFrontSand(tank, sandLine, season === Season.Winter);
-  if (season !== Season.Winter) paintRipples(tank, sandLine, random);
+  const spots = [...keepClear(width), ...(FOREGROUND_ART[foreground].occupied?.(width) ?? [])], taken = (x: number) => spots.some(([from, to]) => x > from - 34 && x < to + 34);
+  if (season !== Season.Winter) paintRipples(tank, sandLine, random, taken);
   if (season) return; // a season brings its own things for the sand
-  paintPebbles(tank, sandLine);
-  paintShellsAndStarfish(tank, sandLine, random);
+  paintPebbles(tank, sandLine, taken);
+  paintShellsAndStarfish(tank, sandLine, random, taken);
+};
+
+/** Where the chest (or the clam, or the coffer) stands: well forward on the sand, in front of the rest. */
+export const containerSpot = (width: number, sandLine: number): [number, number] => [chestSpot(width), sandLine + 30];
+
+/** The room the container's own layer has around its spot: left of it, above it, and the spot's offset inside the layer. */
+export const CONTAINER_BOX = { w: 260, h: 230, x: 130, y: 195 };
+
+/** The container alone, in a small layer of its own so the clam can be animated without repainting the whole floor. */
+export const paintContainerLayer = (context: CanvasRenderingContext2D, fill: { gold: number; gems: number; season?: SeasonId | null; foreground?: ForegroundId; open?: number }) => {
+  const { gold, gems, season = null, foreground = DEFAULT_FOREGROUND, open } = fill, winter = season === Season.Winter;
+  drawInto(context); setSnowy(winter);
+  paintContainer(FOREGROUND_ART[foreground].container ?? 'chest', [CONTAINER_BOX.x, CONTAINER_BOX.y], gold, gems, winter, open);
 };
 
 /**
  * The floor's things, in a layer of their own above the soft corals at the back (scene/water.ts) and below the fish:
- * the reefs with their hard corals, and the chest. Painted from FLOOR_REACH above the sand
- * line down, on resize and when the gold level changes.
+ * the chosen foreground (the reef, the kelp forest, the sunken ruins) and the chest. Painted from FLOOR_REACH above
+ * the sand line down, on resize, when the gold level changes and when another foreground is chosen.
  */
 export const paintFloor = (
   context: CanvasRenderingContext2D, { width, height }: { width: number; height: number },
-  { gold, gems, season = null }: { gold: number; gems: number; season?: SeasonId | null },
+  { gold, gems, season = null, foreground = DEFAULT_FOREGROUND, withContainer = true }: { gold: number; gems: number; season?: SeasonId | null; foreground?: ForegroundId; withContainer?: boolean },
 ) => {
   drawInto(context);
-  const sandLine = sandLineFor(height), marks = landmarks(width), floorReefs = reefs(width, height);
+  const sandLine = sandLineFor(height);
   g.save(); g.translate(0, FLOOR_REACH - sandLine);
-  const ground = (x: number) => sandTop(x, sandLine);
   setSnowy(season === Season.Winter);
-  paintRidge(g, { width, sandLine, ground, gaps: sandGaps(width) });
-  paintReefs(g, floorReefs, ground);
-  const chestAt: [number, number] = [marks.chest, sandLine + 30]; // well forward on the sand, in front of the reef
-  paintChest(chestAt, gold, gems, season === Season.Winter);
+  FOREGROUND_ART[foreground].paint({ width, height, sandLine, ground: x => sandTop(x, sandLine) });
+  if (withContainer) paintContainer(FOREGROUND_ART[foreground].container ?? 'chest', containerSpot(width, sandLine), gold, gems, season === Season.Winter);
   if (season) paintSeasonFloor({ width, sandLine }, season, keepClear(width));
   g.restore();
 };

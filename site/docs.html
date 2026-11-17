@@ -23,6 +23,7 @@
     <h4>Using it</h4>
     <a href="#tank">What you see</a>
     <a href="#terminals">Built-in terminals</a>
+    <a href="#scenery">Scenery</a>
     <a href="#seasons">Seasons</a>
     <a href="#settings">Settings</a>
     <a href="#sharing">Watching from other devices</a>
@@ -117,7 +118,7 @@ npm run dist</code></pre>
         <tr><td>A dozing fish (<code>zZ</code>)</td><td>The session is idle</td></tr>
         <tr><td>Little fish next to a big one</td><td>Subagents the session started</td></tr>
         <tr><td>Two scuba tanks on the left</td><td><b>Claude Code:</b> how much of your Pro/Max plan's 5-hour and weekly limits you have left (bubbles leak when it's nearly empty)</td></tr>
-        <tr><td>A pressure gauge on the right</td><td><b>Copilot:</b> how much of your premium requests you've used this month; the gold in the treasure chest shrinks along with it</td></tr>
+        <tr><td>A pressure gauge on the right</td><td><b>Copilot:</b> how much of your premium requests you've used this month; the treasure in the foreground shrinks along with it (gold in a chest, pearls in a clam, scrolls in a coffer; see <a href="#scenery">Scenery</a>)</td></tr>
         <tr><td>The panel on the right</td><td>How many sessions there are and how many need you, then every session (those that need you on top) with its state, a Copilot/Claude badge and its subagents, and the exact numbers: your Claude usage and when it refills, and the Copilot credits left this month. On a phone-sized screen the panel moves to the bottom, and the scuba tanks and gauge leave the water, so these are the numbers there</td></tr>
       </table>
       <p>Each fish is named after its session: the name you gave it, Claude Code's title for it, or the start of your first
@@ -128,7 +129,7 @@ npm run dist</code></pre>
         you switched a Copilot CLI to another session with <code>/resume</code>, clicking the old session's fish brings that CLI
         to the front. On a Mac, the first click asks to let Agent Fishtank control iTerm or Terminal; allow it (or later in
         <b>System Settings → Privacy &amp; Security → Automation</b>).</p>
-      <p>And just for fun: the water follows the real time of day (with glowing plankton at night), a whale, an orca, a shark, a
+      <p>And just for fun: the fish swim over a coral reef, a kelp forest or sunken ruins (your pick, see <a href="#scenery">Scenery</a>), the water follows the real time of day (with glowing plankton at night), a whale, an orca, a shark, a
         pod of dolphins, a manta ray or a school of jellyfish drifts by now and then (and once in a while something rarer), a
         crab comes out when everything is quiet, and you can <b>click the water to feed the fish</b>.</p>
     </section>
@@ -146,6 +147,18 @@ npm run dist</code></pre>
           switch tabs with <code>Ctrl+Tab</code>.</li>
         <li>The app asks before quitting while terminals are open, and doesn't quit by itself while they are.</li>
       </ul>
+    </section>
+
+    <section id="scenery">
+      <h2>Scenery</h2>
+      <p>Choose <b>Scenery</b> in the menu to pick the foreground of the tank. The page shows a live picture of each one, with your choice marked, and it is remembered.</p>
+      <table>
+        <tr><th>Scenery</th><th>What you get</th><th>Your Copilot credits</th></tr>
+        <tr><td><b>Coral reef</b> (default)</td><td>Rocky outcrops with coral and an old treasure chest in the sand</td><td>Gold and gems in the chest shrink</td></tr>
+        <tr><td><b>Kelp forest</b></td><td>Tall swaying kelp, soft plants and mossy rocks around a giant clam that slowly opens and closes</td><td>One of its five pearls disappears for every 20% used</td></tr>
+        <tr><td><b>Sunken ruins</b></td><td>Broken columns, amphorae and a half-buried temple around a Roman stone coffer</td><td>One of its five scrolls disappears for every 20% used</td></tr>
+      </table>
+      <p>Pebbles, shells and starfish are kept away from whatever stands on the sand, and winter's snow works on all three.</p>
     </section>
 
     <section id="seasons">
