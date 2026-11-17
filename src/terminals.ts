@@ -205,8 +205,6 @@ const openXterm = (area: HTMLElement) => {
   return { terminal, fit, element };
 };
 
-const PASTE_DEBOUNCE_MS = 300;
-
 const isShortcut = (event: KeyboardEvent) => isMac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
 const isCopyKey = (event: KeyboardEvent, terminal: Terminal) =>
   isShortcut(event) && event.key.toLowerCase() === 'c' && (isMac || event.shiftKey || terminal.hasSelection());
@@ -214,14 +212,7 @@ const isCopyKey = (event: KeyboardEvent, terminal: Terminal) =>
 // copy and paste like other terminals: Ctrl+C copies only with text selected (else it stops what runs),
 // Ctrl+V or Ctrl+Shift+V pastes; ⌘C and ⌘V on a Mac. A right click copies the selection, or pastes.
 const wireClipboard = (ui: TerminalsUi, { terminal, element }: View) => {
-  let lastPasteAt = 0;
-  // A right click can reach us twice on Windows (mouseup and the context menu key path), so one gesture pastes once.
-  const paste = () => {
-    const now = Date.now();
-    if (now - lastPasteAt < PASTE_DEBOUNCE_MS) return;
-    lastPasteAt = now;
-    void ui.api.paste().then(text => { if (text) terminal.paste(text); });
-  };
+  const paste = () => { void ui.api.paste().then(text => { if (text) terminal.paste(text); }); };
   const copy = () => { ui.api.copy(terminal.getSelection()); terminal.clearSelection(); };
   terminal.attachCustomKeyEventHandler(event => {
     if (event.type !== 'keydown') return true;
@@ -235,7 +226,12 @@ const wireClipboard = (ui: TerminalsUi, { terminal, element }: View) => {
     if (text) ui.api.copy(text);
     return true;
   });
-  element.addEventListener('contextmenu', event => { event.preventDefault(); event.stopPropagation(); if (terminal.hasSelection()) copy(); else paste(); });
+  element.addEventListener('contextmenu', event => {
+    event.preventDefault();
+    if (terminal.hasSelection()) copy();
+    // a program that asks for mouse events (the Copilot CLI) gets the right click itself and pastes on its own
+    else if (terminal.modes.mouseTrackingMode === 'none') paste();
+  });
 };
 
 const attach = (ui: TerminalsUi, tab: Tab) => {
