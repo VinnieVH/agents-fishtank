@@ -40,6 +40,15 @@ describe('Copilot CLI session logs', () => {
     expect(copilot.list(Date.now())[0]).toMatchObject({ state: 'idle', name: 'Add a crab' });
   });
 
+  it('stays idle when model calls trail the end of a turn', () => {
+    const copilot = new Copilot(sessionState([
+      { type: 'user.message', data: { content: 'hi' } }, { type: 'assistant.turn_end' },
+      { type: 'model.turn_started' }, { type: 'model.model_call_started' }, { type: 'model.response' },
+    ]));
+    copilot.poll();
+    expect(copilot.list(Date.now())[0].state).toBe('idle');
+  });
+
   it('works while compacting and goes back to the turn state when compaction completes', () => {
     const events = [{ type: 'user.message', data: { content: 'hi' } }, { type: 'assistant.turn_end' }, { type: 'session.compaction_start' }];
     const copilot = new Copilot(sessionState(events));

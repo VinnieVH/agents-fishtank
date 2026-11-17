@@ -95,8 +95,13 @@ const SUBAGENT_EVENTS: Record<string, (context: EventContext) => void> = {
   'abort': ({ session, time }) => stopSubagents(session, time),
 };
 
+// The CLI's model calls go on after a turn has ended (checks and bookkeeping): they don't start a new turn, and no
+// event ends them, so they must not wake an idle session.
+const MODEL_EVENTS = new Set(['model.turn_started', 'model.model_call_started', 'model.response']);
+
 const noteState = (session: CopilotSession, type: string, data: CopilotData) => {
-  session.base = baseStateOf(type, data) ?? session.base;
+  const next = baseStateOf(type, data);
+  if (next && !(session.base === 'idle' && MODEL_EVENTS.has(type))) session.base = next;
   if (Object.hasOwn(COMPACTING, type)) session.compacting = COMPACTING[type];
   if (WORKING.has(type) || TALKING.has(type)) session.talked = true;
   // A compaction runs on its own (e.g. /compact) or during a turn; afterwards the turn's own state applies again.
