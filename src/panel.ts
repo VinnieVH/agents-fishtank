@@ -1,4 +1,5 @@
 import type { Session, Snapshot, Source, State, Subagent } from '../shared/types';
+import { WAIT_TAGS, waitPhrase } from '../shared/wait';
 import type { Credits } from './credits';
 import type { Air, Tanks } from './limits';
 import type { Phase } from './sky';
@@ -9,7 +10,6 @@ export type { Session, Snapshot } from '../shared/types';
 
 const SOURCE: Record<Source, string> = { copilot: 'Copilot', claude: 'Claude' };
 const STATE_DOT: Partial<Record<State, string>> = { working: 'on', waiting: 'wait' };
-const STATE_LABEL: Partial<Record<State, string>> = { working: 'working', waiting: 'waiting for you' };
 const SUBAGENT_DOT: Partial<Record<Subagent['status'], string>> = { running: 'on', failed: 'off' };
 const SUBAGENT_ICON: Partial<Record<Subagent['status'], string>> = { done: '✓ ', failed: '✗ ', stopped: '■ ' };
 
@@ -31,11 +31,20 @@ const subagentList = (subagents: Subagent[], now: number) => {
   return sorted.length ? `<ul class="subs">${sorted.map(subagent => subagentRow(subagent, now)).join('')}</ul>` : '';
 };
 
+/** Words what a session is doing or waiting for, for the panel row and the hover on its fish. */
+export const stateLabel = (session: Session) => {
+  if (session.state === 'waiting') return waitPhrase(session.wait) ?? 'waiting for you';
+  if (session.state === 'working') return session.activity || 'working';
+  return 'idle';
+};
+
+const waitTag = (session: Session) => session.state === 'waiting' ? `<span class="tag waiting">${session.wait ? WAIT_TAGS[session.wait.kind] : 'input'}</span>` : '';
+
 const sessionCard = (session: Session, color: string, now: number) => `<div class="session ${session.state}">
       <div class="row"><i class="dot ${STATE_DOT[session.state] ?? 'off'}"></i><span class="name" title="${escapeHtml(session.name)}">${escapeHtml(session.name)}</span>
         <span class="src ${session.source}">${SOURCE[session.source]}</span>
         <span class="swatch" style="background:${color};box-shadow:0 0 6px ${color}"></span></div>
-      <div class="meta">${STATE_LABEL[session.state] ?? 'idle'}${session.state === 'waiting' ? '<span class="tag waiting">input</span>' : ''} · ${formatDuration(now - session.lastEvent)} ago</div>
+      <div class="meta" title="${escapeHtml(stateLabel(session))}">${escapeHtml(stateLabel(session))}${waitTag(session)} · ${formatDuration(now - session.lastEvent)} ago</div>
       ${subagentList(session.subagents, now)}</div>`;
 
 /** Renders the session list. colorOf gives the fish's neon colour for the swatch. */

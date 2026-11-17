@@ -7,6 +7,7 @@ import path from 'node:path';
 import { app, BrowserWindow, dialog, Menu, Notification, shell, type MenuItemConstructorOptions } from 'electron';
 import type { Session, Snapshot, State as SessionState } from '../shared/types.ts';
 import type { Settings } from '../shared/settings.ts';
+import { waitPhrase } from '../shared/wait.ts';
 import { DEFAULT_PORT, startServer, type Fishtank } from '../server/server.ts';
 import { connect, connected, disconnect, installed, places, type Cli, type Launcher } from './connect.ts';
 import { createIndicators } from './indicators.ts';
@@ -78,7 +79,7 @@ const watchOf = (session: Session, before: Map<string, Watch> | null, time: numb
 
 const notifyAbout = (session: Session, watch: Watch, settings: Settings) => {
   const cli = session.source === 'claude' ? 'Claude Code' : 'Copilot CLI';
-  if (session.state === 'waiting' && settings.notifyWaiting) notify(`${session.name} needs you`, `${cli} is waiting for your answer.`);
+  if (session.state === 'waiting' && settings.notifyWaiting) notify(`${session.name} needs you`, `${cli} ${waitPhrase(session.wait) ?? 'is waiting for your answer'}.`);
   else if (session.state === 'idle' && watch.from === 'working' && settings.notifyFinished) notify(`${session.name} is done`, `${cli} finished and waits for your next message.`);
 };
 

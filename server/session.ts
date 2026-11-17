@@ -1,5 +1,5 @@
 // What both providers track per session, and how it turns into what the page sees.
-import type { Session, Source, State, Subagent } from '../shared/types.ts';
+import type { Session, Source, State, Subagent, Wait } from '../shared/types.ts';
 
 export const RECENT_MS = 60 * 60 * 1000;        // show sessions active in the last hour
 export const STALE_MS = 15 * 60 * 1000;         // "working" with no events for this long -> idle
@@ -11,9 +11,11 @@ export interface Tracked {
   subagents: Map<string, Subagent>;
   name: string;   // set by the user (/rename) or the CLI
   title: string;  // fallback: the start of the first prompt
+  activity: string; // what a working session is doing, e.g. "Editing reef.ts"
+  wait?: Wait;      // why it waits, set when it starts waiting
 }
 
-export const newTracked = (): Tracked => ({ state: 'idle', lastEvent: 0, subagents: new Map(), name: '', title: '' });
+export const newTracked = (): Tracked => ({ state: 'idle', lastEvent: 0, subagents: new Map(), name: '', title: '', activity: '' });
 
 export const isRecord = (candidate: unknown): candidate is Record<string, unknown> => typeof candidate === 'object' && candidate !== null;
 
@@ -63,7 +65,10 @@ export const toSession = ({ id, source, tracked, now }: SessionSource): Session 
   const subagents = listedSubagents(tracked, isStale, now);
   const hasRunningSubagent = subagents.some(subagent => subagent.status === 'running');
   const state = shownState(tracked.state, hasRunningSubagent, isStale);
-  return { id, source, state, name: tracked.name || tracked.title || id.slice(0, 8), subagents, lastEvent: tracked.lastEvent };
+  const session: Session = { id, source, state, name: tracked.name || tracked.title || id.slice(0, 8), subagents, lastEvent: tracked.lastEvent };
+  if (state === 'working' && tracked.activity) session.activity = tracked.activity;
+  if (state === 'waiting' && tracked.wait) session.wait = tracked.wait;
+  return session;
 };
 
 /** True if a process with this PID exists. */

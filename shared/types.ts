@@ -9,8 +9,16 @@ export interface Subagent {
   status: 'running' | 'done' | 'failed' | 'stopped'; start: number; end?: number;
 }
 
+/** Why a session waits: it asks a question, needs a permission or has a plan to approve. `detail` is what it wants to do, e.g. "run rm -rf dist". */
+export type WaitKind = 'question' | 'permission' | 'plan';
+export interface Wait { kind: WaitKind; detail?: string }
+
 export interface Session {
   id: string; source: Source; name: string; state: State; lastEvent: number; subagents: Subagent[];
+  /** What a working session is doing right now, e.g. "Editing reef.ts". */
+  activity?: string;
+  /** Why a waiting session waits, when the CLI says. */
+  wait?: Wait;
   /** Opens the session where it runs, e.g. a Claude Code session in the Claude desktop app; clicking its fish follows it. */
   link?: string;
   /** Clicking its fish brings the terminal it runs in to the front, or resumes it in a new one (POST /open). */

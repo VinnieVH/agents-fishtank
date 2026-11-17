@@ -4,7 +4,8 @@
 // busy, idle or waiting, also on an interrupt or a denied permission, which fire no hook.
 import fs from 'node:fs';
 import path from 'node:path';
-import type { Session, State } from '../shared/types.ts';
+import type { Session, State, Wait, WaitKind } from '../shared/types.ts';
+import { activityOf, requestOf } from './activity.ts';
 import { liveFrom, readRunningSessions, type LiveStatus, type RunningSession } from './claudeStatus.ts';
 import { DesktopSessions } from './desktop.ts';
 import { LogTail } from './logtail.ts';
@@ -18,7 +19,7 @@ export interface HookEvent {
   agent_id?: string;          // set when the event comes from inside a subagent
   agent_type?: string;
   tool_name?: string;
-  tool_input?: { subagent_type?: string; description?: string; model?: string };
+  tool_input?: { subagent_type?: string; description?: string; model?: string; [field: string]: unknown };
   notification_type?: string;
   prompt?: string;
   session_title?: string;
@@ -93,6 +94,23 @@ const OPEN_CLOSE = new Set(['SessionStart', 'SessionEnd']);
 
 interface HookContext { session: ClaudeSession; event: HookEvent; time: number; isMain: boolean }
 
+const WAIT_KINDS: Record<string, WaitKind> = { AskUserQuestion: 'question', ExitPlanMode: 'plan' };
+
+/** Why the tool call stops for the user: its answer, its plan, or its permission to do what the tool asks. */
+const waitFor = (event: HookEvent): Wait => {
+  const toolName = event.tool_name ?? '';
+  if (Object.hasOwn(WAIT_KINDS, toolName)) return { kind: WAIT_KINDS[toolName] };
+  const detail = requestOf(toolName, event.tool_input);
+  return detail ? { kind: 'permission', detail } : { kind: 'permission' };
+};
+
+/** Setting a state ends what went with the one before: a wait's reason, and what it was doing. */
+const setState = (session: ClaudeSession, state: State, reason: { wait?: Wait; activity?: string } = {}) => {
+  session.state = state;
+  session.wait = state === 'waiting' ? reason.wait : undefined;
+  session.activity = state === 'working' ? reason.activity ?? session.activity : '';
+};
+
 const noteLaunch = ({ session, event }: HookContext) => {
   // subagents can start subagents too, so their Agent calls count as well
   if (!AGENT_TOOLS.has(event.tool_name ?? '')) return;
@@ -108,12 +126,13 @@ const startSubagent = ({ session, event, time }: HookContext) => {
 };
 
 const notify = ({ session, event }: HookContext) => {
-  if (NEEDS_USER.has(event.notification_type ?? '')) session.state = 'waiting';
-  else if (event.notification_type === 'idle_prompt') session.state = 'idle';
+  const type = event.notification_type ?? '';
+  if (NEEDS_USER.has(type) && session.state !== 'waiting') setState(session, 'waiting', { wait: { kind: type === 'permission_prompt' ? 'permission' : 'question' } });
+  else if (type === 'idle_prompt') setState(session, 'idle');
 };
 
 // Tool calls inside a subagent shouldn't change what the main session is doing.
-const fromMain = (state: State) => (context: HookContext) => { if (context.isMain) context.session.state = state; };
+const fromMain = (state: State) => (context: HookContext) => { if (context.isMain) setState(context.session, state); };
 
 const HOOK_HANDLERS: Record<string, (context: HookContext) => void> = {
   SessionStart: ({ session, event }) => {
@@ -121,14 +140,17 @@ const HOOK_HANDLERS: Record<string, (context: HookContext) => void> = {
     if (event.session_title) session.name = event.session_title;
   },
   UserPromptSubmit: ({ session, event }) => {
-    session.state = 'working';
+    setState(session, 'working', { activity: '' });
     if (!session.title && event.prompt) session.title = titleFrom(event.prompt);
   },
   PreToolUse: context => {
     noteLaunch(context);
-    fromMain(ASKS_USER.has(context.event.tool_name ?? '') ? 'waiting' : 'working')(context);
+    if (!context.isMain) return;
+    const { session, event } = context, toolName = event.tool_name ?? '';
+    if (ASKS_USER.has(toolName)) setState(session, 'waiting', { wait: waitFor(event) });
+    else setState(session, 'working', { activity: activityOf(toolName, event.tool_input) });
   },
-  PermissionRequest: ({ session }) => { session.state = 'waiting'; }, // also from a subagent: either way the user has to answer
+  PermissionRequest: ({ session, event }) => setState(session, 'waiting', { wait: waitFor(event) }), // also from a subagent: either way the user has to answer
   PostToolUse: fromMain('working'),
   PostToolUseFailure: fromMain('working'),
   PermissionDenied: fromMain('working'),
@@ -141,7 +163,7 @@ const HOOK_HANDLERS: Record<string, (context: HookContext) => void> = {
     if (subagent) { subagent.status = 'done'; subagent.end = time; }
   },
   SessionEnd: ({ session, time }) => {
-    session.state = 'idle'; session.ended = true; session.launching = [];
+    setState(session, 'idle'); session.ended = true; session.launching = [];
     stopSubagents(session, time);
   },
 };

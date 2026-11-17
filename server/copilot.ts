@@ -2,7 +2,8 @@
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import type { Quota, Session, State } from '../shared/types.ts';
+import type { Quota, Session, State, Wait } from '../shared/types.ts';
+import { activityOf, requestOf } from './activity.ts';
 import { LogTail } from './logtail.ts';
 import { canFocusTerminals } from './terminal.ts';
 import { RECENT_MS, forgetOldSubagents, isRecord, newTracked, pidAlive, stopSubagents, titleFrom, toSession, type Tracked } from './session.ts';
@@ -24,7 +25,8 @@ interface PremiumQuota {
 }
 // The fields we read from events.jsonl; each event type uses a few of them.
 interface CopilotData {
-  toolName?: string; toolCallId?: string; content?: unknown; model?: string;
+  toolName?: string; toolCallId?: string; content?: unknown; model?: string; arguments?: unknown;
+  permissionRequest?: { kind?: string; fullCommandText?: string; command?: string; url?: string; fileName?: string; path?: string };
   agentId?: string; agentName?: string; agentDisplayName?: string; agentType?: string; agentDescription?: string;
   quotaSnapshots?: { premium_interactions?: PremiumQuota };
 }
@@ -56,6 +58,24 @@ const baseStateOf = (type: string, data: CopilotData): State | undefined => {
 
 interface EventContext { session: CopilotSession; event: CopilotEvent; data: CopilotData; time: number }
 
+// What a permission request asks for, as the input of the tool it stands for, so it reads like the tool's own calls.
+const REQUEST_TOOLS: Record<string, string> = { shell: 'bash', url: 'web_fetch', write: 'edit', read: 'read' };
+
+const permissionWait = (request: CopilotData['permissionRequest'] = {}): Wait => {
+  const toolName = REQUEST_TOOLS[request.kind ?? ''] ?? '';
+  const detail = requestOf(toolName, { command: request.fullCommandText, path: request.fileName, ...request });
+  return detail ? { kind: 'permission', detail } : { kind: 'permission' };
+};
+
+/** Why the session waits and what it is doing, from the event that set its state. */
+const noteReason = (session: CopilotSession, type: string, data: CopilotData) => {
+  if (session.state !== 'waiting') session.wait = undefined;
+  else if (type === 'permission.requested') session.wait = permissionWait(data.permissionRequest);
+  else if (type === 'tool.execution_start') session.wait = { kind: 'question' };
+  if (type === 'tool.execution_start' && data.toolName !== 'ask_user') session.activity = activityOf(data.toolName ?? '', data.arguments);
+  else if (type === 'user.message' || session.state === 'idle') session.activity = '';
+};
+
 const finishSubagent = ({ session, event, data, time }: EventContext) => {
   const subagent = session.subagents.get(data.toolCallId || data.agentId || event.id || '');
   if (subagent) { subagent.status = event.type === 'subagent.failed' ? 'failed' : 'done'; subagent.end = time; }
@@ -81,6 +101,7 @@ const noteState = (session: CopilotSession, type: string, data: CopilotData) => 
   if (WORKING.has(type) || TALKING.has(type)) session.talked = true;
   // A compaction runs on its own (e.g. /compact) or during a turn; afterwards the turn's own state applies again.
   session.state = session.compacting && session.base !== 'waiting' ? 'working' : session.base;
+  noteReason(session, type, data);
 };
 
 const unquote = (yamlValue: string) => yamlValue.trim().replace(/^(['"])(.*)\1$/, '$2');

@@ -2,7 +2,9 @@ import { Application, Container, Sprite, Texture } from 'pixi.js';
 import './style.css';
 import './menu';
 import { FLOOR_REACH, paintFloor, paintTerrain, paintWater, sandLineFor } from './art/terrain';
+import { cover } from './cover';
 import { connect, renderPanel, renderUsage, setSky, type Session, type Snapshot } from './panel';
+import { fishAt, hoverTitle, noteSnapshot, waitingOf } from './fishStatus';
 import { credits, type Credits } from './credits';
 import { airTanks } from './limits';
 import { Fish, type Tank } from './scene/fish';
@@ -98,13 +100,6 @@ const resize = () => {
 };
 // repainting all of that takes a moment, too long to do for every step of a resize: the tank is covered while it's
 // being resized (and while the divider is held) and painted once, when it stops
-const cover = document.getElementById('resizing')!;
-const COVER_BUBBLES = 36;
-for (let index = 0; index < COVER_BUBBLES; index++) { // its bubbles, already on their way up when it shows
-  const bubble = document.createElement('i'), rise = 3 + Math.random() * 4;
-  bubble.style.cssText = `--x:${(index + Math.random()) / COVER_BUBBLES * 100}%;--s:${5 + Math.random() ** 2 * 28}px;--t:${rise}s;--d:${-Math.random() * rise}s;--w:${(Math.random() - .5) * 28}px`;
-  cover.append(bubble);
-}
 let settle = 0;
 const settleResize = () => {
   if (document.querySelector('#split.drag')) { settle = window.setTimeout(settleResize, 150); return; }
@@ -226,6 +221,7 @@ const applySettings = (next: Settings, isDesktop: boolean) => {
 reducedMotion.addEventListener('change', setMotion);
 
 const sync = (snapshot: Snapshot) => {
+  noteSnapshot(snapshot.time, performance.now());
   applySettings(snapshot.settings ?? DEFAULT_SETTINGS, !!snapshot.desktop);
   showShare(snapshot);
   sessions = new Map(snapshot.sessions.map(session => [session.id, session]));
@@ -246,15 +242,17 @@ const sync = (snapshot: Snapshot) => {
 };
 connect(sync);
 
-/** The session whose fish (or subagent fish) is at (x, y) and can be opened; the biggest fish wins, as it's drawn on top. */
+/** The session whose fish is at (x, y) and can be opened. */
 const sessionAt = (x: number, y: number) => {
-  let best: { size: number; session: Session } | undefined;
-  for (const fish of allFish.values()) {
-    const session = sessions.get(fish.sessionId);
-    if (session && (session.link || session.terminal) && fish.hit(x, y) && (!best || fish.size > best.size)) best = { size: fish.size, session };
-  }
-  return best?.session;
+  const session = sessions.get(fishAt(allFish.values(), x, y)?.sessionId ?? '');
+  return session && (session.link || session.terminal) ? session : undefined;
 };
+
+// hovering a fish tells what it's doing
+app.canvas.addEventListener('pointermove', event => {
+  const bounds = app.canvas.getBoundingClientRect();
+  app.canvas.title = hoverTitle(sessions.get(fishAt(allFish.values(), event.clientX - bounds.left, event.clientY - bounds.top)?.sessionId ?? ''));
+});
 
 /** Opens a session: in the Claude desktop app, or by bringing its terminal to the front. */
 const openSession = (session: Session) => {
@@ -336,7 +334,10 @@ app.ticker.add(ticker => {
   treasure.update(ambientT);
   drift.update(ambientT, dt * ambientSpeed);
   tank.t = t; tank.deltaFrames = dt * swimSpeed; tank.right = tankWidth; tank.bottom = sandLineFor(tankHeight) - 40; tank.night = light.night;
-  for (const fish of allFish.values()) fish.update(tank, sessions.get(fish.sessionId)?.state ?? 'idle', fish.small ? allFish.get(fish.sessionId) : undefined);
+  for (const fish of allFish.values()) {
+    const session = sessions.get(fish.sessionId);
+    fish.update(tank, session?.state ?? 'idle', fish.small ? allFish.get(fish.sessionId) : undefined, waitingOf(session, t));
+  }
 });
 
 // the built-in terminals, on the left (desktop app only)

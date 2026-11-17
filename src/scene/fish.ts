@@ -3,7 +3,7 @@ import { HAT_ANCHOR, HAT_FISH_SIZE } from '../art/hats';
 import { paintFish, type FishLook, type FishTextures } from '../art/fishArt';
 import { SPECIES, type Look } from '../species';
 import { hash, rng, TAU } from '../util';
-import type { State } from '../../shared/types';
+import type { State, WaitKind } from '../../shared/types';
 import type { Flake, Pinch } from './food';
 
 export type { State } from '../../shared/types';
@@ -35,7 +35,16 @@ const makeLabel = (isSmall: boolean, neon: string) => new Text({ text: '', ancho
   dropShadow: { color: '#000000', alpha: .45, blur: 0, distance: 1.4, angle: Math.PI / 4 },
 } });
 
-const makeQuestion = (size: number) => new Text({ text: '?', anchor: { x: .5, y: .8 }, style: {
+// A mark per reason to wait: a question, a permission, a plan; also what a session shows when it doesn't say why
+const WAIT_MARKS: Record<WaitKind, { glyph: string; color: string }> = {
+  question: { glyph: '?', color: '#ffc94d' }, permission: { glyph: '!', color: '#ff7a59' }, plan: { glyph: '📜', color: '#ffc94d' },
+};
+const URGENT_AFTER_MS = 60_000, URGENT_RAMP_MS = 240_000;
+
+/** How a waiting session waits: the reason (if known) and for how long. */
+export interface Waiting { kind?: WaitKind; ms: number }
+
+const makeMark = (size: number) => new Text({ text: '?', anchor: { x: .5, y: .8 }, style: {
   fontFamily: MARK_FONT, fontWeight: 'bold', fontSize: size * .7, fill: '#ffc94d',
   dropShadow: { color: '#ffc94d', alpha: 1, blur: 12, distance: 0, angle: 0 },
 } });
@@ -70,7 +79,7 @@ export class Fish {
 
   readonly marks = new Container();
   private labelText: Text;
-  private question: Text;
+  private mark: Text;
   private sleepZs: Text[];
 
   // key and sessionId change when the session carries on under a new id (see Session.was)
@@ -106,9 +115,9 @@ export class Fish {
     this.body.zIndex = this.size;
 
     this.labelText = makeLabel(small, this.look.neon);
-    this.question = makeQuestion(this.size);
+    this.mark = makeMark(this.size);
     this.sleepZs = [0, 1, 2].map(() => makeSleepZ(this.size));
-    this.marks.addChild(this.labelText, this.question, ...this.sleepZs);
+    this.marks.addChild(this.labelText, this.mark, ...this.sleepZs);
   }
 
   get neon() { return this.look.neon; }
@@ -145,7 +154,9 @@ export class Fish {
   }
 
   /** Physics step (ported 1:1 from the canvas version), then pose the rope and the marks. */
-  update(tank: Tank, state: State, parent: Fish | undefined) {
+  // runs every frame: positional parameters, an options object would allocate each call
+  // oxlint-disable-next-line max-params
+  update(tank: Tank, state: State, parent: Fish | undefined, waiting?: Waiting) {
     const { t, deltaFrames } = tank, traits = SPECIES[this.species];
     const food = this.nextBite();
     const gap = food ? Math.hypot(food.x - this.mouthX, food.y - this.y) : 0;
@@ -162,7 +173,7 @@ export class Fish {
     this.settle(tank, food);
     this.bendBody();
     this.shine(t, state, tank.night);
-    this.updateMarks(t, state);
+    this.updateMarks(t, state, waiting);
   }
 
   /** Subagents stay on a short leash and sprint to catch up when they fall behind. */
@@ -252,12 +263,25 @@ export class Fish {
     this.rope.tint = night > .02 ? toNight(2) << 16 | toNight(8) << 8 | toNight(26) : 0xffffff;
   }
 
-  private updateMarks(t: number, state: State) {
+  private poseMark(t: number, height: number, waiting: Waiting | undefined) {
+    const { glyph, color } = WAIT_MARKS[waiting?.kind ?? 'question'];
+    if (this.mark.text !== glyph) {
+      this.mark.text = glyph;
+      this.mark.style.fill = color;
+      this.mark.style.dropShadow = { color, alpha: 1, blur: 12, distance: 0, angle: 0 };
+    }
+    // the longer it waits, the bigger and livelier the mark
+    const urgency = Math.min(1, Math.max(0, ((waiting?.ms ?? 0) - URGENT_AFTER_MS) / URGENT_RAMP_MS));
+    this.mark.scale.set(1 + urgency * .8);
+    this.mark.position.set(this.x, this.y - height + Math.sin(t / (300 - urgency * 150)) * (4 + urgency * 6));
+  }
+
+  private updateMarks(t: number, state: State, waiting: Waiting | undefined) {
     const size = this.size, { labelY, markY } = SPECIES[this.species];
     this.labelText.visible = !!this.label;
     this.labelText.position.set(this.x, this.y + size * labelY);
-    this.question.visible = !this.small && state === 'waiting';
-    if (this.question.visible) this.question.position.set(this.x, this.y - size * markY + Math.sin(t / 300) * 4);
+    this.mark.visible = !this.small && state === 'waiting';
+    if (this.mark.visible) this.poseMark(t, size * markY, waiting);
     const isSleeping = !this.small && state === 'idle' && !this.meal, shownZs = (t / 1200) % 3;
     this.sleepZs.forEach((letter, index) => {
       letter.visible = isSleeping && shownZs > index;
