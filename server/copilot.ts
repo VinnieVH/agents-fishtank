@@ -149,7 +149,8 @@ export class Copilot {
   private applyEvent(session: CopilotSession, event: CopilotEvent) {
     const data = event.data || {};
     const time = Date.parse(event.timestamp ?? '') || Date.now();
-    session.lastEvent = Math.max(session.lastEvent, time);
+    // a CLI that is closed or killed long after its last turn writes this; it isn't activity that brings the session back
+    if (event.type !== 'session.shutdown') session.lastEvent = Math.max(session.lastEvent, time);
     if (data.quotaSnapshots) this.noteQuota(data, time);
     noteState(session, event.type, data);
     if (Object.hasOwn(SUBAGENT_EVENTS, event.type)) SUBAGENT_EVENTS[event.type]({ session, event, data, time });

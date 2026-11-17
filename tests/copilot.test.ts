@@ -56,6 +56,17 @@ describe('Copilot CLI session logs', () => {
     expect(copilot.list(Date.now())).toEqual([]);
   });
 
+  it('does not bring back a session that was last used long ago just because its CLI shut down now', () => {
+    const twoHoursAgo = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
+    const copilot = new Copilot(sessionState([
+      { type: 'user.message', timestamp: twoHoursAgo, data: { content: 'old' } },
+      { type: 'assistant.turn_end', timestamp: twoHoursAgo },
+      { type: 'session.shutdown' },
+    ]));
+    copilot.poll();
+    expect(copilot.list(Date.now())).toEqual([]);
+  });
+
   it('prefers the CLI process running a session over one that resumed away from it', () => {
     const root = sessionState([{ type: 'user.message', data: { content: 'old' } }]);
     fs.mkdirSync(path.join(root, 'sess-2'));
