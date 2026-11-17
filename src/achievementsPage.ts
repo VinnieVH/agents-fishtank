@@ -2,7 +2,7 @@ import { achievementIcon } from './art/achievementIcons';
 import { ACHIEVEMENTS, type Achievement, type AchievementStore, GROUPS, type MilestoneKind } from './achievements';
 
 const TOAST_MILLISECONDS = 5000;
-const CARD_ICON_SIZE = 72, TOAST_ICON_SIZE = 44;
+const CARD_ICON_SIZE = 72, TOAST_ICON_SIZE = 60;
 
 const page = document.getElementById('achievements') as HTMLDialogElement;
 const groupsEl = page.querySelector<HTMLElement>('.groups')!;
