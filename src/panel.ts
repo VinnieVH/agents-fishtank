@@ -89,7 +89,7 @@ const usageRow = (name: string, air: Air | null) => {
 
 const creditsRow = (credits: Credits) => {
   if (credits.unlimited) return limitRow({ name: 'Month', level: 'ok', left: 100, text: 'unlimited' });
-  const left = Math.floor(100 - credits.usedPct);
+  const left = 100 - Math.floor(credits.usedPct); // from the used value the gauge shows, so the two always add up to 100
   const reset = credits.reset ? ` · resets ${credits.reset.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}` : '';
   return limitRow({ name: 'Month', level: credits.low ? 'low' : left < 20 ? 'warn' : 'ok', left, text: `${left}% left${reset}` });
 };
