@@ -127,6 +127,7 @@
     "asarUnpack": [
       "node_modules/node-pty/**"
     ],
-    "npmRebuild": false
+    "npmRebuild": false,
+    "afterPack": "./scripts/after-pack.mjs"
   }
 }

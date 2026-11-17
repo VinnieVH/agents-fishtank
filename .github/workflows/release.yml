@@ -55,6 +55,10 @@ jobs:
           COPILOT_HOME: ${{ runner.temp }}/copilot
         run: |
           if [ "$RUNNER_OS" = macOS ]; then
+            # the terminal tabs need node-pty's spawn-helper to be executable (scripts/after-pack.mjs)
+            for helper in release/mac*/"Agent Fishtank.app"/Contents/Resources/app.asar.unpacked/node_modules/node-pty/prebuilds/darwin-*/spawn-helper; do
+              [ -x "$helper" ] || { echo "not executable: $helper"; exit 1; }
+            done
             fishtank() { sh "release/mac-arm64/Agent Fishtank.app/Contents/Resources/bin/fishtank.sh" "$@"; }
           else
             fishtank() { "release/win-unpacked/resources/bin/fishtank.cmd" "$@"; }
