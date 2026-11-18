@@ -1,0 +1,53 @@
+name: Signing certificate
+
+# Every Monday, reads the expiry date of the macOS signing certificate in the MAC_CERT_P12_BASE64 secret. From 60 days
+# before it expires it opens an issue with the renewal steps (docs/signing.md); from 30 days it also fails, so GitHub
+# emails the repo owner. It reads the date from the certificate itself, so nothing needs changing after a renewal.
+# Note: GitHub pauses scheduled workflows after 60 days without commits; the Actions tab shows a button to resume.
+on:
+  schedule:
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check when the certificate expires
+        env:
+          P12_BASE64: ${{ secrets.MAC_CERT_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -z "$P12_BASE64" ]; then
+            echo "::error::Secret MAC_CERT_P12_BASE64 is missing: releases can't be signed. See docs/signing.md."
+            exit 1
+          fi
+          echo "$P12_BASE64" | base64 -d > "$RUNNER_TEMP/cert.p12"
+          # Keychain Access may export with older ciphers that OpenSSL 3 only reads with -legacy
+          openssl pkcs12 -in "$RUNNER_TEMP/cert.p12" -passin env:P12_PASSWORD -nokeys -clcerts -out "$RUNNER_TEMP/cert.pem" 2>/dev/null ||
+            openssl pkcs12 -legacy -in "$RUNNER_TEMP/cert.p12" -passin env:P12_PASSWORD -nokeys -clcerts -out "$RUNNER_TEMP/cert.pem"
+          rm "$RUNNER_TEMP/cert.p12"
+
+          expires=$(openssl x509 -in "$RUNNER_TEMP/cert.pem" -noout -enddate | cut -d= -f2)
+          expires_day=$(date -u -d "$expires" +%Y-%m-%d)
+          echo "The macOS signing certificate expires on $expires_day."
+          if openssl x509 -in "$RUNNER_TEMP/cert.pem" -noout -checkend $((60 * 86400)) > /dev/null; then
+            exit 0
+          fi
+
+          title="Renew the macOS signing certificate (expires $expires_day)"
+          open=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "Renew the macOS signing certificate in:title" --json number --jq length)
+          if [ "$open" = 0 ]; then
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "The Developer ID certificate that signs the macOS app expires on **$expires_day**. After that, releases can't be signed (apps already released keep working).
+
+          Follow [docs/signing.md → Renewing the certificate](https://github.com/$GITHUB_REPOSITORY/blob/main/docs/signing.md#renewing-the-certificate), then close this issue."
+          fi
+          if ! openssl x509 -in "$RUNNER_TEMP/cert.pem" -noout -checkend $((30 * 86400)) > /dev/null; then
+            echo "::error::The macOS signing certificate expires on $expires_day. Renew it: docs/signing.md"
+            exit 1
+          fi

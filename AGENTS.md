@@ -252,6 +252,11 @@ with `git push origin :refs/tags/vX.Y.Z` and `git tag -d vX.Y.Z`, but only if th
 
 **Never** mark a release as draft or pre-release unless the user asks: installed apps only see published releases.
 
+**If the macOS build fails at signing or notarization** (`Run npm run dist`, or the step that checks the signature):
+the certificate, the Apple Developer membership or the app-specific password has probably expired.
+[docs/signing.md](docs/signing.md) explains each and how to renew it; renewing needs the user (Apple's website,
+Keychain Access, GitHub secrets).
+
 ## Definition of done
 
 - `npm run typecheck`, `npm run lint`, `npm test` and `npm run build` pass, with no new disable comments.

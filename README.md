@@ -376,8 +376,9 @@ installed app offers the update (or right away when someone restarts it or picks
 - The tag must match `package.json`; the workflow refuses tags that don't (that's why releases go through
   `npm version`).
 - Only published releases count. A release you mark as draft or pre-release on GitHub prompts no one.
-- The apps aren't signed yet. Signing them later (an Apple Developer ID, a Windows code-signing certificate) only
-  needs secrets added to the workflow, and would also allow installing updates automatically.
+- The macOS app is signed and notarized by the workflow with an Apple Developer ID certificate kept in the repo's
+  secrets. The certificate expires on 17 December 2027; a weekly check opens an issue 60 days before.
+  [docs/signing.md](docs/signing.md) has the renewal steps. The Windows installer isn't signed yet.
 </details>
 
 ## Support
