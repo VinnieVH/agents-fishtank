@@ -84,8 +84,9 @@
       "extendInfo": {
         "NSAppleEventsUsageDescription": "Clicking a fish brings the terminal tab its session runs in to the front."
       },
-      "identity": "-",
-      "hardenedRuntime": false,
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
       "extraResources": [
         {
           "from": "electron/bin/fishtank.sh",

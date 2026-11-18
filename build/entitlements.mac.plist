@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Entitlements for the hardened runtime that notarization requires (package.json build.mac.entitlements).
+     allow-jit: V8 compiles JavaScript at runtime.
+     automation.apple-events: clicking a fish asks the terminal (via osascript, server/terminal.ts) to bring its tab
+     forward; without this the hardened runtime silently blocks it. -->
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <key>com.apple.security.automation.apple-events</key>
+  <true/>
+</dict>
+</plist>
