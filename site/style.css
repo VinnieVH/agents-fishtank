@@ -180,3 +180,13 @@ footer {
   .docs-nav { position: static; max-height: none; }
   .docs-body td:first-child { white-space: normal; }
 }
+
+/* the floating "Report a bug" link on every page (opens .github/ISSUE_TEMPLATE/bug_report.yml) */
+.report-bug {
+  position: fixed; right: 16px; bottom: 16px; z-index: 10; padding: 10px 16px; border-radius: 999px;
+  font-size: .9rem; font-weight: 600; text-decoration: none; color: var(--ink); background: rgba(2, 16, 32, .82);
+  border: 1px solid var(--line); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .35); transition: background .15s, transform .15s;
+}
+.report-bug:hover, .report-bug:focus-visible { background: rgba(11, 58, 98, .95); transform: translateY(-2px); }
+@media (max-width: 560px) { .report-bug { right: 12px; bottom: 12px; padding: 8px 12px; font-size: .85rem; } }

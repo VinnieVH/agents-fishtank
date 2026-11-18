@@ -387,5 +387,8 @@ Agent Fishtank is free and made in my spare time. If it brightens your day, you 
 [buy me a coffee](https://buymeacoffee.com/vinnievh). ☕
 
 ## License
+Found a bug? Pick **Help → Report a Bug…** in the app (it fills in your version and system), or
+[open a bug report](https://github.com/VinnieVH/agents-fishtank/issues/new?template=bug_report.yml) on GitHub.
+
 
 [MIT](LICENSE)

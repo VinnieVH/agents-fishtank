@@ -12,6 +12,7 @@ import { DEFAULT_PORT, startServer, type Fishtank } from '../server/server.ts';
 import { connect, connected, disconnect, installed, places, type Cli, type Launcher } from './connect.ts';
 import { createIndicators } from './indicators.ts';
 import { repoFrom } from './releases.ts';
+import { bugReportUrl } from './report.ts';
 import { Terminals, type Remembered } from './terminals.ts';
 import { Updates } from './updates.ts';
 
@@ -226,6 +227,15 @@ const toggle = async (cli: Cli) => {
   buildMenu();
 };
 
+const appRepo = (): string | null => {
+  try { return repoFrom(JSON.parse(fs.readFileSync(path.join(app.getAppPath(), 'package.json'), 'utf8')).repository?.url ?? ''); } catch { return null; }
+};
+
+const reportBug = () => {
+  const repo = appRepo();
+  if (repo) void shell.openExternal(bugReportUrl(repo, app.getVersion(), { platform: process.platform, release: process.getSystemVersion(), arch: process.arch }));
+};
+
 const buildMenu = () => {
   const launcher = appLauncher(), isConnected = connected(folders);
   const items: MenuItemConstructorOptions[] = CLIS.map(cli => ({
@@ -240,6 +250,7 @@ const buildMenu = () => {
       : { label: 'File', submenu: [settings, { type: 'separator' }, ...items, { type: 'separator' }, update, { type: 'separator' }, { role: 'quit' }] },
     { label: 'View', submenu: [{ label: 'Terminal', accelerator: 'CmdOrCtrl+`', click: () => { show(); terminals?.toggle(); } }, { type: 'separator' }, { role: 'reload' }, { role: 'togglefullscreen' }, ...(app.isPackaged ? [] : [{ role: 'toggleDevTools' } as const])] },
     { role: 'windowMenu' },
+    { role: 'help', submenu: [{ label: 'Report a Bug…', click: reportBug }] },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 };
@@ -277,8 +288,7 @@ const firstRun = async () => {
 /** Asks GitHub for new releases, in the installed app only. FISHTANK_NO_UPDATE_CHECK=1 turns it off. */
 const startUpdates = () => {
   if (!app.isPackaged || process.env.FISHTANK_NO_UPDATE_CHECK === '1') return;
-  let repo: string | null = null;
-  try { repo = repoFrom(JSON.parse(fs.readFileSync(path.join(app.getAppPath(), 'package.json'), 'utf8')).repository?.url ?? ''); } catch { /* no repository */ }
+  const repo = appRepo();
   if (!repo) return;
   updates = new Updates({ repo, skipped: () => loadState().skippedVersion, skip: version => saveState({ skippedVersion: version }) });
   updates.start();

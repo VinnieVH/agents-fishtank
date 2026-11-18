@@ -1,0 +1,64 @@
+name: Bug report
+description: Something in Agent Fishtank doesn't work the way it should.
+title: "[Bug] "
+labels: [bug]
+# The app's Help → Report a Bug… and the website's button open this form; the app fills in version and system
+# (electron/report.ts builds the link). Keep those field ids in sync with it.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this! 🐠 The more you tell, the faster it gets fixed.
+        Please check the [troubleshooting tips](https://github.com/VinnieVH/agents-fishtank#troubleshooting) first.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the problem. What did you see?
+      placeholder: When I click a fish, nothing happens.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      placeholder: The terminal tab of that session comes to the front.
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can we make it happen?
+      description: The steps that lead to the problem, if you know them.
+      placeholder: |
+        1. Start a Claude Code session in Terminal
+        2. Click its fish
+        3. ...
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Which agent were you using?
+      options:
+        - Claude Code
+        - GitHub Copilot CLI
+        - Both
+        - Not related to an agent
+  - type: input
+    id: version
+    attributes:
+      label: Agent Fishtank version
+      description: In the app's menu under About Agent Fishtank (filled in for you when you report from the app).
+      placeholder: "1.10.0"
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Your computer
+      description: Operating system and version (filled in for you when you report from the app).
+      placeholder: macOS 27.2 (arm64) / Windows 11
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or anything else
+      description: Drag screenshots or a screen recording in here. Please remove anything private first.

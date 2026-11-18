@@ -60,6 +60,7 @@ ${tags.map((tag, index) => section(tag, tags[index + 1])).join('\n')}
   <a href="https://github.com/VinnieVH/agents-fishtank/releases">All releases</a> ·
   MIT license
 </footer>
+<a class="report-bug" href="https://github.com/VinnieVH/agents-fishtank/issues/new?template=bug_report.yml"><span aria-hidden="true">🐞</span> Report a bug</a>
 </body>
 </html>
 `;

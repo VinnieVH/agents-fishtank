@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://vinnievh.github.io/agents-fishtank/docs.html
+    about: How the fishtank works, settings and troubleshooting.
