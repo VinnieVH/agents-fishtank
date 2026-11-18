@@ -55,9 +55,8 @@
       <h3>On a Mac</h3>
       <ol>
         <li>Open the <code>.dmg</code> and drag <b>Agent Fishtank</b> into <b>Applications</b>.</li>
-        <li>Open it from Applications. Because the app isn't signed by Apple yet, macOS blocks it the first time. Go to
-          <b>System Settings → Privacy &amp; Security</b>, scroll down to the message about Agent Fishtank and click
-          <b>Open Anyway</b>. (Or run <code>xattr -dr com.apple.quarantine "/Applications/Agent Fishtank.app"</code> in Terminal.)</li>
+        <li>Open it from Applications. The app is signed and checked by Apple; the first time, macOS asks whether you want
+          to open an app downloaded from the internet: click <b>Open</b>.</li>
       </ol>
       <h3>On Windows</h3>
       <ol>
@@ -250,8 +249,12 @@ npm run dist</code></pre>
         <p>The app isn't running or was removed. Start Agent Fishtank, or disconnect it from the menu (see <a href="#uninstall">Uninstall</a>).</p></details>
       <details open><summary>"Port 4321 is already in use."</summary>
         <p>Another fishtank is running, often the old browser version. Close it (or restart your computer) and open Agent Fishtank again.</p></details>
-      <details open><summary>macOS says the app can't be opened, or Windows shows a SmartScreen warning</summary>
-        <p>The app isn't signed yet; see <a href="#install">Install</a> for the one-time step.</p></details>
+      <details open><summary>macOS says the app can't be opened</summary>
+        <p>Versions before 1.10.0 weren't signed by Apple. Download the latest version (see <a href="#install">Install</a>).
+          To open an older one anyway, go to <b>System Settings → Privacy &amp; Security</b>, scroll down to the message
+          about Agent Fishtank and click <b>Open Anyway</b>.</p></details>
+      <details open><summary>Windows shows a SmartScreen warning</summary>
+        <p>The Windows installer isn't signed yet; see <a href="#install">Install</a> for the one-time step.</p></details>
       <details open><summary>A session's fish doesn't show up</summary>
         <p>The tank shows sessions that were active in the last hour. Check that the agent is connected (the menu says
           <b>Disconnect from …</b> when it is). A new Claude Code session gets its fish with your first message (a session you've only
@@ -274,6 +277,6 @@ npm run dist</code></pre>
       <a href="https://github.com/VinnieVH/agents-fishtank#for-developers">how it works</a> for developers.</p>
   </main>
 </div>
+<a class="report-bug" href="https://github.com/VinnieVH/agents-fishtank/issues/new?template=bug_report.yml"><span aria-hidden="true">🐞</span> Report a bug</a>
 </body>
 </html>
-<a class="report-bug" href="https://github.com/VinnieVH/agents-fishtank/issues/new?template=bug_report.yml"><span aria-hidden="true">🐞</span> Report a bug</a>

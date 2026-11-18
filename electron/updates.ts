@@ -1,6 +1,6 @@
 // Tells people when a new version of the app is out. On start and every few hours the app asks GitHub for the latest
 // release; when it's newer, a dialog offers to download the installer for this computer.
-// (Installing it by itself, like electron-updater does, needs a signed app on macOS; the app isn't signed yet.)
+// TODO: install updates by itself with electron-updater; on macOS that also needs a `zip` target next to the `.dmg`.
 import { app, dialog, shell } from 'electron';
 import { isNewer, pickAsset, type Release } from './releases.ts';
 

@@ -85,9 +85,8 @@ Get the installer for your computer from the
 
 **On a Mac**
 1. Open the `.dmg` and drag **Agent Fishtank** into **Applications**.
-2. Open it from Applications. Because the app isn't signed by Apple yet, macOS blocks it the first time. Go to
-   **System Settings → Privacy & Security**, scroll down to the message about Agent Fishtank and click
-   **Open Anyway**. (Or run `xattr -dr com.apple.quarantine "/Applications/Agent Fishtank.app"` in Terminal.)
+2. Open it from Applications. The app is signed and checked by Apple; the first time, macOS asks whether you want to
+   open an app downloaded from the internet: click **Open**.
 
 **On Windows**
 1. Run the installer. The app isn't signed yet, so Windows SmartScreen may warn you: click **More info → Run anyway**.
@@ -171,8 +170,13 @@ The app isn't running or was removed. Start Agent Fishtank, or disconnect it fro
 Another fishtank is running, often the old browser version. Close it (or restart your computer) and open Agent
 Fishtank again.
 
-**macOS says the app can't be opened, or Windows shows a SmartScreen warning.**
-The app isn't signed yet; see [Install](#install) for the one-time step.
+**macOS says the app can't be opened.**
+Versions before 1.10.0 weren't signed by Apple. Download the [latest version](#install). To open an older one anyway,
+go to **System Settings → Privacy & Security**, scroll down to the message about Agent Fishtank and click
+**Open Anyway**.
+
+**Windows shows a SmartScreen warning.**
+The Windows installer isn't signed yet; see [Install](#install) for the one-time step.
 
 **A session's fish doesn't show up.**
 The tank shows sessions that were active in the last hour. Check that the agent is connected (the menu says
@@ -280,7 +284,7 @@ in `agent-fishtank-share-key` in the app's data folder (delete it to get a new o
   (`src/terminals.ts`). They talk over Electron's IPC through `electron/preload.ts`, never through the local server:
   any web page can send requests to localhost. The app only answers its own page. The browser version has none.
 - **Updates:** the app asks GitHub for the latest published release (`electron/updates.ts`). It can't install updates
-  by itself yet: on macOS that needs a signed app.
+  by itself yet: that needs electron-updater and a `zip` build next to the `.dmg`.
 </details>
 
 <details>
@@ -383,12 +387,12 @@ installed app offers the update (or right away when someone restarts it or picks
 
 ## Support
 
+Found a bug? Pick **Help → Report a Bug…** in the app (it fills in your version and system), or
+[open a bug report](https://github.com/VinnieVH/agents-fishtank/issues/new?template=bug_report.yml) on GitHub.
+
 Agent Fishtank is free and made in my spare time. If it brightens your day, you can
 [buy me a coffee](https://buymeacoffee.com/vinnievh). ☕
 
 ## License
-Found a bug? Pick **Help → Report a Bug…** in the app (it fills in your version and system), or
-[open a bug report](https://github.com/VinnieVH/agents-fishtank/issues/new?template=bug_report.yml) on GitHub.
-
 
 [MIT](LICENSE)
